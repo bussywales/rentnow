@@ -12,6 +12,7 @@ type MockProfile = {
   agent_storefront_enabled?: boolean | null;
   agent_slug?: string | null;
   agent_bio?: string | null;
+  listing_review_email_enabled?: boolean | null;
 };
 
 function createMockClient(initialProfile: MockProfile | null = null) {
@@ -42,6 +43,7 @@ function createMockClient(initialProfile: MockProfile | null = null) {
         agent_storefront_enabled: payload.agent_storefront_enabled as boolean | null,
         agent_slug: null,
         agent_bio: null,
+        listing_review_email_enabled: payload.listing_review_email_enabled as boolean | null,
       };
       return { error: null };
     },
@@ -68,6 +70,7 @@ void test("ensureProfileRow creates a missing profile row", async () => {
   assert.equal(calls.upserts.length, 1);
   assert.equal(calls.upserts[0].id, "user-1");
   assert.equal(calls.upserts[0].email, "user@example.com");
+  assert.equal(calls.upserts[0].listing_review_email_enabled, false);
   assert.equal(result.created, true);
   assert.equal(result.profile?.id, "user-1");
 });

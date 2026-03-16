@@ -3,9 +3,11 @@ import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getSession } from "@/lib/auth";
+import { normalizeRole } from "@/lib/roles";
 import { shouldShowClientPagesShortcut } from "@/lib/profile/client-pages-shortcut";
 import { getReferralSettings, resolveReferralTierStatus } from "@/lib/referrals/settings";
 import { getReferralDashboardSnapshot } from "@/lib/referrals/referrals.server";
+import { ensureProfileRow } from "@/lib/profile/ensure-profile";
 import ReferralTierBadge from "@/components/referrals/ReferralTierBadge";
 import ProfileFormClient from "@/components/profile/ProfileFormClient";
 import { Button } from "@/components/ui/Button";
@@ -23,16 +25,14 @@ export default async function ProfilePage() {
   }
 
   const supabase = await createServerSupabaseClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(
-      "id, role, first_name, last_name, display_name, full_name, phone, avatar_url, public_slug, agent_storefront_enabled, agent_slug, agent_bio"
-    )
-    .eq("id", session.user.id)
-    .maybeSingle();
+  const { profile } = await ensureProfileRow({
+    client: supabase,
+    userId: session.user.id,
+    email: session.user.email ?? "",
+  });
 
   const email = session.user.email ?? "";
-  const showClientPages = shouldShowClientPagesShortcut(profile?.role ?? null);
+  const showClientPages = shouldShowClientPagesShortcut(normalizeRole(profile?.role ?? null));
   let referralTierSummary: {
     currentTier: string;
     activeReferrals: number;

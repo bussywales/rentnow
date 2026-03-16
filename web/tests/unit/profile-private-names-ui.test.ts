@@ -18,14 +18,24 @@ void test("profile save payload persists private name fields", () => {
 
   assert.match(source, /first_name:\s*firstName\.trim\(\)\s*\|\|\s*null/);
   assert.match(source, /last_name:\s*lastName\.trim\(\)\s*\|\|\s*null/);
+  assert.match(source, /listing_review_email_enabled:\s*listingReviewEmailEnabled/);
 });
 
 void test("profile page and profile ensure helper select private name fields", () => {
   const pagePath = path.join(process.cwd(), "app", "profile", "page.tsx");
   const pageSource = fs.readFileSync(pagePath, "utf8");
-  assert.match(pageSource, /first_name,\s*last_name/);
+  assert.match(pageSource, /ensureProfileRow/);
 
   const ensurePath = path.join(process.cwd(), "lib", "profile", "ensure-profile.ts");
   const ensureSource = fs.readFileSync(ensurePath, "utf8");
   assert.match(ensureSource, /first_name,\s*last_name/);
+  assert.match(ensureSource, /listing_review_email_enabled/);
+});
+
+void test("profile form includes admin listing review email toggle copy", () => {
+  const filePath = path.join(process.cwd(), "components", "profile", "ProfileFormClient.tsx");
+  const source = fs.readFileSync(filePath, "utf8");
+
+  assert.match(source, /Email me when a new listing is submitted for review/);
+  assert.match(source, /admin-listing-review-email-toggle/);
 });

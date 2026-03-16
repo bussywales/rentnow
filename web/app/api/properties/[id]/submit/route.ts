@@ -18,6 +18,11 @@ import { normalizeShortletNightlyPriceMinor } from "@/lib/shortlet/listing-setup
 import { buildLiveApprovalUpdate } from "@/lib/properties/expiry";
 import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 import { normalizeListingQualitySubmitTelemetry } from "@/lib/properties/listing-quality-telemetry";
+import {
+  formatListingIntentLabel,
+  formatListingPropertyTypeLabel,
+  notifyAdminsOfListingReviewSubmission,
+} from "@/lib/admin/listing-review-notifications.server";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +38,9 @@ const bodySchema = z
 type ListingRow = {
   id: string;
   owner_id: string;
+  title?: string | null;
+  city?: string | null;
+  country_code?: string | null;
   status?: string | null;
   submitted_at?: string | null;
   is_active?: boolean | null;
@@ -43,6 +51,7 @@ type ListingRow = {
   location_place_id?: string | null;
   listing_intent?: string | null;
   rental_type?: string | null;
+  listing_type?: string | null;
 };
 
 export type ListingSubmitDeps = {
@@ -63,6 +72,7 @@ export type ListingSubmitDeps = {
   logPropertyEvent: typeof logPropertyEvent;
   resolveEventSessionKey: typeof resolveEventSessionKey;
   logFailure: typeof logFailure;
+  notifyAdminsOfListingReviewSubmission?: typeof notifyAdminsOfListingReviewSubmission;
 };
 
 const defaultDeps: ListingSubmitDeps = {
@@ -83,6 +93,7 @@ const defaultDeps: ListingSubmitDeps = {
   logPropertyEvent,
   resolveEventSessionKey,
   logFailure,
+  notifyAdminsOfListingReviewSubmission,
 };
 
 export async function postPropertySubmitResponse(
@@ -121,7 +132,7 @@ export async function postPropertySubmitResponse(
   const { data: listing, error: listingError } = await lookupClient
     .from("properties")
     .select(
-      "id, owner_id, status, submitted_at, is_active, is_approved, latitude, longitude, location_label, location_place_id, listing_intent, rental_type"
+      "id, owner_id, title, city, country_code, status, submitted_at, is_active, is_approved, latitude, longitude, location_label, location_place_id, listing_intent, rental_type, listing_type"
     )
     .eq("id", propertyId)
     .maybeSingle<ListingRow>();
@@ -237,16 +248,21 @@ export async function postPropertySubmitResponse(
 
   const ownerId = listing.owner_id;
   let ownerRole = role;
+  let ownerName: string | null = null;
   if (listing.owner_id && listing.owner_id !== auth.user.id) {
     const roleClient = adminClient ?? supabase;
     const { data: ownerProfile } = await roleClient
       .from("profiles")
-      .select("role")
+      .select("role, display_name, full_name")
       .eq("id", listing.owner_id)
       .maybeSingle();
     if (ownerProfile?.role) {
       ownerRole = ownerProfile.role as typeof role;
     }
+    ownerName = String(ownerProfile?.display_name || ownerProfile?.full_name || "").trim() || null;
+  }
+  if (!ownerName && listing.owner_id === auth.user.id) {
+    ownerName = auth.user.user_metadata?.full_name ?? auth.user.user_metadata?.name ?? null;
   }
   const shouldConsumeCredit = !listing.submitted_at;
   if (shouldConsumeCredit && role !== "admin") {
@@ -392,6 +408,26 @@ export async function postPropertySubmitResponse(
       actorId: auth.user.id,
       at: nowIso,
     });
+  }
+
+  if (!autoApproveEnabled && deps.notifyAdminsOfListingReviewSubmission) {
+    try {
+      await deps.notifyAdminsOfListingReviewSubmission({
+        propertyId,
+        listingTitle: listing.title ?? null,
+        marketLabel: listing.country_code ?? listing.city ?? null,
+        propertyTypeLabel:
+          formatListingPropertyTypeLabel(listing.listing_type ?? listing.rental_type ?? null),
+        intentLabel: formatListingIntentLabel(listing.listing_intent ?? null),
+        ownerName,
+        submittedAt: nowIso,
+      });
+    } catch (error) {
+      console.error("[listing-submit] admin review email notification failed", {
+        propertyId,
+        error,
+      });
+    }
   }
 
   return NextResponse.json({

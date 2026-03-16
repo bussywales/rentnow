@@ -69,6 +69,9 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
   const [agentStorefrontEnabled, setAgentStorefrontEnabled] = useState(
     initialProfile?.agent_storefront_enabled ?? true
   );
+  const [listingReviewEmailEnabled, setListingReviewEmailEnabled] = useState(
+    initialProfile?.listing_review_email_enabled ?? false
+  );
   const [agentBio, setAgentBio] = useState(initialProfile?.agent_bio ?? "");
   const [agentSlug, setAgentSlug] = useState(initialProfile?.agent_slug ?? null);
   const [publicSlugInput, setPublicSlugInput] = useState(initialPublicSlug);
@@ -95,6 +98,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
     phone: initialProfile?.phone ?? "",
     avatarUrl: initialProfile?.avatar_url ?? null,
     agentStorefrontEnabled: initialProfile?.agent_storefront_enabled ?? true,
+    listingReviewEmailEnabled: initialProfile?.listing_review_email_enabled ?? false,
     agentBio: initialProfile?.agent_bio ?? "",
     agentSlug: initialProfile?.agent_slug ?? null,
   });
@@ -139,6 +143,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       setPhone(nextProfile?.phone ?? "");
       setAvatarUrl(nextProfile?.avatar_url ?? null);
       setAgentStorefrontEnabled(nextProfile?.agent_storefront_enabled ?? true);
+      setListingReviewEmailEnabled(nextProfile?.listing_review_email_enabled ?? false);
       setAgentBio(nextProfile?.agent_bio ?? "");
       setAgentSlug(nextProfile?.agent_slug ?? null);
       const nextPublicSlug = normalizePublicSlugInput(nextProfile?.public_slug ?? "");
@@ -156,6 +161,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
         phone: nextProfile?.phone ?? "",
         avatarUrl: nextProfile?.avatar_url ?? null,
         agentStorefrontEnabled: nextProfile?.agent_storefront_enabled ?? true,
+        listingReviewEmailEnabled: nextProfile?.listing_review_email_enabled ?? false,
         agentBio: nextProfile?.agent_bio ?? "",
         agentSlug: nextProfile?.agent_slug ?? null,
       });
@@ -200,6 +206,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
 
   const initials = getInitials(displayName || email || "U");
   const normalizedProfileRole = normalizeRole(profile?.role ?? null);
+  const isAdmin = normalizedProfileRole === "admin";
   const isAgent = normalizedProfileRole === "agent";
   const canManagePublicSlug = canEditPublicSlug(normalizedProfileRole);
   const hasChanges =
@@ -209,6 +216,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       lastName.trim() !== snapshot.lastName ||
       phone.trim() !== snapshot.phone ||
       avatarUrl !== snapshot.avatarUrl ||
+      (isAdmin && listingReviewEmailEnabled !== snapshot.listingReviewEmailEnabled) ||
       (isAgent &&
         (agentStorefrontEnabled !== snapshot.agentStorefrontEnabled ||
           agentBio.trim() !== snapshot.agentBio ||
@@ -345,6 +353,11 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
             agent_bio: agentBio.trim() || null,
           }
         : {}),
+      ...(isAdmin
+        ? {
+            listing_review_email_enabled: listingReviewEmailEnabled,
+          }
+        : {}),
     };
     const { error: updateError } = await supabase
       .from("profiles")
@@ -360,6 +373,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
         phone: payload.phone ?? "",
         avatarUrl,
         agentStorefrontEnabled,
+        listingReviewEmailEnabled,
         agentBio: payload.agent_bio ?? "",
         agentSlug,
       });
@@ -626,6 +640,34 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
           </Link>
         </div>
       </section>
+
+      {isAdmin && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Notifications</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Choose which admin email alerts you want to receive.
+          </p>
+          <div className="mt-4">
+            <label className="inline-flex items-start gap-3 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                checked={listingReviewEmailEnabled}
+                onChange={(event) => setListingReviewEmailEnabled(event.target.checked)}
+                data-testid="admin-listing-review-email-toggle"
+              />
+              <span>
+                <span className="block font-semibold text-slate-900">
+                  Email me when a new listing is submitted for review
+                </span>
+                <span className="mt-1 block text-xs text-slate-500">
+                  Sends an email when a listing moves into the admin review queue.
+                </span>
+              </span>
+            </label>
+          </div>
+        </section>
+      )}
 
       {canManagePublicSlug && (
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

@@ -231,6 +231,135 @@ void test("submit keeps pending flow when auto-approve flag is disabled", async 
   assert.ok(!events.includes("listing_auto_approved"));
 });
 
+void test("submit sends admin review email notification when listing enters pending review", async () => {
+  const listing: ListingRow = {
+    id: "prop1",
+    owner_id: "owner",
+    status: "draft",
+    submitted_at: null,
+  };
+  const { supabase } = buildSupabaseStub(listing, {
+    nightlyPriceMinor: 240000,
+  });
+  const typedSupabase = supabase as ReturnType<
+    ListingSubmitDeps["createServerSupabaseClient"]
+  >;
+  let notificationPayload: Record<string, unknown> | null = null;
+
+  const deps: ListingSubmitDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => true,
+    createServerSupabaseClient: async () => typedSupabase,
+    createServiceRoleClient: () =>
+      typedSupabase as ReturnType<ListingSubmitDeps["createServiceRoleClient"]>,
+    requireUser: async () =>
+      ({
+        ok: true,
+        user: { id: "owner", user_metadata: { full_name: "Ada Host" } } as User,
+        supabase: typedSupabase,
+      }) as Awaited<ReturnType<ListingSubmitDeps["requireUser"]>>,
+    getUserRole: async () => "landlord",
+    getListingAccessResult: () => ({ ok: true }),
+    hasActiveDelegation: async () => false,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => ({ ok: true, consumed: false }),
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
+    getAppSettingBool: async () => false,
+    getListingExpiryDays: async () => 90,
+    requireLegalAcceptance: async () => ({ ok: true, status: {} }) as Awaited<
+      ReturnType<ListingSubmitDeps["requireLegalAcceptance"]>
+    >,
+    logPropertyEvent: async () => ({ ok: true, data: {} }),
+    resolveEventSessionKey: () => null,
+    logFailure: () => undefined,
+    notifyAdminsOfListingReviewSubmission: async (input) => {
+      notificationPayload = input as unknown as Record<string, unknown>;
+      return { ok: true, attempted: 1, sent: 1, skipped: 0 };
+    },
+  };
+
+  const res = await postPropertySubmitResponse(
+    makeRequest({ idempotencyKey: "idem-review-email" }),
+    "prop1",
+    deps
+  );
+
+  assert.equal(res.status, 200);
+  assert.equal(notificationPayload?.propertyId, "prop1");
+  assert.equal(notificationPayload?.listingTitle, null);
+  assert.equal(notificationPayload?.ownerName, "Ada Host");
+  assert.equal(notificationPayload?.intentLabel, null);
+});
+
+void test("submit does not send admin review email notification when listing auto-approves live", async () => {
+  const listing: ListingRow = {
+    id: "prop1",
+    owner_id: "owner",
+    status: "draft",
+    submitted_at: null,
+  };
+  const { supabase } = buildSupabaseStub(listing, {
+    nightlyPriceMinor: 240000,
+  });
+  const typedSupabase = supabase as ReturnType<
+    ListingSubmitDeps["createServerSupabaseClient"]
+  >;
+  let called = false;
+
+  const deps: ListingSubmitDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => true,
+    createServerSupabaseClient: async () => typedSupabase,
+    createServiceRoleClient: () =>
+      typedSupabase as ReturnType<ListingSubmitDeps["createServiceRoleClient"]>,
+    requireUser: async () =>
+      ({
+        ok: true,
+        user: { id: "owner" } as User,
+        supabase: typedSupabase,
+      }) as Awaited<ReturnType<ListingSubmitDeps["requireUser"]>>,
+    getUserRole: async () => "landlord",
+    getListingAccessResult: () => ({ ok: true }),
+    hasActiveDelegation: async () => false,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => ({ ok: true, consumed: false }),
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
+    getAppSettingBool: async (key) => key === "listings_auto_approve_enabled",
+    getListingExpiryDays: async () => 120,
+    requireLegalAcceptance: async () => ({ ok: true, status: {} }) as Awaited<
+      ReturnType<ListingSubmitDeps["requireLegalAcceptance"]>
+    >,
+    logPropertyEvent: async () => ({ ok: true, data: {} }),
+    resolveEventSessionKey: () => null,
+    logFailure: () => undefined,
+    notifyAdminsOfListingReviewSubmission: async () => {
+      called = true;
+      return { ok: true, attempted: 1, sent: 1, skipped: 0 };
+    },
+  };
+
+  const res = await postPropertySubmitResponse(
+    makeRequest({ idempotencyKey: "idem-auto-live" }),
+    "prop1",
+    deps
+  );
+
+  assert.equal(res.status, 200);
+  assert.equal(called, false);
+});
+
 void test("submit attaches listing quality telemetry to submit attempt event", async () => {
   const listing: ListingRow = {
     id: "prop1",
