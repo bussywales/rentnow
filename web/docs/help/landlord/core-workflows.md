@@ -1,8 +1,8 @@
 ---
 title: "Landlord core workflows"
-description: "Listing lifecycle, quality controls, and demand capture operations."
+description: "Listing lifecycle, quality controls, demand capture, and property request response operations."
 order: 20
-updated_at: "2026-02-23"
+updated_at: "2026-03-16"
 ---
 
 ## Listing lifecycle
@@ -24,6 +24,13 @@ updated_at: "2026-02-23"
 - Use market hubs and discovery rails to identify demand locations.
 - Keep one featured candidate listing per key location cluster.
 - Track message response speed and viewing follow-through.
+
+## Property requests workflow
+
+- Open `/requests` to browse eligible seeker demand.
+- Filter by intent, market, bedrooms, move timeline, and budget before responding.
+- Open `/requests/[id]` to inspect the brief and send up to 3 matching listings you own or manage.
+- Use this workflow for platform-mediated matching only; contact details stay private in this phase.
 
 ## Host featured strip workflow
 
@@ -47,5 +54,6 @@ updated_at: "2026-02-23"
 
 ## Related guides
 
+- [Landlord property requests](/help/landlord/property-requests)
 - [Landlord featured and payments](/help/landlord/featured-and-payments)
 - [Landlord troubleshooting](/help/landlord/troubleshooting)

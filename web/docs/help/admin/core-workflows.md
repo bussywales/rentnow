@@ -1,8 +1,8 @@
 ---
 title: "Admin core workflows"
-description: "Product updates, featured operations, and system guardrails."
+description: "Product updates, featured operations, property requests oversight, and system guardrails."
 order: 20
-updated_at: "2026-02-13"
+updated_at: "2026-03-16"
 ---
 
 ## Product updates (docs-first)
@@ -17,6 +17,13 @@ updated_at: "2026-02-13"
 - Keep `web/docs/help/**` in sync with product behaviour.
 - Use `_no-help-change.md` only for justified non-doc changes.
 - Treat help updates as Definition-of-Done, not optional cleanup.
+
+## Property requests oversight
+
+- Use `/admin/requests` to review demand health, response coverage, and zero-response stall segments.
+- Open `/admin/requests/[id]` to inspect the request, owner context, and private response history.
+- Apply explicit controls to close, expire, or remove requests when needed.
+- Preserve privacy: seeker demand is not visible to other seekers and contact details stay out of this workflow.
 
 ## Featured requests queue
 

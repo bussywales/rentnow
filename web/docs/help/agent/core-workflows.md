@@ -1,8 +1,8 @@
 ---
 title: "Agent core workflows"
-description: "Portfolio workflow for listing quality, lead handling, and demand capture."
+description: "Portfolio workflow for listing quality, lead handling, demand capture, and property request response operations."
 order: 20
-updated_at: "2026-02-23"
+updated_at: "2026-03-16"
 ---
 
 ## Portfolio listing operations
@@ -24,6 +24,13 @@ updated_at: "2026-02-23"
 - Compare “new this week”, trending rails, and saved-search signals.
 - Adjust listing quality/pricing based on actual match patterns.
 
+## Property requests workflow
+
+- Open `/requests` to browse eligible demand briefs.
+- Filter hard before responding so your sent listings fit the brief.
+- Use `/requests/[id]` to review requirements and send up to 3 owned or managed listings.
+- Keep notes concise; direct contact details are intentionally not part of this workflow.
+
 ## Host featured strip workflow
 
 - Use `/host?view=all` for a quick Featured strip pass before full portfolio review.
@@ -38,5 +45,6 @@ updated_at: "2026-02-23"
 
 ## Related guides
 
+- [Agent property requests](/help/agent/property-requests)
 - [Agent featured and payments](/help/agent/featured-and-payments)
 - [Agent troubleshooting](/help/agent/troubleshooting)

@@ -1,8 +1,8 @@
 ---
 title: "Tenant core workflows"
-description: "Browse, filter, compare, save, and contact advertisers with fewer mistakes."
+description: "Browse, filter, compare, save, contact advertisers, and manage property requests with fewer mistakes."
 order: 20
-updated_at: "2026-02-13"
+updated_at: "2026-03-16"
 ---
 
 ## Browse and filter with intent
@@ -26,6 +26,13 @@ updated_at: "2026-02-13"
 - Pause searches that are no longer relevant.
 - Use “View matches” from saved searches to jump back into filtered browse.
 
+## Property requests workflow
+
+- Open `/requests/my` to manage your private demand briefs.
+- Use `/requests/new` to create a request, then save it as a draft or publish it.
+- Open `/requests/[id]` to pause, close, or review responses sent through the platform.
+- Use `/requests/[id]/edit` to tighten the brief when matches are weak.
+
 ## Contact and verification workflow
 
 - Confirm availability, rent terms, and fees before paying anything.
@@ -38,6 +45,7 @@ Never pay before confirming a genuine listing and direct viewing details.
 
 ## Related guides
 
+- [Tenant property requests](/help/tenant/property-requests)
 - [Tenant alerts and notifications](/help/tenant/alerts-and-notifications)
 - [Tenant troubleshooting](/help/tenant/troubleshooting)
 - [Trust badges explained](/help/trust)

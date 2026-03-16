@@ -1,9 +1,16 @@
 ---
 title: "Admin ops"
-description: "Ops-grade guide for webhooks, reconcile, alerts controls, and system triage."
+description: "Ops-grade guide for webhooks, reconcile, alerts controls, property requests oversight, and system triage."
 order: 30
-updated_at: "2026-02-13"
+updated_at: "2026-03-16"
 ---
+
+## Property requests operations
+
+- `/admin/requests` is the request registry plus compact demand-response analytics surface.
+- `/admin/requests/[id]` is the admin inspection and moderation view.
+- Analytics currently include created, published, open, matched, closed, expired, removed, with-response, zero-response, total responses, response rate, first-response timing, and segment breakdowns.
+- Moderation actions are explicit: close, expire, or remove.
 
 ## Payments/webhooks/reconcile
 
@@ -29,7 +36,7 @@ updated_at: "2026-02-13"
 
 - Check server time and env presence indicators.
 - Confirm key toggles before launch windows.
-- Use quick links to jump into alerts/payments/settings queues.
+- Use quick links to jump into alerts/payments/settings/request queues.
 
 <Callout type="warning">
 If a high-risk system degrades, disable via kill switch/toggle first, then investigate root cause.
