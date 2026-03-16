@@ -3,9 +3,14 @@ import assert from "node:assert/strict";
 import {
   canRoleBrowsePropertyRequests,
   canRoleCreatePropertyRequests,
+  canOwnerWritePropertyRequestStatus,
   canViewPropertyRequest,
+  getPropertyRequestIntentLabel,
+  getPropertyRequestLocationSummary,
+  getPropertyRequestStatusLabel,
   isPropertyRequestDiscoverable,
   isPropertyRequestPublishedStatus,
+  resolvePropertyRequestLifecycleDates,
   resolvePropertyRequestListScope,
   resolvePropertyRequestPublishMissingFields,
   type PropertyRequest,
@@ -148,4 +153,59 @@ void test("published status helper keeps draft and removed out of published life
   assert.equal(isPropertyRequestPublishedStatus("removed"), false);
   assert.equal(isPropertyRequestPublishedStatus("open"), true);
   assert.equal(isPropertyRequestPublishedStatus("matched"), true);
+});
+
+void test("owner write helper keeps phase 2 actions within draft open and closed", () => {
+  assert.equal(canOwnerWritePropertyRequestStatus("draft"), true);
+  assert.equal(canOwnerWritePropertyRequestStatus("open"), true);
+  assert.equal(canOwnerWritePropertyRequestStatus("closed"), true);
+  assert.equal(canOwnerWritePropertyRequestStatus("matched"), false);
+});
+
+void test("lifecycle date helper clears draft and preserves publish timestamps for open and closed", () => {
+  const now = new Date("2026-03-16T10:00:00.000Z");
+  assert.deepEqual(
+    resolvePropertyRequestLifecycleDates({
+      nextStatus: "draft",
+      currentPublishedAt: "2026-03-01T10:00:00.000Z",
+      currentExpiresAt: "2026-03-31T10:00:00.000Z",
+      now,
+    }),
+    { publishedAt: null, expiresAt: null }
+  );
+
+  assert.deepEqual(
+    resolvePropertyRequestLifecycleDates({
+      nextStatus: "open",
+      currentPublishedAt: "2026-03-01T10:00:00.000Z",
+      currentExpiresAt: "2026-03-31T10:00:00.000Z",
+      now,
+    }),
+    {
+      publishedAt: "2026-03-01T10:00:00.000Z",
+      expiresAt: "2026-03-31T10:00:00.000Z",
+    }
+  );
+
+  const closedFresh = resolvePropertyRequestLifecycleDates({
+    nextStatus: "closed",
+    currentPublishedAt: null,
+    currentExpiresAt: null,
+    now,
+  });
+  assert.equal(closedFresh.publishedAt, now.toISOString());
+  assert.match(closedFresh.expiresAt ?? "", /^2026-04-15T10:00:00.000Z$/);
+});
+
+void test("labels and location summaries stay human-readable", () => {
+  assert.equal(getPropertyRequestIntentLabel("shortlet"), "Shortlet");
+  assert.equal(getPropertyRequestStatusLabel("closed"), "Closed");
+  assert.equal(
+    getPropertyRequestLocationSummary({ city: "Lagos", area: "Lekki", locationText: null }),
+    "Lekki, Lagos"
+  );
+  assert.equal(
+    getPropertyRequestLocationSummary({ city: null, area: null, locationText: "Near Yaba Tech" }),
+    "Near Yaba Tech"
+  );
 });

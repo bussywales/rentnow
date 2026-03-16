@@ -13,6 +13,9 @@ export const PROPERTY_REQUEST_STATUSES = [
   "removed",
 ] as const;
 export type PropertyRequestStatus = (typeof PROPERTY_REQUEST_STATUSES)[number];
+export const PROPERTY_REQUEST_OWNER_WRITE_STATUSES = ["draft", "open", "closed"] as const;
+export type PropertyRequestOwnerWriteStatus =
+  (typeof PROPERTY_REQUEST_OWNER_WRITE_STATUSES)[number];
 
 export const PROPERTY_REQUEST_RESPONDER_ROLES = ["landlord", "agent"] as const;
 export type PropertyRequestResponderRole = (typeof PROPERTY_REQUEST_RESPONDER_ROLES)[number];
@@ -118,6 +121,10 @@ export const propertyRequestCreateSchema = propertyRequestDraftSchema.safeExtend
   status: z.enum(["draft", "open"]).optional().default("draft"),
 });
 export type PropertyRequestCreateInput = z.infer<typeof propertyRequestCreateSchema>;
+export const propertyRequestUpdateSchema = propertyRequestDraftSchema.safeExtend({
+  status: z.enum(PROPERTY_REQUEST_OWNER_WRITE_STATUSES).optional(),
+});
+export type PropertyRequestUpdateInput = z.infer<typeof propertyRequestUpdateSchema>;
 
 export function canRoleCreatePropertyRequests(role: UserRole | null | undefined): boolean {
   return role === "tenant";
@@ -138,6 +145,12 @@ export function resolvePropertyRequestListScope(
 
 export function isPropertyRequestPublishedStatus(status: PropertyRequestStatus): boolean {
   return status !== "draft" && status !== "removed";
+}
+
+export function canOwnerWritePropertyRequestStatus(
+  status: PropertyRequestStatus | null | undefined
+): status is PropertyRequestOwnerWriteStatus {
+  return status === "draft" || status === "open" || status === "closed";
 }
 
 export function isPropertyRequestDiscoverable(input: {
@@ -191,6 +204,68 @@ export function resolvePropertyRequestPublishMissingFields(
     missing.push("shortletDuration");
   }
   return missing;
+}
+
+export function resolvePropertyRequestLifecycleDates(input: {
+  nextStatus: PropertyRequestOwnerWriteStatus;
+  currentPublishedAt?: string | null;
+  currentExpiresAt?: string | null;
+  now: Date;
+}): { publishedAt: string | null; expiresAt: string | null } {
+  if (input.nextStatus === "draft") {
+    return { publishedAt: null, expiresAt: null };
+  }
+
+  const publishedAt =
+    input.currentPublishedAt && !Number.isNaN(Date.parse(input.currentPublishedAt))
+      ? input.currentPublishedAt
+      : input.now.toISOString();
+  const expiresAt =
+    input.currentExpiresAt && !Number.isNaN(Date.parse(input.currentExpiresAt))
+      ? input.currentExpiresAt
+      : new Date(
+          input.now.getTime() + PROPERTY_REQUEST_DEFAULT_EXPIRY_DAYS * 24 * 60 * 60 * 1000
+        ).toISOString();
+
+  return { publishedAt, expiresAt };
+}
+
+const PROPERTY_REQUEST_STATUS_LABELS: Record<PropertyRequestStatus, string> = {
+  draft: "Draft",
+  open: "Open",
+  matched: "Matched",
+  closed: "Closed",
+  expired: "Expired",
+  removed: "Removed",
+};
+
+const PROPERTY_REQUEST_INTENT_LABELS: Record<PropertyRequestIntent, string> = {
+  rent: "Rent",
+  buy: "Buy",
+  shortlet: "Shortlet",
+};
+
+export function getPropertyRequestStatusLabel(status: PropertyRequestStatus): string {
+  return PROPERTY_REQUEST_STATUS_LABELS[status];
+}
+
+export function getPropertyRequestIntentLabel(intent: PropertyRequestIntent): string {
+  return PROPERTY_REQUEST_INTENT_LABELS[intent];
+}
+
+export function getPropertyRequestLocationSummary(input: {
+  city?: string | null;
+  area?: string | null;
+  locationText?: string | null;
+}): string {
+  const parts = [input.area, input.city].filter(
+    (value): value is string => typeof value === "string" && value.trim().length > 0
+  );
+  if (parts.length > 0) return parts.join(", ");
+  if (input.locationText && input.locationText.trim().length > 0) {
+    return input.locationText.trim();
+  }
+  return "Location not set";
 }
 
 export function mapPropertyRequestRecord(record: PropertyRequestRecord): PropertyRequest {
