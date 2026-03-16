@@ -11,6 +11,11 @@ Property Requests gives agents a private demand board for matching active seeker
 
 Use it to surface structured demand without exposing seeker contact details or turning the workflow into a public feed.
 
+## Where to access it
+
+- Use the `Property Requests` link in the workspace sidebar while you are on agent workspace routes such as `/home`, `/host`, `/profile`, or `/account/verification`.
+- The sidebar link opens `/requests`.
+
 ## Routes you can use
 
 - `/requests` opens the request discovery board for agent accounts.

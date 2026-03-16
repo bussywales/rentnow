@@ -11,6 +11,12 @@ Property Requests lets you post a structured demand brief when you want hosts or
 
 Use it when you want to describe what you need before you have found the right listing.
 
+## Where to access it
+
+- Open `/tenant` and use the `My Requests` quick action.
+- Or go directly to `/requests/my`.
+- If you open `/requests` as a tenant, PropatyHub redirects you to `/requests/my`.
+
 ## Routes you can use
 
 - `/requests` redirects tenant accounts to `/requests/my`.

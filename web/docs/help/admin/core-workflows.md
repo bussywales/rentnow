@@ -20,7 +20,7 @@ updated_at: "2026-03-16"
 
 ## Property requests oversight
 
-- Use `/admin/requests` to review demand health, response coverage, and zero-response stall segments.
+- Use the `Requests` quick link on `/admin`, or open `/admin/requests` directly, to review demand health, response coverage, and zero-response stall segments.
 - Open `/admin/requests/[id]` to inspect the request, owner context, and private response history.
 - Apply explicit controls to close, expire, or remove requests when needed.
 - Preserve privacy: seeker demand is not visible to other seekers and contact details stay out of this workflow.

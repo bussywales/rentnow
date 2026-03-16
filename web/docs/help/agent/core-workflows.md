@@ -26,7 +26,7 @@ updated_at: "2026-03-16"
 
 ## Property requests workflow
 
-- Open `/requests` to browse eligible demand briefs.
+- Use the workspace sidebar `Property Requests` entry, or open `/requests`, to browse eligible demand briefs.
 - Filter hard before responding so your sent listings fit the brief.
 - Use `/requests/[id]` to review requirements and send up to 3 owned or managed listings.
 - Keep notes concise; direct contact details are intentionally not part of this workflow.

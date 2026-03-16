@@ -7,6 +7,7 @@ updated_at: "2026-03-16"
 
 ## Property requests operations
 
+- `/admin` now includes a `Requests` control panel shortcut for the request ops surface.
 - `/admin/requests` is the request registry plus compact demand-response analytics surface.
 - `/admin/requests/[id]` is the admin inspection and moderation view.
 - Analytics currently include created, published, open, matched, closed, expired, removed, with-response, zero-response, total responses, response rate, first-response timing, and segment breakdowns.

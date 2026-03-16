@@ -16,7 +16,7 @@ PropatyHub admin operations are split into clear workspaces with URL-driven stat
 - Recently updated listings list with links:
   - Reviewable items → `/admin/review?id=<uuid>`
   - Non-reviewable items → `/admin/listings/<uuid>`
-- Quick actions: Go to Review queue, Go to Listings.
+- Quick actions include direct entry points for Review queue, Analytics, Requests, and Listings.
 
 ## Review Desk (`/admin/review`)
 - Only reviewable statuses (pending + changes requested).
@@ -45,6 +45,7 @@ PropatyHub admin operations are split into clear workspaces with URL-driven stat
 - Row click opens the read-only inspector at `/admin/listings/[id]`.
 
 ## Property Requests Registry (`/admin/requests`)
+- Primary entry point: `Requests` shortcut in the `/admin` control panel.
 - All requests with admin-wide visibility.
 - Search/filter:
   - text search across id, location, notes, or intent

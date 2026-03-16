@@ -19,14 +19,14 @@ summary: Added durable role-based Property Requests guidance for tenants, hosts,
   - landlords
   - agents
   - admins
-- Updated the existing tenant, landlord, agent, and admin workflow docs so Property Requests is discoverable from core Help routes.
+- Updated the existing tenant, landlord, agent, and admin workflow docs so Property Requests is discoverable from core Help routes and reflects the shipped UI entry points.
 - Updated admin operations documentation to include `/admin/requests`, `/admin/requests/[id]`, moderation actions, and the shipped request analytics coverage.
 
 ## Audiences covered
 
 - Tenants can now see how to create, draft, publish, edit, pause, close, and review responses on their own requests.
-- Landlords and agents can now see how to access the request board, filter requests, and send matching listings from owned or managed inventory.
-- Admins can now see how to access request moderation surfaces, inspect responses, and interpret the compact request analytics.
+- Landlords and agents can now see how to access the request board from the workspace sidebar, filter requests, and send matching listings from owned or managed inventory.
+- Admins can now see how to access request moderation from the `/admin` control panel, inspect responses, and interpret the compact request analytics.
 
 ## Rollback
 

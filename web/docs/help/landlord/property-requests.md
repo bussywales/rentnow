@@ -11,6 +11,11 @@ Property Requests gives landlords a structured request board showing seeker dema
 
 Use it to match your live inventory against real demand without exposing seeker contact details.
 
+## Where to access it
+
+- Use the `Property Requests` link in the workspace sidebar while you are on landlord workspace routes such as `/host`, `/home`, `/profile`, or `/account/verification`.
+- The sidebar link opens `/requests`.
+
 ## Routes you can use
 
 - `/requests` opens the request discovery board for landlord accounts.

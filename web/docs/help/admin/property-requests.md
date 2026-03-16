@@ -9,12 +9,13 @@ updated_at: "2026-03-16"
 
 | Audience | Main routes | What they can do |
 | --- | --- | --- |
-| Tenant / seeker | `/requests`, `/requests/my`, `/requests/new`, `/requests/[id]`, `/requests/[id]/edit` | Create, draft, publish, edit, pause, close, and review responses on their own requests |
-| Landlord / agent | `/requests`, `/requests/[id]` | Browse eligible open requests and send matching owned or managed listings |
-| Admin | `/requests`, `/requests/[id]`, `/admin/requests`, `/admin/requests/[id]` | Inspect any request, inspect responses, moderate statuses, and review request analytics |
+| Tenant / seeker | Tenant workspace `My Requests` quick action on `/tenant`; routes `/requests`, `/requests/my`, `/requests/new`, `/requests/[id]`, `/requests/[id]/edit` | Create, draft, publish, edit, pause, close, and review responses on their own requests |
+| Landlord / agent | Workspace sidebar `Property Requests`; routes `/requests`, `/requests/[id]` | Browse eligible open requests and send matching owned or managed listings |
+| Admin | Admin control panel `Requests` shortcut on `/admin`; routes `/requests`, `/requests/[id]`, `/admin/requests`, `/admin/requests/[id]` | Inspect any request, inspect responses, moderate statuses, and review request analytics |
 
 ## Admin routes
 
+- `/admin` now includes a `Requests` quick link in the control panel.
 - `/admin/requests` is the operations and reporting surface.
 - `/admin/requests/[id]` is the admin request inspection view.
 - `/requests` and `/requests/[id]` remain available for admin read access to the role-aware request surfaces.

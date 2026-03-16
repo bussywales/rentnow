@@ -28,7 +28,7 @@ updated_at: "2026-03-16"
 
 ## Property requests workflow
 
-- Open `/requests/my` to manage your private demand briefs.
+- Open `/tenant` and use `My Requests`, or go directly to `/requests/my`, to manage your private demand briefs.
 - Use `/requests/new` to create a request, then save it as a draft or publish it.
 - Open `/requests/[id]` to pause, close, or review responses sent through the platform.
 - Use `/requests/[id]/edit` to tighten the brief when matches are weak.

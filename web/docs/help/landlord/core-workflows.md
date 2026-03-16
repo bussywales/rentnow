@@ -27,7 +27,7 @@ updated_at: "2026-03-16"
 
 ## Property requests workflow
 
-- Open `/requests` to browse eligible seeker demand.
+- Use the workspace sidebar `Property Requests` entry, or open `/requests`, to browse eligible seeker demand.
 - Filter by intent, market, bedrooms, move timeline, and budget before responding.
 - Open `/requests/[id]` to inspect the brief and send up to 3 matching listings you own or manage.
 - Use this workflow for platform-mediated matching only; contact details stay private in this phase.
