@@ -1,16 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  canSendPropertyRequestResponses,
   canRoleBrowsePropertyRequests,
   canRoleCreatePropertyRequests,
   canOwnerWritePropertyRequestStatus,
   canViewPropertyRequest,
+  doesListingIntentMatchPropertyRequest,
   getPropertyRequestMoveTimelineLabel,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
   getPropertyRequestStatusLabel,
   isPropertyRequestDiscoverable,
+  isPropertyRequestOpenForResponses,
   isPropertyRequestPublishedStatus,
+  propertyRequestResponseCreateSchema,
   matchesPropertyRequestDiscoverFilters,
   parsePropertyRequestDiscoverFilters,
   resolvePropertyRequestLifecycleDates,
@@ -149,6 +153,74 @@ void test("view helper allows discoverable open requests for responders and all 
     }),
     true
   );
+});
+
+void test("response helper keeps send flow private and limited to open requests", () => {
+  assert.equal(
+    canSendPropertyRequestResponses({
+      role: "agent",
+      viewerUserId: "agent-1",
+      request: baseRequest,
+    }),
+    true
+  );
+  assert.equal(
+    canSendPropertyRequestResponses({
+      role: "tenant",
+      viewerUserId: "tenant-1",
+      request: baseRequest,
+    }),
+    false
+  );
+  assert.equal(
+    canSendPropertyRequestResponses({
+      role: "landlord",
+      viewerUserId: "tenant-1",
+      request: {
+        ...baseRequest,
+        expiresAt: "2026-03-15T10:00:00.000Z",
+      },
+      now: new Date("2026-03-16T10:00:00.000Z"),
+    }),
+    false
+  );
+  assert.equal(
+    isPropertyRequestOpenForResponses({
+      status: "open",
+      publishedAt: baseRequest.publishedAt,
+      expiresAt: baseRequest.expiresAt,
+      now: new Date("2026-03-16T10:00:00.000Z"),
+    }),
+    true
+  );
+});
+
+void test("response payload schema limits to three unique listings", () => {
+  const parsed = propertyRequestResponseCreateSchema.safeParse({
+    listingIds: [
+      "00000000-0000-0000-0000-000000000001",
+      "00000000-0000-0000-0000-000000000001",
+    ],
+  });
+  assert.equal(parsed.success, false);
+
+  const tooMany = propertyRequestResponseCreateSchema.safeParse({
+    listingIds: [
+      "00000000-0000-0000-0000-000000000001",
+      "00000000-0000-0000-0000-000000000002",
+      "00000000-0000-0000-0000-000000000003",
+      "00000000-0000-0000-0000-000000000004",
+    ],
+  });
+  assert.equal(tooMany.success, false);
+});
+
+void test("listing intent matcher keeps responses aligned with request intent", () => {
+  assert.equal(doesListingIntentMatchPropertyRequest("rent_lease", "rent"), true);
+  assert.equal(doesListingIntentMatchPropertyRequest("sale", "buy"), true);
+  assert.equal(doesListingIntentMatchPropertyRequest("off_plan", "buy"), true);
+  assert.equal(doesListingIntentMatchPropertyRequest("shortlet", "shortlet"), true);
+  assert.equal(doesListingIntentMatchPropertyRequest("sale", "rent"), false);
 });
 
 void test("discover filter parser normalises search params into a stable filter object", () => {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isRentIntent, isSaleLikeIntent, isShortletIntent, normalizeListingIntent } from "@/lib/listing-intents";
 import type { UserRole } from "@/lib/types";
 
 export const PROPERTY_REQUEST_INTENTS = ["rent", "buy", "shortlet"] as const;
@@ -19,6 +20,8 @@ export type PropertyRequestOwnerWriteStatus =
 
 export const PROPERTY_REQUEST_RESPONDER_ROLES = ["landlord", "agent"] as const;
 export type PropertyRequestResponderRole = (typeof PROPERTY_REQUEST_RESPONDER_ROLES)[number];
+export const PROPERTY_REQUEST_RESPONSE_MAX_LISTINGS = 3;
+export const PROPERTY_REQUEST_RESPONSE_MESSAGE_MAX_LENGTH = 500;
 
 export const PROPERTY_REQUEST_DEFAULT_EXPIRY_DAYS = 30;
 export const PROPERTY_REQUEST_PROPERTY_TYPE_OPTIONS = [
@@ -121,6 +124,56 @@ export type PropertyRequest = {
   updatedAt: string;
 };
 
+export type PropertyRequestResponseRecord = {
+  id: string;
+  request_id: string;
+  responder_user_id: string;
+  responder_role: PropertyRequestResponderRole;
+  message: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PropertyRequestResponseItemRecord = {
+  id: string;
+  response_id: string;
+  listing_id: string;
+  position: number;
+  created_at: string;
+};
+
+export type PropertyRequestResponseListing = {
+  id: string;
+  ownerId: string;
+  title: string;
+  city: string | null;
+  neighbourhood: string | null;
+  price: number;
+  currency: string;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  rentalType: string | null;
+  rentPeriod: string | null;
+  listingIntent: string | null;
+  listingType: string | null;
+  coverImageUrl: string | null;
+  status: string | null;
+  isApproved: boolean | null;
+  isActive: boolean | null;
+  expiresAt: string | null;
+};
+
+export type PropertyRequestResponse = {
+  id: string;
+  requestId: string;
+  responderUserId: string;
+  responderRole: PropertyRequestResponderRole;
+  message: string | null;
+  createdAt: string;
+  updatedAt: string;
+  listings: PropertyRequestResponseListing[];
+};
+
 export const propertyRequestDraftSchema = z
   .object({
     intent: z.enum(PROPERTY_REQUEST_INTENTS).optional(),
@@ -162,12 +215,49 @@ export const propertyRequestUpdateSchema = propertyRequestDraftSchema.safeExtend
 });
 export type PropertyRequestUpdateInput = z.infer<typeof propertyRequestUpdateSchema>;
 
+export const propertyRequestResponseCreateSchema = z.object({
+  listingIds: z
+    .array(z.string().uuid())
+    .min(1, "Select at least one listing.")
+    .max(
+      PROPERTY_REQUEST_RESPONSE_MAX_LISTINGS,
+      `You can send up to ${PROPERTY_REQUEST_RESPONSE_MAX_LISTINGS} listings at once.`
+    )
+    .superRefine((listingIds, ctx) => {
+      const unique = new Set(listingIds);
+      if (unique.size !== listingIds.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Each selected listing must be unique.",
+        });
+      }
+    }),
+  message: z
+    .string()
+    .trim()
+    .max(
+      PROPERTY_REQUEST_RESPONSE_MESSAGE_MAX_LENGTH,
+      `Keep the note under ${PROPERTY_REQUEST_RESPONSE_MESSAGE_MAX_LENGTH} characters.`
+    )
+    .nullable()
+    .optional(),
+});
+export type PropertyRequestResponseCreateInput = z.infer<
+  typeof propertyRequestResponseCreateSchema
+>;
+
 export function canRoleCreatePropertyRequests(role: UserRole | null | undefined): boolean {
   return role === "tenant";
 }
 
 export function canRoleBrowsePropertyRequests(role: UserRole | null | undefined): boolean {
   return role === "landlord" || role === "agent" || role === "admin";
+}
+
+export function canRoleRespondToPropertyRequests(
+  role: UserRole | null | undefined
+): role is PropertyRequestResponderRole {
+  return role === "landlord" || role === "agent";
 }
 
 export function resolvePropertyRequestListScope(
@@ -181,6 +271,20 @@ export function resolvePropertyRequestListScope(
 
 export function isPropertyRequestPublishedStatus(status: PropertyRequestStatus): boolean {
   return status !== "draft" && status !== "removed";
+}
+
+export function isPropertyRequestOpenForResponses(input: {
+  status: PropertyRequestStatus;
+  publishedAt?: string | null;
+  expiresAt?: string | null;
+  now?: Date;
+}): boolean {
+  if (input.status !== "open") return false;
+  if (!input.publishedAt) return false;
+  if (!input.expiresAt) return true;
+  const expiresAt = Date.parse(input.expiresAt);
+  if (Number.isNaN(expiresAt)) return true;
+  return expiresAt > (input.now ?? new Date()).getTime();
 }
 
 export function canOwnerWritePropertyRequestStatus(
@@ -198,12 +302,7 @@ export function isPropertyRequestDiscoverable(input: {
 }): boolean {
   if (!canRoleBrowsePropertyRequests(input.role)) return false;
   if (input.role === "admin") return true;
-  if (input.status !== "open") return false;
-  if (!input.publishedAt) return false;
-  if (!input.expiresAt) return true;
-  const expiresAt = Date.parse(input.expiresAt);
-  if (Number.isNaN(expiresAt)) return true;
-  return expiresAt > (input.now ?? new Date()).getTime();
+  return isPropertyRequestOpenForResponses(input);
 }
 
 export function canViewPropertyRequest(input: {
@@ -219,6 +318,24 @@ export function canViewPropertyRequest(input: {
   if (input.viewerUserId && request.ownerUserId === input.viewerUserId) return true;
   return isPropertyRequestDiscoverable({
     role: input.role,
+    status: request.status,
+    publishedAt: request.publishedAt,
+    expiresAt: request.expiresAt,
+    now: input.now,
+  });
+}
+
+export function canSendPropertyRequestResponses(input: {
+  role: UserRole | null | undefined;
+  viewerUserId?: string | null;
+  request: PropertyRequest | PropertyRequestRecord;
+  now?: Date;
+}): boolean {
+  const request =
+    "ownerUserId" in input.request ? input.request : mapPropertyRequestRecord(input.request);
+  if (!canRoleRespondToPropertyRequests(input.role)) return false;
+  if (input.viewerUserId && request.ownerUserId === input.viewerUserId) return false;
+  return isPropertyRequestOpenForResponses({
     status: request.status,
     publishedAt: request.publishedAt,
     expiresAt: request.expiresAt,
@@ -341,6 +458,33 @@ export function mapPropertyRequestRecord(record: PropertyRequestRecord): Propert
     createdAt: record.created_at,
     updatedAt: record.updated_at,
   };
+}
+
+export function mapPropertyRequestResponseRecord(
+  record: PropertyRequestResponseRecord,
+  listings: PropertyRequestResponseListing[]
+): PropertyRequestResponse {
+  return {
+    id: record.id,
+    requestId: record.request_id,
+    responderUserId: record.responder_user_id,
+    responderRole: record.responder_role,
+    message: record.message,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+    listings,
+  };
+}
+
+export function doesListingIntentMatchPropertyRequest(
+  listingIntent: string | null | undefined,
+  requestIntent: PropertyRequestIntent
+): boolean {
+  const normalizedIntent = normalizeListingIntent(listingIntent);
+  if (!normalizedIntent) return false;
+  if (requestIntent === "rent") return isRentIntent(normalizedIntent);
+  if (requestIntent === "buy") return isSaleLikeIntent(normalizedIntent);
+  return isShortletIntent(normalizedIntent);
 }
 
 function parseDiscoverNumeric(input: string | null | undefined): number | null {

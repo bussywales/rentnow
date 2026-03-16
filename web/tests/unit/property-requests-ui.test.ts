@@ -24,8 +24,11 @@ void test("property requests pages expose discovery and owner management routes"
   assert.match(myPage, /My requests/);
   assert.match(myPage, /Create property request/);
   assert.match(detailPage, /PropertyRequestManageActions/);
+  assert.match(detailPage, /PropertyRequestResponseComposer/);
+  assert.match(detailPage, /PropertyRequestResponsesSection/);
   assert.match(detailPage, /Back to request board/);
-  assert.match(detailPage, /Seeker contact information remains private/);
+  assert.match(detailPage, /Seeker contact details remain private/);
+  assert.match(detailPage, /Send matching listings/);
   assert.match(editPage, /Edit property request/);
 });
 
@@ -51,4 +54,22 @@ void test("property request manage actions keep publish pause and close labels t
   assert.match(actionsSource, /Close request/);
   assert.match(actionsSource, /Publish request/);
   assert.match(actionsSource, /property-request-manage-actions/);
+});
+
+void test("property request response composer exposes matching listing actions", () => {
+  const composerSource = fs.readFileSync(
+    path.join(process.cwd(), "components", "requests", "PropertyRequestResponseComposer.tsx"),
+    "utf8"
+  );
+  const responsesSource = fs.readFileSync(
+    path.join(process.cwd(), "components", "requests", "PropertyRequestResponsesSection.tsx"),
+    "utf8"
+  );
+
+  assert.match(composerSource, /Send matching listings/);
+  assert.match(composerSource, /property-request-response-composer/);
+  assert.match(composerSource, /up to 3 live listings/i);
+  assert.match(responsesSource, /Received matches/);
+  assert.match(responsesSource, /Your sent matches/);
+  assert.match(responsesSource, /property-request-responses-section/);
 });

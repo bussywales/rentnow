@@ -2,13 +2,20 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { PropertyRequestManageActions } from "@/components/requests/PropertyRequestManageActions";
+import { PropertyRequestResponseComposer } from "@/components/requests/PropertyRequestResponseComposer";
+import { PropertyRequestResponsesSection } from "@/components/requests/PropertyRequestResponsesSection";
 import { PropertyRequestStatusBadge } from "@/components/requests/PropertyRequestStatusBadge";
 import {
+  canSendPropertyRequestResponses,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
   getPropertyRequestMoveTimelineLabel,
   type PropertyRequest,
 } from "@/lib/requests/property-requests";
+import {
+  listManagedResponseListings,
+  listVisiblePropertyRequestResponses,
+} from "@/lib/requests/property-request-responses.server";
 import {
   loadVisiblePropertyRequest,
   requirePropertyRequestsViewerAccess,
@@ -72,8 +79,32 @@ export default async function PropertyRequestDetailPage({
   }
 
   const viewerCanManage = access.role === "tenant" && request.ownerUserId === access.userId;
+  const viewerCanRespond = canSendPropertyRequestResponses({
+    role: access.role,
+    viewerUserId: access.userId,
+    request,
+  });
   const backHref = viewerCanManage ? "/requests/my" : "/requests";
   const backLabel = viewerCanManage ? "Back to my requests" : "Back to request board";
+
+  const responses = await listVisiblePropertyRequestResponses({
+    supabase: access.supabase,
+    role: access.role,
+    userId: access.userId,
+    requestId: request.id,
+  });
+
+  const managedListings = viewerCanRespond
+    ? await listManagedResponseListings({
+        supabase: access.supabase,
+        role: access.role,
+        userId: access.userId,
+        request,
+      })
+    : [];
+  const responderSentListingIds = viewerCanRespond
+    ? Array.from(new Set(responses.flatMap((response) => response.listings.map((listing) => listing.id))))
+    : [];
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-8">
@@ -93,7 +124,9 @@ export default async function PropertyRequestDetailPage({
             <p className="mt-2 text-sm text-slate-600">
               {viewerCanManage
                 ? "Manage your request privately. Only you, admins, and eligible responders for open requests can access this demand brief."
-                : "Review the structured demand brief. Seeker contact information remains private until a later response workflow is shipped."}
+                : viewerCanRespond
+                  ? "Review the demand brief and send matching listings through PropatyHub. Seeker contact details remain private in this phase."
+                  : "Review the structured demand brief. Seeker contact details remain private until a later response workflow is shipped."}
             </p>
           </div>
         </div>
@@ -165,16 +198,37 @@ export default async function PropertyRequestDetailPage({
             <PropertyRequestManageActions requestId={request.id} status={request.status} />
           </div>
         </section>
+      ) : viewerCanRespond ? (
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Responder workflow</p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-900">Send matching listings</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Choose up to 3 live listings you own or actively manage. Your response stays private to the
+            seeker and admins.
+          </p>
+          <div className="mt-4">
+            <PropertyRequestResponseComposer
+              requestId={request.id}
+              listings={managedListings}
+              alreadySentListingIds={responderSentListingIds}
+            />
+          </div>
+        </section>
       ) : (
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Phase 3 scope</p>
-          <h2 className="mt-2 text-xl font-semibold text-slate-900">Responder workflow is deferred</h2>
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Admin inspection</p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-900">Responses stay private</h2>
           <p className="mt-2 text-sm text-slate-600">
-            This phase exposes structured demand so hosts, agents, and admins can inspect active
-            requests safely. Sending matching listings will be added in a later phase.
+            Admins can inspect request responses below. This phase does not expose seeker contact details
+            or provide a public response board.
           </p>
         </section>
       )}
+
+      <PropertyRequestResponsesSection
+        responses={responses}
+        viewer={viewerCanManage ? "owner" : viewerCanRespond ? "responder" : "admin"}
+      />
     </div>
   );
 }
