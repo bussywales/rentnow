@@ -5,11 +5,14 @@ import {
   canRoleCreatePropertyRequests,
   canOwnerWritePropertyRequestStatus,
   canViewPropertyRequest,
+  getPropertyRequestMoveTimelineLabel,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
   getPropertyRequestStatusLabel,
   isPropertyRequestDiscoverable,
   isPropertyRequestPublishedStatus,
+  matchesPropertyRequestDiscoverFilters,
+  parsePropertyRequestDiscoverFilters,
   resolvePropertyRequestLifecycleDates,
   resolvePropertyRequestListScope,
   resolvePropertyRequestPublishMissingFields,
@@ -148,6 +151,81 @@ void test("view helper allows discoverable open requests for responders and all 
   );
 });
 
+void test("discover filter parser normalises search params into a stable filter object", () => {
+  const filters = parsePropertyRequestDiscoverFilters(
+    new URLSearchParams({
+      q: " Lekki ",
+      intent: "rent",
+      market: "ng",
+      propertyType: "apartment",
+      bedrooms: "2",
+      moveTimeline: "within_30_days",
+      budgetMin: "100000",
+      budgetMax: "400000",
+      status: "open",
+    })
+  );
+
+  assert.deepEqual(filters, {
+    q: "Lekki",
+    intent: "rent",
+    marketCode: "NG",
+    propertyType: "apartment",
+    bedrooms: 2,
+    moveTimeline: "within_30_days",
+    budgetMin: 100000,
+    budgetMax: 400000,
+    status: "open",
+  });
+});
+
+void test("discover filter matcher keeps search and budget overlap aligned with visible demand", () => {
+  assert.equal(
+    matchesPropertyRequestDiscoverFilters(baseRequest, {
+      q: "lekki",
+      intent: "rent",
+      marketCode: "NG",
+      propertyType: "apartment",
+      bedrooms: 2,
+      moveTimeline: "within_30_days",
+      budgetMin: 200000,
+      budgetMax: 350000,
+      status: "open",
+    }),
+    true
+  );
+
+  assert.equal(
+    matchesPropertyRequestDiscoverFilters(baseRequest, {
+      q: null,
+      intent: "buy",
+      marketCode: null,
+      propertyType: null,
+      bedrooms: null,
+      moveTimeline: null,
+      budgetMin: null,
+      budgetMax: null,
+      status: null,
+    }),
+    false
+  );
+
+  assert.equal(
+    matchesPropertyRequestDiscoverFilters(baseRequest, {
+      q: null,
+      intent: null,
+      marketCode: null,
+      propertyType: null,
+      bedrooms: null,
+      moveTimeline: null,
+      budgetMin: 400000,
+      budgetMax: null,
+      status: null,
+    }),
+    false
+  );
+});
+
 void test("published status helper keeps draft and removed out of published lifecycle", () => {
   assert.equal(isPropertyRequestPublishedStatus("draft"), false);
   assert.equal(isPropertyRequestPublishedStatus("removed"), false);
@@ -199,6 +277,8 @@ void test("lifecycle date helper clears draft and preserves publish timestamps f
 
 void test("labels and location summaries stay human-readable", () => {
   assert.equal(getPropertyRequestIntentLabel("shortlet"), "Shortlet");
+  assert.equal(getPropertyRequestMoveTimelineLabel("within_30_days"), "Within 30 days");
+  assert.equal(getPropertyRequestMoveTimelineLabel(null), "Flexible");
   assert.equal(getPropertyRequestStatusLabel("closed"), "Closed");
   assert.equal(
     getPropertyRequestLocationSummary({ city: "Lagos", area: "Lekki", locationText: null }),

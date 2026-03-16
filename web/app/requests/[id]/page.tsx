@@ -1,16 +1,17 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { PropertyRequestManageActions } from "@/components/requests/PropertyRequestManageActions";
 import { PropertyRequestStatusBadge } from "@/components/requests/PropertyRequestStatusBadge";
 import {
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
+  getPropertyRequestMoveTimelineLabel,
   type PropertyRequest,
 } from "@/lib/requests/property-requests";
 import {
-  loadOwnedPropertyRequest,
-  requireTenantPropertyRequestsAccess,
+  loadVisiblePropertyRequest,
+  requirePropertyRequestsViewerAccess,
 } from "@/lib/requests/property-requests.server";
 
 export const dynamic = "force-dynamic";
@@ -56,16 +57,23 @@ export default async function PropertyRequestDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const access = await requireTenantPropertyRequestsAccess(`/requests/${id}`);
-  const request = await loadOwnedPropertyRequest({
+  const access = await requirePropertyRequestsViewerAccess(`/requests/${id}`, {
+    allowRoles: ["tenant", "landlord", "agent", "admin"],
+  });
+  const request = await loadVisiblePropertyRequest({
     supabase: access.supabase,
+    role: access.role,
     userId: access.userId,
     requestId: id,
   });
 
   if (!request) {
-    redirect("/requests/my");
+    notFound();
   }
+
+  const viewerCanManage = access.role === "tenant" && request.ownerUserId === access.userId;
+  const backHref = viewerCanManage ? "/requests/my" : "/requests";
+  const backLabel = viewerCanManage ? "Back to my requests" : "Back to request board";
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-8">
@@ -76,24 +84,28 @@ export default async function PropertyRequestDetailPage({
             <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
               {getPropertyRequestIntentLabel(request.intent)}
             </p>
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{request.marketCode}</p>
           </div>
           <div>
             <h1 className="text-3xl font-semibold text-slate-900">
               {getPropertyRequestLocationSummary(request)}
             </h1>
             <p className="mt-2 text-sm text-slate-600">
-              Manage your request privately. Only you, admins, and eligible responders for open
-              requests can access this demand brief.
+              {viewerCanManage
+                ? "Manage your request privately. Only you, admins, and eligible responders for open requests can access this demand brief."
+                : "Review the structured demand brief. Seeker contact information remains private until a later response workflow is shipped."}
             </p>
           </div>
         </div>
         <div className="flex gap-3">
-          <Link href="/requests/my">
-            <Button variant="secondary">Back to my requests</Button>
+          <Link href={backHref}>
+            <Button variant="secondary">{backLabel}</Button>
           </Link>
-          <Link href={`/requests/${request.id}/edit`}>
-            <Button>Edit request</Button>
-          </Link>
+          {viewerCanManage ? (
+            <Link href={`/requests/${request.id}/edit`}>
+              <Button>Edit request</Button>
+            </Link>
+          ) : null}
         </div>
       </header>
 
@@ -103,7 +115,10 @@ export default async function PropertyRequestDetailPage({
           <RequestFact label="Property type" value={request.propertyType ?? "Any"} />
           <RequestFact label="Bedrooms" value={request.bedrooms?.toString() ?? "Any"} />
           <RequestFact label="Bathrooms" value={request.bathrooms?.toString() ?? "Any"} />
-          <RequestFact label="Move timeline" value={request.moveTimeline ?? "Flexible"} />
+          <RequestFact
+            label="Move timeline"
+            value={getPropertyRequestMoveTimelineLabel(request.moveTimeline)}
+          />
           <RequestFact
             label="Furnished"
             value={
@@ -138,17 +153,28 @@ export default async function PropertyRequestDetailPage({
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Manage request</p>
-        <h2 className="mt-2 text-xl font-semibold text-slate-900">Request lifecycle</h2>
-        <p className="mt-2 text-sm text-slate-600">
-          Publish when the request is ready, pause it back to draft if you want it hidden, or close
-          it when you no longer need responses.
-        </p>
-        <div className="mt-4">
-          <PropertyRequestManageActions requestId={request.id} status={request.status} />
-        </div>
-      </section>
+      {viewerCanManage ? (
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Manage request</p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-900">Request lifecycle</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Publish when the request is ready, pause it back to draft if you want it hidden, or close
+            it when you no longer need responses.
+          </p>
+          <div className="mt-4">
+            <PropertyRequestManageActions requestId={request.id} status={request.status} />
+          </div>
+        </section>
+      ) : (
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Phase 3 scope</p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-900">Responder workflow is deferred</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            This phase exposes structured demand so hosts, agents, and admins can inspect active
+            requests safely. Sending matching listings will be added in a later phase.
+          </p>
+        </section>
+      )}
     </div>
   );
 }

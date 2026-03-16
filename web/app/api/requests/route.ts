@@ -5,8 +5,11 @@ import type { UserRole } from "@/lib/types";
 import {
   PROPERTY_REQUEST_DEFAULT_EXPIRY_DAYS,
   PROPERTY_REQUEST_SELECT_COLUMNS,
+  canViewPropertyRequest,
   canRoleCreatePropertyRequests,
+  matchesPropertyRequestDiscoverFilters,
   mapPropertyRequestRecord,
+  parsePropertyRequestDiscoverFilters,
   propertyRequestCreateSchema,
   resolvePropertyRequestListScope,
   resolvePropertyRequestPublishMissingFields,
@@ -29,6 +32,8 @@ export type PropertyRequestsRouteDeps = {
     supabase: SupabaseClient;
     role: UserRole;
     userId: string;
+    filters: ReturnType<typeof parsePropertyRequestDiscoverFilters>;
+    now: Date;
   }) => Promise<{ data: PropertyRequestRecord[] | null; error: { message: string } | null }>;
   insertRequest: (input: {
     supabase: SupabaseClient;
@@ -45,7 +50,7 @@ const defaultDeps: PropertyRequestsRouteDeps = {
   createServerSupabaseClient,
   requireUser,
   getUserRole,
-  listRequests: async ({ supabase, role, userId }) => {
+  listRequests: async ({ supabase, role, userId, filters, now }) => {
     let query = supabase
       .from("property_requests")
       .select(PROPERTY_REQUEST_SELECT_COLUMNS)
@@ -55,14 +60,45 @@ const defaultDeps: PropertyRequestsRouteDeps = {
     if (role === "tenant") {
       query = query.eq("owner_user_id", userId);
     } else if (role === "landlord" || role === "agent") {
-      query = query.eq("status", "open");
+      query = query.eq("status", "open").not("published_at", "is", null);
+    } else if (role === "admin" && filters.status) {
+      query = query.eq("status", filters.status);
+    }
+
+    if (filters.intent) {
+      query = query.eq("intent", filters.intent);
+    }
+    if (filters.marketCode) {
+      query = query.eq("market_code", filters.marketCode);
+    }
+    if (filters.propertyType) {
+      query = query.eq("property_type", filters.propertyType);
+    }
+    if (typeof filters.bedrooms === "number") {
+      query = query.eq("bedrooms", filters.bedrooms);
+    }
+    if (filters.moveTimeline) {
+      query = query.eq("move_timeline", filters.moveTimeline);
     }
 
     const response = await query;
-    return response as unknown as {
+    const typedResponse = response as unknown as {
       data: PropertyRequestRecord[] | null;
       error: { message: string } | null;
     };
+    if (typedResponse.error || !typedResponse.data) {
+      return typedResponse;
+    }
+
+    const filteredRows = typedResponse.data.filter((row) => {
+      const item = mapPropertyRequestRecord(row);
+      return (
+        canViewPropertyRequest({ role, viewerUserId: userId, request: item, now }) &&
+        matchesPropertyRequestDiscoverFilters(item, filters)
+      );
+    });
+
+    return { data: filteredRows, error: null };
   },
   insertRequest: async ({ supabase, userId, role, payload, now }) => {
     const publishedAt = payload.status === "open" ? now.toISOString() : null;
@@ -126,11 +162,14 @@ export async function getPropertyRequestsResponse(
   if (!role || !scope) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  const filters = parsePropertyRequestDiscoverFilters(new URL(request.url).searchParams);
 
   const { data, error } = await deps.listRequests({
     supabase,
     role,
     userId: auth.user.id,
+    filters,
+    now: deps.now(),
   });
   if (error) {
     return NextResponse.json({ error: "Unable to load requests" }, { status: 500 });

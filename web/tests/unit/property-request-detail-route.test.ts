@@ -109,6 +109,27 @@ void test("property request detail allows responders to open published requests"
   assert.equal(json.viewerCanEdit, false);
 });
 
+void test("property request detail hides expired requests from responders", async () => {
+  const response = await getPropertyRequestDetailResponse(
+    makeRequest(),
+    "req-1",
+    buildDeps({
+      role: "agent",
+      userId: "agent-1",
+      loadRequest: async () => ({
+        data: {
+          ...openRow,
+          expires_at: "2026-03-15T10:00:00.000Z",
+        },
+        error: null,
+      }),
+      now: () => new Date("2026-03-16T10:00:00.000Z"),
+    })
+  );
+
+  assert.equal(response.status, 404);
+});
+
 void test("property request detail allows owners and admins to edit-visible rows", async () => {
   const ownerResponse = await getPropertyRequestDetailResponse(
     makeRequest(),

@@ -7,10 +7,13 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { MARKET_OPTIONS } from "@/lib/market/market";
-import type {
-  PropertyRequest,
-  PropertyRequestIntent,
-  PropertyRequestOwnerWriteStatus,
+import {
+  PROPERTY_REQUEST_BEDROOM_OPTIONS,
+  PROPERTY_REQUEST_MOVE_TIMELINE_OPTIONS,
+  PROPERTY_REQUEST_PROPERTY_TYPE_OPTIONS,
+  type PropertyRequest,
+  type PropertyRequestIntent,
+  type PropertyRequestOwnerWriteStatus,
 } from "@/lib/requests/property-requests";
 
 type Props = {
@@ -34,34 +37,6 @@ type FormState = {
   shortletDuration: string;
   notes: string;
 };
-
-const PROPERTY_TYPE_OPTIONS = [
-  { value: "", label: "Any property type" },
-  { value: "apartment", label: "Apartment" },
-  { value: "house", label: "House" },
-  { value: "studio", label: "Studio" },
-  { value: "duplex", label: "Duplex" },
-  { value: "office", label: "Office" },
-  { value: "shop", label: "Shop" },
-] as const;
-
-const BEDROOM_OPTIONS = [
-  { value: "", label: "Any bedrooms" },
-  { value: "0", label: "Studio / 0" },
-  { value: "1", label: "1 bedroom" },
-  { value: "2", label: "2 bedrooms" },
-  { value: "3", label: "3 bedrooms" },
-  { value: "4", label: "4 bedrooms" },
-  { value: "5", label: "5+ bedrooms" },
-] as const;
-
-const MOVE_TIMELINE_OPTIONS = [
-  { value: "", label: "Any timeline" },
-  { value: "immediately", label: "Immediately" },
-  { value: "within_30_days", label: "Within 30 days" },
-  { value: "within_90_days", label: "Within 90 days" },
-  { value: "planning_ahead", label: "Planning ahead" },
-] as const;
 
 function buildInitialState(initialRequest?: PropertyRequest | null): FormState {
   const defaultMarket = MARKET_OPTIONS[0];
@@ -284,7 +259,7 @@ export function PropertyRequestFormClient({ initialRequest = null }: Props) {
               setForm((current) => ({ ...current, propertyType: event.target.value }))
             }
           >
-            {PROPERTY_TYPE_OPTIONS.map((option) => (
+            {PROPERTY_REQUEST_PROPERTY_TYPE_OPTIONS.map((option) => (
               <option key={option.label} value={option.value}>
                 {option.label}
               </option>
@@ -300,7 +275,7 @@ export function PropertyRequestFormClient({ initialRequest = null }: Props) {
             value={form.bedrooms}
             onChange={(event) => setForm((current) => ({ ...current, bedrooms: event.target.value }))}
           >
-            {BEDROOM_OPTIONS.map((option) => (
+            {PROPERTY_REQUEST_BEDROOM_OPTIONS.map((option) => (
               <option key={option.label} value={option.value}>
                 {option.label}
               </option>
@@ -329,7 +304,7 @@ export function PropertyRequestFormClient({ initialRequest = null }: Props) {
               setForm((current) => ({ ...current, moveTimeline: event.target.value }))
             }
           >
-            {MOVE_TIMELINE_OPTIONS.map((option) => (
+            {PROPERTY_REQUEST_MOVE_TIMELINE_OPTIONS.map((option) => (
               <option key={option.label} value={option.value}>
                 {option.label}
               </option>

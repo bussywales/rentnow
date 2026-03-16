@@ -99,6 +99,36 @@ void test("property requests list returns discover scope for hosts and agents", 
   assert.equal(json.scope, "discover");
 });
 
+void test("property requests list passes parsed discover filters to the list layer", async () => {
+  let receivedFilters: Record<string, unknown> | null = null;
+  const response = await getPropertyRequestsResponse(
+    new NextRequest(
+      "http://localhost/api/requests?intent=rent&market=NG&propertyType=apartment&bedrooms=2&budgetMin=100000&q=Lekki",
+      { method: "GET" }
+    ),
+    buildDeps({
+      role: "agent",
+      listRequests: async ({ filters }) => {
+        receivedFilters = filters;
+        return { data: [baseRow], error: null };
+      },
+    })
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(receivedFilters, {
+    q: "Lekki",
+    intent: "rent",
+    marketCode: "NG",
+    propertyType: "apartment",
+    bedrooms: 2,
+    moveTimeline: null,
+    budgetMin: 100000,
+    budgetMax: null,
+    status: null,
+  });
+});
+
 void test("property requests create blocks non-tenant roles", async () => {
   const response = await postPropertyRequestsResponse(
     makePostRequest({ status: "draft" }),

@@ -21,6 +21,31 @@ export const PROPERTY_REQUEST_RESPONDER_ROLES = ["landlord", "agent"] as const;
 export type PropertyRequestResponderRole = (typeof PROPERTY_REQUEST_RESPONDER_ROLES)[number];
 
 export const PROPERTY_REQUEST_DEFAULT_EXPIRY_DAYS = 30;
+export const PROPERTY_REQUEST_PROPERTY_TYPE_OPTIONS = [
+  { value: "", label: "Any property type" },
+  { value: "apartment", label: "Apartment" },
+  { value: "house", label: "House" },
+  { value: "studio", label: "Studio" },
+  { value: "duplex", label: "Duplex" },
+  { value: "office", label: "Office" },
+  { value: "shop", label: "Shop" },
+] as const;
+export const PROPERTY_REQUEST_BEDROOM_OPTIONS = [
+  { value: "", label: "Any bedrooms" },
+  { value: "0", label: "Studio / 0" },
+  { value: "1", label: "1 bedroom" },
+  { value: "2", label: "2 bedrooms" },
+  { value: "3", label: "3 bedrooms" },
+  { value: "4", label: "4 bedrooms" },
+  { value: "5", label: "5+ bedrooms" },
+] as const;
+export const PROPERTY_REQUEST_MOVE_TIMELINE_OPTIONS = [
+  { value: "", label: "Any timeline" },
+  { value: "immediately", label: "Immediately" },
+  { value: "within_30_days", label: "Within 30 days" },
+  { value: "within_90_days", label: "Within 90 days" },
+  { value: "planning_ahead", label: "Planning ahead" },
+] as const;
 
 export type PropertyRequestPublishMissingField =
   | "intent"
@@ -32,6 +57,17 @@ export type PropertyRequestPublishMissingField =
   | "shortletDuration";
 
 export type PropertyRequestListScope = "owner" | "discover" | "admin";
+export type PropertyRequestDiscoverFilters = {
+  q: string | null;
+  intent: PropertyRequestIntent | null;
+  marketCode: string | null;
+  propertyType: string | null;
+  bedrooms: number | null;
+  moveTimeline: string | null;
+  budgetMin: number | null;
+  budgetMax: number | null;
+  status: PropertyRequestStatus | null;
+};
 
 export type PropertyRequestRecord = {
   id: string;
@@ -244,6 +280,12 @@ const PROPERTY_REQUEST_INTENT_LABELS: Record<PropertyRequestIntent, string> = {
   buy: "Buy",
   shortlet: "Shortlet",
 };
+const PROPERTY_REQUEST_MOVE_TIMELINE_LABELS: Record<string, string> = {
+  immediately: "Immediately",
+  within_30_days: "Within 30 days",
+  within_90_days: "Within 90 days",
+  planning_ahead: "Planning ahead",
+};
 
 export function getPropertyRequestStatusLabel(status: PropertyRequestStatus): string {
   return PROPERTY_REQUEST_STATUS_LABELS[status];
@@ -251,6 +293,11 @@ export function getPropertyRequestStatusLabel(status: PropertyRequestStatus): st
 
 export function getPropertyRequestIntentLabel(intent: PropertyRequestIntent): string {
   return PROPERTY_REQUEST_INTENT_LABELS[intent];
+}
+
+export function getPropertyRequestMoveTimelineLabel(moveTimeline: string | null | undefined): string {
+  if (!moveTimeline) return "Flexible";
+  return PROPERTY_REQUEST_MOVE_TIMELINE_LABELS[moveTimeline] ?? moveTimeline;
 }
 
 export function getPropertyRequestLocationSummary(input: {
@@ -294,6 +341,91 @@ export function mapPropertyRequestRecord(record: PropertyRequestRecord): Propert
     createdAt: record.created_at,
     updatedAt: record.updated_at,
   };
+}
+
+function parseDiscoverNumeric(input: string | null | undefined): number | null {
+  if (!input) return null;
+  const parsed = Number.parseInt(input, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseDiscoverText(input: string | null | undefined): string | null {
+  const trimmed = input?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function readSearchValue(
+  input: URLSearchParams | Record<string, string | string[] | undefined>,
+  key: string
+): string | null {
+  if (input instanceof URLSearchParams) {
+    return input.get(key);
+  }
+  const value = input[key];
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+export function parsePropertyRequestDiscoverFilters(
+  input: URLSearchParams | Record<string, string | string[] | undefined>
+): PropertyRequestDiscoverFilters {
+  const intent = readSearchValue(input, "intent");
+  const status = readSearchValue(input, "status");
+  const parsedStatus =
+    status && PROPERTY_REQUEST_STATUSES.includes(status as PropertyRequestStatus)
+      ? (status as PropertyRequestStatus)
+      : null;
+
+  return {
+    q: parseDiscoverText(readSearchValue(input, "q")),
+    intent:
+      intent && PROPERTY_REQUEST_INTENTS.includes(intent as PropertyRequestIntent)
+        ? (intent as PropertyRequestIntent)
+        : null,
+    marketCode: parseDiscoverText(readSearchValue(input, "market"))?.toUpperCase() ?? null,
+    propertyType: parseDiscoverText(readSearchValue(input, "propertyType")),
+    bedrooms: parseDiscoverNumeric(readSearchValue(input, "bedrooms")),
+    moveTimeline: parseDiscoverText(readSearchValue(input, "moveTimeline")),
+    budgetMin: parseDiscoverNumeric(readSearchValue(input, "budgetMin")),
+    budgetMax: parseDiscoverNumeric(readSearchValue(input, "budgetMax")),
+    status: parsedStatus,
+  };
+}
+
+export function matchesPropertyRequestDiscoverFilters(
+  request: PropertyRequest,
+  filters: PropertyRequestDiscoverFilters
+): boolean {
+  if (filters.intent && request.intent !== filters.intent) return false;
+  if (filters.marketCode && request.marketCode !== filters.marketCode) return false;
+  if (filters.propertyType && request.propertyType !== filters.propertyType) return false;
+  if (typeof filters.bedrooms === "number" && request.bedrooms !== filters.bedrooms) return false;
+  if (filters.moveTimeline && request.moveTimeline !== filters.moveTimeline) return false;
+  if (filters.status && request.status !== filters.status) return false;
+
+  if (typeof filters.budgetMin === "number") {
+    const requestBudgetMax = request.budgetMax ?? request.budgetMin;
+    if (typeof requestBudgetMax === "number" && requestBudgetMax < filters.budgetMin) {
+      return false;
+    }
+  }
+
+  if (typeof filters.budgetMax === "number") {
+    const requestBudgetMin = request.budgetMin ?? request.budgetMax;
+    if (typeof requestBudgetMin === "number" && requestBudgetMin > filters.budgetMax) {
+      return false;
+    }
+  }
+
+  if (filters.q) {
+    const haystack = [request.city, request.area, request.locationText]
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      .join(" ")
+      .toLowerCase();
+    if (!haystack.includes(filters.q.toLowerCase())) return false;
+  }
+
+  return true;
 }
 
 export const PROPERTY_REQUEST_SELECT_COLUMNS = [

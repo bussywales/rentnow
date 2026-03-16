@@ -3,11 +3,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-void test("property requests seeker pages expose create and manage routes", () => {
-  const myPage = fs.readFileSync(
-    path.join(process.cwd(), "app", "requests", "my", "page.tsx"),
+void test("property requests pages expose discovery and owner management routes", () => {
+  const indexPage = fs.readFileSync(
+    path.join(process.cwd(), "app", "requests", "page.tsx"),
     "utf8"
   );
+  const myPage = fs.readFileSync(path.join(process.cwd(), "app", "requests", "my", "page.tsx"), "utf8");
   const detailPage = fs.readFileSync(
     path.join(process.cwd(), "app", "requests", "[id]", "page.tsx"),
     "utf8"
@@ -17,10 +18,14 @@ void test("property requests seeker pages expose create and manage routes", () =
     "utf8"
   );
 
+  assert.match(indexPage, /Request discovery/);
+  assert.match(indexPage, /property-request-discovery-board/);
+  assert.match(indexPage, /Search city or area/);
   assert.match(myPage, /My requests/);
   assert.match(myPage, /Create property request/);
   assert.match(detailPage, /PropertyRequestManageActions/);
-  assert.match(detailPage, /Manage request/);
+  assert.match(detailPage, /Back to request board/);
+  assert.match(detailPage, /Seeker contact information remains private/);
   assert.match(editPage, /Edit property request/);
 });
 
