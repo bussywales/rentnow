@@ -20,8 +20,16 @@ void test("admin property requests pages expose analytics and moderation contrac
   assert.match(indexPage, /Property requests/);
   assert.match(indexPage, /admin-requests-page/);
   assert.match(indexPage, /admin-requests-analytics/);
+  assert.match(indexPage, /Published/);
+  assert.match(indexPage, /Matched/);
   assert.match(indexPage, /Zero-response/);
   assert.match(indexPage, /Responses sent/);
+  assert.match(indexPage, /By intent/);
+  assert.match(indexPage, /By market/);
+  assert.match(indexPage, /Stall segments/);
+  assert.match(indexPage, /admin-requests-by-intent/);
+  assert.match(indexPage, /admin-requests-by-market/);
+  assert.match(indexPage, /admin-requests-stall-segments/);
   assert.match(detailPage, /Admin inspection view for request moderation/);
   assert.match(detailPage, /PropertyRequestResponsesSection/);
   assert.match(detailPage, /Request controls/);

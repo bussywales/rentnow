@@ -1,6 +1,8 @@
 import {
   getPropertyRequestLocationSummary,
+  getPropertyRequestIntentLabel,
   type PropertyRequest,
+  type PropertyRequestIntent,
   type PropertyRequestStatus,
 } from "@/lib/requests/property-requests";
 
@@ -26,15 +28,45 @@ export type PropertyRequestResponseSummary = {
 
 export type PropertyRequestAdminAnalytics = {
   requestsCreated: number;
+  requestsPublished: number;
   openRequests: number;
+  matchedRequests: number;
   closedRequests: number;
   expiredRequests: number;
   removedRequests: number;
   requestsWithResponses: number;
   requestsWithoutResponses: number;
   totalResponsesSent: number;
+  responseRate: number | null;
   averageFirstResponseHours: number | null;
   medianFirstResponseHours: number | null;
+};
+
+export type PropertyRequestTelemetryBreakdownRow = {
+  key: string;
+  label: string;
+  requestsCreated: number;
+  requestsPublished: number;
+  openRequests: number;
+  matchedRequests: number;
+  closedRequests: number;
+  expiredRequests: number;
+  removedRequests: number;
+  requestsWithResponses: number;
+  requestsWithoutResponses: number;
+  totalResponsesSent: number;
+  responseRate: number | null;
+  averageFirstResponseHours: number | null;
+  medianFirstResponseHours: number | null;
+};
+
+export type PropertyRequestStallSegment = {
+  key: string;
+  label: string;
+  requestsPublished: number;
+  requestsWithoutResponses: number;
+  zeroResponseRate: number | null;
+  totalResponsesSent: number;
 };
 
 export function parseAdminPropertyRequestListFilters(
@@ -104,6 +136,16 @@ function median(values: number[]): number | null {
   return sorted[middle] ?? null;
 }
 
+function average(values: number[]): number | null {
+  if (values.length === 0) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function calculateRate(numerator: number, denominator: number): number | null {
+  if (denominator <= 0) return null;
+  return numerator / denominator;
+}
+
 export function buildPropertyRequestResponseSummaryMap(
   requests: PropertyRequest[],
   responses: PropertyRequestAnalyticsResponseRow[]
@@ -147,28 +189,153 @@ export function buildPropertyRequestAdminAnalytics(
   responses: PropertyRequestAnalyticsResponseRow[]
 ): PropertyRequestAdminAnalytics {
   const summary = buildPropertyRequestResponseSummaryMap(requests, responses);
-  const nonDraftRequests = requests.filter((request) => request.status !== "draft");
-  const firstResponseHours = nonDraftRequests
+  const publishedRequests = requests.filter((request) => request.publishedAt !== null);
+  const firstResponseHours = publishedRequests
     .map((request) => summary.get(request.id)?.hoursToFirstResponse ?? null)
     .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
 
-  const requestsWithResponses = nonDraftRequests.filter(
+  const requestsWithResponses = publishedRequests.filter(
     (request) => (summary.get(request.id)?.responseCount ?? 0) > 0
   ).length;
 
   return {
     requestsCreated: requests.length,
+    requestsPublished: publishedRequests.length,
     openRequests: requests.filter((request) => request.status === "open").length,
+    matchedRequests: requests.filter((request) => request.status === "matched").length,
     closedRequests: requests.filter((request) => request.status === "closed").length,
     expiredRequests: requests.filter((request) => request.status === "expired").length,
     removedRequests: requests.filter((request) => request.status === "removed").length,
     requestsWithResponses,
-    requestsWithoutResponses: nonDraftRequests.length - requestsWithResponses,
+    requestsWithoutResponses: publishedRequests.length - requestsWithResponses,
     totalResponsesSent: responses.length,
-    averageFirstResponseHours:
-      firstResponseHours.length > 0
-        ? firstResponseHours.reduce((sum, value) => sum + value, 0) / firstResponseHours.length
-        : null,
+    responseRate: calculateRate(requestsWithResponses, publishedRequests.length),
+    averageFirstResponseHours: average(firstResponseHours),
     medianFirstResponseHours: median(firstResponseHours),
   };
+}
+
+function buildBreakdownRows(
+  requests: PropertyRequest[],
+  responses: PropertyRequestAnalyticsResponseRow[],
+  getKey: (request: PropertyRequest) => string,
+  getLabel: (request: PropertyRequest) => string
+): PropertyRequestTelemetryBreakdownRow[] {
+  const summary = buildPropertyRequestResponseSummaryMap(requests, responses);
+  const responsesByRequestId = new Map<string, number>();
+  for (const response of responses) {
+    responsesByRequestId.set(
+      response.request_id,
+      (responsesByRequestId.get(response.request_id) ?? 0) + 1
+    );
+  }
+
+  const grouped = new Map<
+    string,
+    {
+      label: string;
+      requests: PropertyRequest[];
+    }
+  >();
+
+  for (const request of requests) {
+    const key = getKey(request);
+    const current = grouped.get(key) ?? { label: getLabel(request), requests: [] };
+    current.requests.push(request);
+    grouped.set(key, current);
+  }
+
+  return Array.from(grouped.entries())
+    .map(([key, group]) => {
+      const publishedRequests = group.requests.filter((request) => request.publishedAt !== null);
+      const requestsWithResponses = publishedRequests.filter(
+        (request) => (summary.get(request.id)?.responseCount ?? 0) > 0
+      ).length;
+      const firstResponseHours = publishedRequests
+        .map((request) => summary.get(request.id)?.hoursToFirstResponse ?? null)
+        .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+
+      return {
+        key,
+        label: group.label,
+        requestsCreated: group.requests.length,
+        requestsPublished: publishedRequests.length,
+        openRequests: group.requests.filter((request) => request.status === "open").length,
+        matchedRequests: group.requests.filter((request) => request.status === "matched").length,
+        closedRequests: group.requests.filter((request) => request.status === "closed").length,
+        expiredRequests: group.requests.filter((request) => request.status === "expired").length,
+        removedRequests: group.requests.filter((request) => request.status === "removed").length,
+        requestsWithResponses,
+        requestsWithoutResponses: publishedRequests.length - requestsWithResponses,
+        totalResponsesSent: group.requests.reduce(
+          (sum, request) => sum + (responsesByRequestId.get(request.id) ?? 0),
+          0
+        ),
+        responseRate: calculateRate(requestsWithResponses, publishedRequests.length),
+        averageFirstResponseHours: average(firstResponseHours),
+        medianFirstResponseHours: median(firstResponseHours),
+      };
+    })
+    .sort((left, right) => right.requestsPublished - left.requestsPublished || left.label.localeCompare(right.label));
+}
+
+export function buildPropertyRequestBreakdownByIntent(
+  requests: PropertyRequest[],
+  responses: PropertyRequestAnalyticsResponseRow[]
+): PropertyRequestTelemetryBreakdownRow[] {
+  const intentOrder: PropertyRequestIntent[] = ["rent", "buy", "shortlet"];
+  const rows = buildBreakdownRows(
+    requests,
+    responses,
+    (request) => request.intent,
+    (request) => getPropertyRequestIntentLabel(request.intent)
+  );
+
+  return rows.sort(
+    (left, right) =>
+      intentOrder.indexOf(left.key as PropertyRequestIntent) -
+        intentOrder.indexOf(right.key as PropertyRequestIntent) ||
+      left.label.localeCompare(right.label)
+  );
+}
+
+export function buildPropertyRequestBreakdownByMarket(
+  requests: PropertyRequest[],
+  responses: PropertyRequestAnalyticsResponseRow[]
+): PropertyRequestTelemetryBreakdownRow[] {
+  return buildBreakdownRows(
+    requests,
+    responses,
+    (request) => request.marketCode,
+    (request) => request.marketCode
+  );
+}
+
+export function buildPropertyRequestStallSegments(
+  requests: PropertyRequest[],
+  responses: PropertyRequestAnalyticsResponseRow[]
+): PropertyRequestStallSegment[] {
+  const rows = buildBreakdownRows(
+    requests,
+    responses,
+    (request) => `${request.marketCode}:${request.intent}`,
+    (request) => `${request.marketCode} · ${getPropertyRequestIntentLabel(request.intent)}`
+  );
+
+  return rows
+    .filter((row) => row.requestsPublished > 0)
+    .map((row) => ({
+      key: row.key,
+      label: row.label,
+      requestsPublished: row.requestsPublished,
+      requestsWithoutResponses: row.requestsWithoutResponses,
+      zeroResponseRate: calculateRate(row.requestsWithoutResponses, row.requestsPublished),
+      totalResponsesSent: row.totalResponsesSent,
+    }))
+    .sort(
+      (left, right) =>
+        right.requestsWithoutResponses - left.requestsWithoutResponses ||
+        (right.zeroResponseRate ?? 0) - (left.zeroResponseRate ?? 0) ||
+        left.label.localeCompare(right.label)
+    );
 }

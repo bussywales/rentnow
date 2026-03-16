@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildPropertyRequestAdminAnalytics,
+  buildPropertyRequestBreakdownByIntent,
+  buildPropertyRequestBreakdownByMarket,
   buildPropertyRequestResponseSummaryMap,
+  buildPropertyRequestStallSegments,
   matchesAdminPropertyRequestListFilters,
   parseAdminPropertyRequestListFilters,
   type PropertyRequestAnalyticsResponseRow,
@@ -173,14 +176,105 @@ void test("admin property request analytics compute usage and first-response sta
   const analytics = buildPropertyRequestAdminAnalytics(requests, responses);
   assert.deepEqual(analytics, {
     requestsCreated: 4,
+    requestsPublished: 3,
     openRequests: 1,
+    matchedRequests: 0,
     closedRequests: 1,
     expiredRequests: 1,
     removedRequests: 0,
     requestsWithResponses: 2,
     requestsWithoutResponses: 1,
     totalResponsesSent: 3,
+    responseRate: 2 / 3,
     averageFirstResponseHours: 13,
     medianFirstResponseHours: 13,
+  });
+});
+
+void test("admin property request breakdown by intent exposes traction and stall counts", () => {
+  const rows = buildPropertyRequestBreakdownByIntent(requests, responses);
+  assert.deepEqual(
+    rows.map((row) => ({
+      key: row.key,
+      created: row.requestsCreated,
+      published: row.requestsPublished,
+      withResponses: row.requestsWithResponses,
+      zeroResponses: row.requestsWithoutResponses,
+      responseRate: row.responseRate,
+    })),
+    [
+      {
+        key: "rent",
+        created: 2,
+        published: 2,
+        withResponses: 1,
+        zeroResponses: 1,
+        responseRate: 0.5,
+      },
+      {
+        key: "buy",
+        created: 1,
+        published: 1,
+        withResponses: 1,
+        zeroResponses: 0,
+        responseRate: 1,
+      },
+      {
+        key: "shortlet",
+        created: 1,
+        published: 0,
+        withResponses: 0,
+        zeroResponses: 0,
+        responseRate: null,
+      },
+    ]
+  );
+});
+
+void test("admin property request breakdown by market exposes traction and timing", () => {
+  const rows = buildPropertyRequestBreakdownByMarket(requests, responses);
+  assert.deepEqual(
+    rows.map((row) => ({
+      key: row.key,
+      published: row.requestsPublished,
+      withResponses: row.requestsWithResponses,
+      responses: row.totalResponsesSent,
+      medianFirstResponseHours: row.medianFirstResponseHours,
+    })),
+    [
+      {
+        key: "NG",
+        published: 2,
+        withResponses: 1,
+        responses: 2,
+        medianFirstResponseHours: 2,
+      },
+      {
+        key: "GB",
+        published: 1,
+        withResponses: 1,
+        responses: 1,
+        medianFirstResponseHours: 24,
+      },
+      {
+        key: "US",
+        published: 0,
+        withResponses: 0,
+        responses: 0,
+        medianFirstResponseHours: null,
+      },
+    ]
+  );
+});
+
+void test("admin property request stall segments rank published zero-response demand", () => {
+  const rows = buildPropertyRequestStallSegments(requests, responses);
+  assert.deepEqual(rows[0], {
+    key: "NG:rent",
+    label: "NG · Rent",
+    requestsPublished: 2,
+    requestsWithoutResponses: 1,
+    zeroResponseRate: 0.5,
+    totalResponsesSent: 2,
   });
 });

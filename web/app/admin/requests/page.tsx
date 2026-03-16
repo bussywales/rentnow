@@ -5,7 +5,10 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import {
   buildPropertyRequestAdminAnalytics,
+  buildPropertyRequestBreakdownByIntent,
+  buildPropertyRequestBreakdownByMarket,
   buildPropertyRequestResponseSummaryMap,
+  buildPropertyRequestStallSegments,
   matchesAdminPropertyRequestListFilters,
   parseAdminPropertyRequestListFilters,
   type PropertyRequestAnalyticsResponseRow,
@@ -36,6 +39,11 @@ function formatDate(value: string | null) {
 function formatHours(value: number | null) {
   if (value === null) return "—";
   return `${value.toFixed(1)}h`;
+}
+
+function formatRate(value: number | null) {
+  if (value === null) return "—";
+  return `${Math.round(value * 100)}%`;
 }
 
 export default async function AdminPropertyRequestsPage({ searchParams }: Props) {
@@ -83,6 +91,9 @@ export default async function AdminPropertyRequestsPage({ searchParams }: Props)
   const responseRows = (responseRowsResult.data ?? []) as PropertyRequestAnalyticsResponseRow[];
   const responseSummary = buildPropertyRequestResponseSummaryMap(requests, responseRows);
   const analytics = buildPropertyRequestAdminAnalytics(requests, responseRows);
+  const byIntent = buildPropertyRequestBreakdownByIntent(requests, responseRows);
+  const byMarket = buildPropertyRequestBreakdownByMarket(requests, responseRows);
+  const stallSegments = buildPropertyRequestStallSegments(requests, responseRows).slice(0, 6);
   const ownerMap = new Map(
     ((ownerProfilesResult.data ?? []) as Array<{ id: string; full_name: string | null; role: string | null }>).map((row) => [
       row.id,
@@ -108,7 +119,9 @@ export default async function AdminPropertyRequestsPage({ searchParams }: Props)
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="admin-requests-analytics">
         <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
           <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"><p className="text-xs uppercase tracking-wide text-slate-500">Created</p><p className="mt-2 text-2xl font-semibold text-slate-900">{analytics.requestsCreated}</p></div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"><p className="text-xs uppercase tracking-wide text-slate-500">Published</p><p className="mt-2 text-2xl font-semibold text-slate-900">{analytics.requestsPublished}</p></div>
           <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"><p className="text-xs uppercase tracking-wide text-slate-500">Open</p><p className="mt-2 text-2xl font-semibold text-slate-900">{analytics.openRequests}</p></div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"><p className="text-xs uppercase tracking-wide text-slate-500">Matched</p><p className="mt-2 text-2xl font-semibold text-slate-900">{analytics.matchedRequests}</p></div>
           <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"><p className="text-xs uppercase tracking-wide text-slate-500">Closed</p><p className="mt-2 text-2xl font-semibold text-slate-900">{analytics.closedRequests}</p></div>
           <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"><p className="text-xs uppercase tracking-wide text-slate-500">Expired</p><p className="mt-2 text-2xl font-semibold text-slate-900">{analytics.expiredRequests}</p></div>
           <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"><p className="text-xs uppercase tracking-wide text-slate-500">Removed</p><p className="mt-2 text-2xl font-semibold text-slate-900">{analytics.removedRequests}</p></div>
@@ -116,7 +129,11 @@ export default async function AdminPropertyRequestsPage({ searchParams }: Props)
           <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"><p className="text-xs uppercase tracking-wide text-slate-500">Zero-response</p><p className="mt-2 text-2xl font-semibold text-slate-900">{analytics.requestsWithoutResponses}</p></div>
           <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"><p className="text-xs uppercase tracking-wide text-slate-500">Responses sent</p><p className="mt-2 text-2xl font-semibold text-slate-900">{analytics.totalResponsesSent}</p></div>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-700">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Response rate</p>
+            <p className="mt-2 text-xl font-semibold text-slate-900">{formatRate(analytics.responseRate)}</p>
+          </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-700">
             <p className="text-xs uppercase tracking-wide text-slate-500">Average first response</p>
             <p className="mt-2 text-xl font-semibold text-slate-900">{formatHours(analytics.averageFirstResponseHours)}</p>
@@ -126,6 +143,111 @@ export default async function AdminPropertyRequestsPage({ searchParams }: Props)
             <p className="mt-2 text-xl font-semibold text-slate-900">{formatHours(analytics.medianFirstResponseHours)}</p>
           </div>
         </div>
+        <div className="mt-5 grid gap-5 xl:grid-cols-2">
+          <section className="rounded-xl border border-slate-200" data-testid="admin-requests-by-intent">
+            <div className="border-b border-slate-100 px-4 py-3">
+              <h2 className="text-sm font-semibold text-slate-900">By intent</h2>
+              <p className="text-xs text-slate-500">Created, published, and response traction by demand type.</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-4 py-2">Intent</th>
+                    <th className="px-4 py-2">Created</th>
+                    <th className="px-4 py-2">Published</th>
+                    <th className="px-4 py-2">With response</th>
+                    <th className="px-4 py-2">Zero-response</th>
+                    <th className="px-4 py-2">Response rate</th>
+                    <th className="px-4 py-2">Avg first response</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {byIntent.map((row) => (
+                    <tr key={row.key}>
+                      <td className="px-4 py-2 font-medium text-slate-900">{row.label}</td>
+                      <td className="px-4 py-2">{row.requestsCreated}</td>
+                      <td className="px-4 py-2">{row.requestsPublished}</td>
+                      <td className="px-4 py-2">{row.requestsWithResponses}</td>
+                      <td className="px-4 py-2">{row.requestsWithoutResponses}</td>
+                      <td className="px-4 py-2">{formatRate(row.responseRate)}</td>
+                      <td className="px-4 py-2">{formatHours(row.averageFirstResponseHours)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-slate-200" data-testid="admin-requests-by-market">
+            <div className="border-b border-slate-100 px-4 py-3">
+              <h2 className="text-sm font-semibold text-slate-900">By market</h2>
+              <p className="text-xs text-slate-500">Where demand is landing and where responses are actually happening.</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-4 py-2">Market</th>
+                    <th className="px-4 py-2">Created</th>
+                    <th className="px-4 py-2">Published</th>
+                    <th className="px-4 py-2">With response</th>
+                    <th className="px-4 py-2">Zero-response</th>
+                    <th className="px-4 py-2">Responses</th>
+                    <th className="px-4 py-2">Median first response</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {byMarket.map((row) => (
+                    <tr key={row.key}>
+                      <td className="px-4 py-2 font-medium text-slate-900">{row.label}</td>
+                      <td className="px-4 py-2">{row.requestsCreated}</td>
+                      <td className="px-4 py-2">{row.requestsPublished}</td>
+                      <td className="px-4 py-2">{row.requestsWithResponses}</td>
+                      <td className="px-4 py-2">{row.requestsWithoutResponses}</td>
+                      <td className="px-4 py-2">{row.totalResponsesSent}</td>
+                      <td className="px-4 py-2">{formatHours(row.medianFirstResponseHours)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+        <section className="mt-5 rounded-xl border border-slate-200" data-testid="admin-requests-stall-segments">
+          <div className="border-b border-slate-100 px-4 py-3">
+            <h2 className="text-sm font-semibold text-slate-900">Stall segments</h2>
+            <p className="text-xs text-slate-500">Published request segments currently stalling with zero responses.</p>
+          </div>
+          {stallSegments.length === 0 ? (
+            <div className="px-4 py-4 text-sm text-slate-600">No published request segments are currently stalling.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-4 py-2">Segment</th>
+                    <th className="px-4 py-2">Published</th>
+                    <th className="px-4 py-2">Zero-response</th>
+                    <th className="px-4 py-2">Zero-response rate</th>
+                    <th className="px-4 py-2">Responses</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {stallSegments.map((row) => (
+                    <tr key={row.key}>
+                      <td className="px-4 py-2 font-medium text-slate-900">{row.label}</td>
+                      <td className="px-4 py-2">{row.requestsPublished}</td>
+                      <td className="px-4 py-2">{row.requestsWithoutResponses}</td>
+                      <td className="px-4 py-2">{formatRate(row.zeroResponseRate)}</td>
+                      <td className="px-4 py-2">{row.totalResponsesSent}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </section>
 
       <form method="get" className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
