@@ -23,8 +23,16 @@ void test("admin overview + listings registry are wired to new workspaces", () =
     "expected link to /admin/analytics in overview"
   );
   assert.ok(
+    adminContents.includes("href=\"/admin/requests\""),
+    "expected link to /admin/requests in overview"
+  );
+  assert.ok(
     adminContents.includes("Analytics"),
     "expected Analytics label in admin control panel links"
+  );
+  assert.ok(
+    adminContents.includes("Requests"),
+    "expected Requests label in admin control panel links"
   );
   assert.ok(
     !adminContents.includes("href=\"/admin/insights\""),

@@ -30,6 +30,14 @@ void test("tenant workspace renders tenant-focused panels", () => {
     "expected saved searches panel"
   );
   assert.ok(
+    contents.includes("My Requests"),
+    "expected my requests quick action"
+  );
+  assert.ok(
+    contents.includes('"/requests/my"'),
+    "expected quick action href for property requests"
+  );
+  assert.ok(
     contents.includes("Messages"),
     "expected messages panel"
   );

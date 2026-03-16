@@ -24,9 +24,13 @@ void test("landlord sidebar items are limited to core host workspace links", () 
   assert.deepEqual(sections.map((section) => section.label), ["Core"]);
   assert.deepEqual(
     items.map((item) => item.href),
-    ["/host", "/host/listings", "/host/bookings", "/host/calendar", "/host/earnings"]
+    ["/host", "/host/listings", "/requests", "/host/bookings", "/host/calendar", "/host/earnings"]
   );
   assert.equal(items.find((item) => item.href === "/host/bookings")?.badgeCount, 4);
+  assert.equal(
+    items.find((item) => item.href === "/requests")?.label,
+    "Property Requests"
+  );
   assert.equal(
     items.some((item) => item.href === "/dashboard/messages"),
     false,
@@ -49,6 +53,7 @@ void test("agent sidebar extends landlord links with agent workspace links", () 
   ]);
   assert.ok(items.some((item) => item.href === "/profile/clients"));
   assert.ok(items.some((item) => item.href === "/host/leads"));
+  assert.ok(items.some((item) => item.href === "/requests"));
   assert.ok(items.some((item) => item.href === "/dashboard/referrals"));
   assert.ok(items.some((item) => item.href === "/dashboard/messages"));
   assert.ok(items.some((item) => item.href === "/dashboard/agent-network"));

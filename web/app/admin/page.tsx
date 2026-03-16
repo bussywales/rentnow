@@ -247,6 +247,12 @@ export default async function AdminOverviewPage() {
             Analytics
           </Link>
           <Link
+            href="/admin/requests"
+            className="inline-flex items-center justify-center rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
+          >
+            Requests
+          </Link>
+          <Link
             href="/admin/listings"
             className="inline-flex items-center justify-center rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
           >

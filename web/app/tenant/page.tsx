@@ -282,6 +282,7 @@ export default async function TenantWorkspace() {
   const secondaryCta = { href: "/properties", label: "Browse homes" };
   const quickActions = [
     { href: "/properties", label: "Browse homes" },
+    { href: "/requests/my", label: "My Requests" },
     { href: "/trips", label: "Trips" },
     { href: "/tenant/saved-searches", label: "Saved searches" },
     { href: "/tenant/messages", label: "Messages" },

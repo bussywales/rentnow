@@ -55,6 +55,7 @@ export function getWorkspaceSidebarSections(
   const coreItems: WorkspaceSidebarItem[] = [
     { key: "overview", label: "Overview", href: "/host" },
     { key: "listings", label: "Listings", href: "/host/listings" },
+    { key: "property-requests", label: "Property Requests", href: "/requests" },
     {
       key: "bookings",
       label: "Bookings",
