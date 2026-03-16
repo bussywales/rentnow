@@ -6,6 +6,7 @@ import useEmblaCarousel from "embla-carousel-react";
 import Image from "next/image";
 import type { ImageLoader } from "next/image";
 import Link from "next/link";
+import { useImageOptimizationMode } from "@/components/layout/ImageOptimizationModeProvider";
 import { cn } from "@/components/ui/cn";
 import {
   accumulateWheelDelta,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/ui/carousel-interactions";
 import { resolveImageLoadingProfile } from "@/lib/images/loading-profile";
 import { shouldBypassNextImageOptimizer } from "@/lib/images/optimizer-bypass";
+import { shouldDisableImageOptimizationForUsage } from "@/lib/media/image-optimization-mode";
 import {
   normalizeHexColor,
   resolveImagePlaceholder,
@@ -272,6 +274,7 @@ export function UnifiedImageCarousel({
   onCarouselReady,
   onImageError,
 }: Props) {
+  const optimizationMode = useImageOptimizationMode();
   const inputTotalImages = items.length > 0 ? items.length : 1;
   const allowDrag = inputTotalImages > 1;
   const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
@@ -671,6 +674,11 @@ export function UnifiedImageCarousel({
               fallbackBlurDataURL: blurDataURL,
             });
             const bypassOptimizer = shouldBypassNextImageOptimizer(item.src);
+            const unoptimized = shouldDisableImageOptimizationForUsage({
+              mode: optimizationMode,
+              usage: "critical",
+              bypassOptimizer,
+            });
             const imageLoading = resolveImageLoadingProfile(prioritizeFirstImage && index === 0);
             const imageElement = (
               <div
@@ -706,8 +714,8 @@ export function UnifiedImageCarousel({
                     placeholder="blur"
                     blurDataURL={placeholder.blurDataURL}
                     draggable={false}
-                    unoptimized={bypassOptimizer}
-                    loader={bypassOptimizer ? directImageLoader : undefined}
+                    unoptimized={unoptimized}
+                    loader={unoptimized ? directImageLoader : undefined}
                     onLoad={(event) => {
                       handleImageLoad(loadKey, event.currentTarget);
                     }}

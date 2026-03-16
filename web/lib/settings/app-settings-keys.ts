@@ -54,6 +54,7 @@ export const APP_SETTING_KEYS = {
   exploreEnabled: "explore_enabled",
   exploreV2TrustCueEnabled: "explore_v2_trust_cue_enabled",
   exploreV2CtaCopyVariant: "explore_v2_cta_copy_variant",
+  imageOptimizationMode: "image_optimization_mode",
   exploreAnalyticsEnabled: "explore_analytics_enabled",
   exploreAnalyticsConsentRequired: "explore_analytics_consent_required",
   exploreAnalyticsNoticeEnabled: "explore_analytics_notice_enabled",

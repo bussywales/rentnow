@@ -21,6 +21,8 @@ export const DEFAULT_ALERTS_LAST_RUN_STATUS: AlertsLastRunStatus = {
   disabled_reason: null,
 };
 
+export { normalizeImageOptimizationMode } from "@/lib/media/image-optimization-mode";
+
 export function parseAppSettingBool(value: unknown, defaultValue: boolean) {
   if (typeof value === "boolean") return value;
   if (typeof value === "object" && value !== null && "enabled" in value) {

@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import Image from "next/image";
 import type { PropertyImage } from "@/lib/types";
+import { useImageOptimizationMode } from "@/components/layout/ImageOptimizationModeProvider";
 import { shouldRenderDemoWatermark } from "@/lib/properties/demo";
 import { shouldRenderImageCountBadge } from "@/components/properties/PropertyImageCarousel";
 import { cn } from "@/components/ui/cn";
 import { resolvePropertyImageUrl } from "@/lib/properties/image-url";
 import { shouldBypassNextImageOptimizer } from "@/lib/images/optimizer-bypass";
+import { shouldDisableImageOptimizationForUsage } from "@/lib/media/image-optimization-mode";
 import {
   PropertyImageCarousel,
   type PropertyImageCarouselController,
@@ -24,6 +26,7 @@ const blurDataURL =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
 
 export function PropertyGallery({ images, title, isDemo = false }: Props) {
+  const optimizationMode = useImageOptimizationMode();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [carouselController, setCarouselController] =
     useState<PropertyImageCarouselController | null>(null);
@@ -147,6 +150,12 @@ export function PropertyGallery({ images, title, isDemo = false }: Props) {
           <div className="flex w-full max-w-full min-w-0 gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {safeImages.map((img, idx) => {
               const thumbnailSrc = resolveSrc(img, idx);
+              const bypassOptimizer = shouldBypassNextImageOptimizer(thumbnailSrc);
+              const unoptimized = shouldDisableImageOptimizationForUsage({
+                mode: optimizationMode,
+                usage: "critical",
+                bypassOptimizer,
+              });
               return (
                 <button
                   key={img.id || idx}
@@ -177,7 +186,7 @@ export function PropertyGallery({ images, title, isDemo = false }: Props) {
                     sizes="96px"
                     placeholder="blur"
                     blurDataURL={blurDataURL}
-                    unoptimized={shouldBypassNextImageOptimizer(thumbnailSrc)}
+                    unoptimized={unoptimized}
                     onError={() => markBroken(img, idx)}
                   />
                 </button>

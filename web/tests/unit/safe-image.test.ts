@@ -6,6 +6,10 @@ import {
   shouldBypassNextImageOptimizer,
   shouldUpgradeImageUrlToHttps,
 } from "@/lib/media/safe-image";
+import {
+  normalizeImageOptimizationMode,
+  shouldDisableImageOptimizationForUsage,
+} from "@/lib/media/image-optimization-mode";
 
 void test("safe-image bypasses Next optimizer for Supabase storage hosts", () => {
   assert.equal(
@@ -31,8 +35,64 @@ void test("SafeImage uses next/image with unoptimized mode when bypass host matc
   const source = fs.readFileSync(filePath, "utf8");
 
   assert.match(source, /import Image, \{ type ImageLoader, type ImageProps \} from "next\/image"/);
-  assert.match(source, /import \{ shouldBypassNextImageOptimizer \} from "@\/lib\/media\/safe-image"/);
+  assert.match(source, /useImageOptimizationMode/);
+  assert.match(source, /shouldDisableImageOptimizationForUsage/);
   assert.match(source, /const bypassOptimizer = useMemo\(\(\) => shouldBypassNextImageOptimizer\(src\), \[src\]\)/);
-  assert.match(source, /unoptimized=\{bypassOptimizer\}/);
-  assert.match(source, /loader=\{bypassOptimizer \? directImageLoader : undefined\}/);
+  assert.match(source, /usage = "noncritical"/);
+  assert.match(source, /const unoptimized = useMemo/);
+  assert.match(source, /unoptimized=\{unoptimized\}/);
+  assert.match(source, /loader=\{unoptimized \? directImageLoader : undefined\}/);
+});
+
+void test("image optimisation mode normalizes supported values and falls back safely", () => {
+  assert.equal(normalizeImageOptimizationMode("vercel_default"), "vercel_default");
+  assert.equal(
+    normalizeImageOptimizationMode({ value: "disable_non_critical" }),
+    "disable_non_critical"
+  );
+  assert.equal(normalizeImageOptimizationMode({ value: "disable_all" }), "disable_all");
+  assert.equal(normalizeImageOptimizationMode({ value: "bad-mode" }), "vercel_default");
+});
+
+void test("image optimisation mode resolver respects usage and hard bypass rules", () => {
+  assert.equal(
+    shouldDisableImageOptimizationForUsage({
+      mode: "vercel_default",
+      usage: "noncritical",
+      bypassOptimizer: false,
+    }),
+    false
+  );
+  assert.equal(
+    shouldDisableImageOptimizationForUsage({
+      mode: "disable_non_critical",
+      usage: "noncritical",
+      bypassOptimizer: false,
+    }),
+    true
+  );
+  assert.equal(
+    shouldDisableImageOptimizationForUsage({
+      mode: "disable_non_critical",
+      usage: "critical",
+      bypassOptimizer: false,
+    }),
+    false
+  );
+  assert.equal(
+    shouldDisableImageOptimizationForUsage({
+      mode: "disable_all",
+      usage: "critical",
+      bypassOptimizer: false,
+    }),
+    true
+  );
+  assert.equal(
+    shouldDisableImageOptimizationForUsage({
+      mode: "vercel_default",
+      usage: "critical",
+      bypassOptimizer: true,
+    }),
+    true
+  );
 });

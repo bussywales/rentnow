@@ -52,5 +52,8 @@ void test("detail gallery normalizes thumbnail/image sources and uses local fall
   assert.ok(contents.includes('const fallbackImage = "/og-propatyhub.png"'));
   assert.ok(contents.includes('resolvePropertyImageUrl(img, "thumb")'));
   assert.ok(contents.includes('resolvePropertyImageUrl(img, "hero")'));
-  assert.ok(contents.includes('unoptimized={shouldBypassNextImageOptimizer(thumbnailSrc)}'));
+  assert.ok(contents.includes('const optimizationMode = useImageOptimizationMode()'));
+  assert.ok(contents.includes("const unoptimized = shouldDisableImageOptimizationForUsage({"));
+  assert.ok(contents.includes('usage: "critical"'));
+  assert.ok(contents.includes("unoptimized={unoptimized}"));
 });

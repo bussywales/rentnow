@@ -4,6 +4,11 @@ import { useMemo, useState, type ReactNode } from "react";
 import Image, { type ImageLoader, type ImageProps } from "next/image";
 import { cn } from "@/components/ui/cn";
 import { shouldBypassNextImageOptimizer } from "@/lib/media/safe-image";
+import { useImageOptimizationMode } from "@/components/layout/ImageOptimizationModeProvider";
+import {
+  shouldDisableImageOptimizationForUsage,
+  type ImageOptimizationUsage,
+} from "@/lib/media/image-optimization-mode";
 
 const directImageLoader: ImageLoader = ({ src }) => src;
 
@@ -13,6 +18,7 @@ export type SafeImageProps = Omit<ImageProps, "src" | "alt"> & {
   wrapperClassName?: string;
   fallbackLabel?: string;
   fallbackContent?: ReactNode;
+  usage?: ImageOptimizationUsage;
 };
 
 export function SafeImage({
@@ -22,6 +28,7 @@ export function SafeImage({
   wrapperClassName,
   fallbackLabel = "Image unavailable",
   fallbackContent,
+  usage = "noncritical",
   onLoad,
   onError,
   fill,
@@ -29,7 +36,17 @@ export function SafeImage({
 }: SafeImageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const optimizationMode = useImageOptimizationMode();
   const bypassOptimizer = useMemo(() => shouldBypassNextImageOptimizer(src), [src]);
+  const unoptimized = useMemo(
+    () =>
+      shouldDisableImageOptimizationForUsage({
+        mode: optimizationMode,
+        usage,
+        bypassOptimizer,
+      }),
+    [bypassOptimizer, optimizationMode, usage]
+  );
 
   return (
     <div
@@ -55,8 +72,8 @@ export function SafeImage({
           src={src}
           alt={alt}
           className={className}
-          unoptimized={bypassOptimizer}
-          loader={bypassOptimizer ? directImageLoader : undefined}
+          unoptimized={unoptimized}
+          loader={unoptimized ? directImageLoader : undefined}
           onLoad={(event) => {
             setIsLoaded(true);
             onLoad?.(event);

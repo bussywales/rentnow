@@ -31,8 +31,10 @@ import {
   type MarketSettings,
 } from "@/lib/market/market";
 import { MarketPreferenceProvider } from "@/components/layout/MarketPreferenceProvider";
+import { ImageOptimizationModeProvider } from "@/components/layout/ImageOptimizationModeProvider";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { normalizeRole } from "@/lib/roles";
+import { normalizeImageOptimizationMode } from "@/lib/media/image-optimization-mode";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -63,6 +65,7 @@ const ROOT_LAYOUT_SETTING_KEYS = [
   APP_SETTING_KEYS.defaultMarketCurrency,
   APP_SETTING_KEYS.marketAutoDetectEnabled,
   APP_SETTING_KEYS.marketSelectorEnabled,
+  APP_SETTING_KEYS.imageOptimizationMode,
   APP_SETTING_KEYS.brandSocialInstagramUrl,
   APP_SETTING_KEYS.brandSocialYoutubeUrl,
   APP_SETTING_KEYS.brandSocialTiktokUrl,
@@ -193,6 +196,10 @@ export default async function RootLayout({
       DEFAULT_MARKET_SETTINGS.selectorEnabled
     ),
   };
+  const imageOptimizationMode = normalizeImageOptimizationMode(
+    settingsMap.get(APP_SETTING_KEYS.imageOptimizationMode),
+    "vercel_default"
+  );
 
   socialLinks = resolveBrandSocialLinks({
     instagram: parseAppSettingString(settingsMap.get(APP_SETTING_KEYS.brandSocialInstagramUrl), ""),
@@ -233,33 +240,35 @@ export default async function RootLayout({
             <AppStartupShellRemover />
           </>
         ) : null}
-        <MarketPreferenceProvider initialMarket={market}>
-          <MainNav
-            marketSelectorEnabled={marketSettings.selectorEnabled}
-            initialAuthed={navInitialAuthed}
-            initialRole={navInitialRole}
-            socialLinks={socialLinks}
-          />
-          <SessionBootstrap />
-          <LegalAcceptanceModalGate />
-          <Suspense fallback={null}>
-            <ToastNotice />
-          </Suspense>
-          <MarketSwitchToast />
-          <OfflineIndicator />
-          <PwaServiceWorker />
-          <main className="min-h-[80vh] pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] pt-6 md:pb-24">
-            {children}
-          </main>
-          <SupportWidget
-            prefillName={supportPrefillName}
-            prefillEmail={supportPrefillEmail}
-            prefillRole={supportPrefillRole}
-          />
-          <GlassDock />
-          <Footer />
-          <LegalDisclaimerBanner />
-        </MarketPreferenceProvider>
+        <ImageOptimizationModeProvider mode={imageOptimizationMode}>
+          <MarketPreferenceProvider initialMarket={market}>
+            <MainNav
+              marketSelectorEnabled={marketSettings.selectorEnabled}
+              initialAuthed={navInitialAuthed}
+              initialRole={navInitialRole}
+              socialLinks={socialLinks}
+            />
+            <SessionBootstrap />
+            <LegalAcceptanceModalGate />
+            <Suspense fallback={null}>
+              <ToastNotice />
+            </Suspense>
+            <MarketSwitchToast />
+            <OfflineIndicator />
+            <PwaServiceWorker />
+            <main className="min-h-[80vh] pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] pt-6 md:pb-24">
+              {children}
+            </main>
+            <SupportWidget
+              prefillName={supportPrefillName}
+              prefillEmail={supportPrefillEmail}
+              prefillRole={supportPrefillRole}
+            />
+            <GlassDock />
+            <Footer />
+            <LegalDisclaimerBanner />
+          </MarketPreferenceProvider>
+        </ImageOptimizationModeProvider>
       </body>
     </html>
   );

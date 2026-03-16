@@ -39,6 +39,8 @@ import AdminSettingsDemoVisibilityPolicy from "@/components/admin/AdminSettingsD
 import { normalizeDemoListingsVisibilityPolicy } from "@/lib/properties/demo";
 import AdminSettingsExploreV2CtaCopy from "@/components/admin/AdminSettingsExploreV2CtaCopy";
 import { normalizeExploreV2CtaCopyVariant } from "@/lib/explore/explore-presentation";
+import AdminSettingsImageOptimizationMode from "@/components/admin/AdminSettingsImageOptimizationMode";
+import { normalizeImageOptimizationMode } from "@/lib/media/image-optimization-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +77,7 @@ export default async function AdminSettingsPage() {
       APP_SETTING_KEYS.exploreEnabled,
       APP_SETTING_KEYS.exploreV2TrustCueEnabled,
       APP_SETTING_KEYS.exploreV2CtaCopyVariant,
+      APP_SETTING_KEYS.imageOptimizationMode,
       APP_SETTING_KEYS.defaultMarketCountry,
       APP_SETTING_KEYS.defaultMarketCurrency,
       APP_SETTING_KEYS.marketAutoDetectEnabled,
@@ -194,6 +197,9 @@ export default async function AdminSettingsPage() {
   const exploreV2CtaCopyVariantRow = data?.find(
     (item) => item.key === APP_SETTING_KEYS.exploreV2CtaCopyVariant
   );
+  const imageOptimizationModeRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.imageOptimizationMode
+  );
   const marketCurrencyRow = data?.find(
     (item) => item.key === APP_SETTING_KEYS.defaultMarketCurrency
   );
@@ -239,6 +245,10 @@ export default async function AdminSettingsPage() {
   };
   const exploreV2CtaCopyVariant = normalizeExploreV2CtaCopyVariant(
     parseAppSettingString(exploreV2CtaCopyVariantRow?.value, "default")
+  );
+  const imageOptimizationMode = normalizeImageOptimizationMode(
+    imageOptimizationModeRow?.value,
+    "vercel_default"
   );
 
   const brandSocialSettings = {
@@ -390,6 +400,18 @@ export default async function AdminSettingsPage() {
       description: "Global feature switches and guard toggles for tenant, host, and admin surfaces.",
       keywords: ["feature", "toggle", "alerts", "verification", "explore", "shortlet"],
       content: <AdminSettingsFeatureFlags settings={settings} />,
+    },
+    {
+      id: "image-optimisation",
+      title: "Image optimisation mode",
+      description: "Operational control for shared image optimisation when transform usage spikes.",
+      keywords: ["images", "optimisation", "unoptimized", "vercel", "ops", "media"],
+      content: (
+        <AdminSettingsImageOptimizationMode
+          mode={imageOptimizationMode}
+          updatedAt={imageOptimizationModeRow?.updated_at ?? null}
+        />
+      ),
     },
     {
       id: "explore-v2-cta-copy",

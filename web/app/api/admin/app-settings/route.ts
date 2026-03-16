@@ -10,6 +10,7 @@ import {
   APP_SETTING_KEYS,
   type AppSettingKey,
 } from "@/lib/settings/app-settings-keys";
+import { IMAGE_OPTIMIZATION_MODES } from "@/lib/media/image-optimization-mode";
 
 const ALLOWED_KEYS = APP_SETTING_KEY_LIST as [AppSettingKey, ...AppSettingKey[]];
 const routeLabel = "/api/admin/app-settings";
@@ -37,6 +38,9 @@ const textValueSchema = z.object({
 });
 const exploreV2CtaCopyVariantValueSchema = z.object({
   value: z.enum(["default", "clarity", "action"]),
+});
+const imageOptimizationModeValueSchema = z.object({
+  value: z.enum(IMAGE_OPTIMIZATION_MODES),
 });
 const socialValueSchema = z.object({
   value: z.string().trim().max(2048),
@@ -106,6 +110,7 @@ export const patchSchema = z.object({
     numericValueSchema,
     textValueSchema,
     exploreV2CtaCopyVariantValueSchema,
+    imageOptimizationModeValueSchema,
     socialValueSchema,
     demoListingsVisibilityPolicyValueSchema,
     referralEnabledLevelsSchema,
@@ -168,6 +173,7 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   const isDefaultMarketCountry = key === APP_SETTING_KEYS.defaultMarketCountry;
   const isDefaultMarketCurrency = key === APP_SETTING_KEYS.defaultMarketCurrency;
   const isExploreV2CtaCopyVariant = key === APP_SETTING_KEYS.exploreV2CtaCopyVariant;
+  const isImageOptimizationMode = key === APP_SETTING_KEYS.imageOptimizationMode;
   const isMarketAutoDetectEnabled = key === APP_SETTING_KEYS.marketAutoDetectEnabled;
   const isMarketSelectorEnabled = key === APP_SETTING_KEYS.marketSelectorEnabled;
   const isBrandSocialInstagram = key === APP_SETTING_KEYS.brandSocialInstagramUrl;
@@ -236,6 +242,9 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   }
   if (isExploreV2CtaCopyVariant) {
     return exploreV2CtaCopyVariantValueSchema.safeParse(value).success;
+  }
+  if (isImageOptimizationMode) {
+    return imageOptimizationModeValueSchema.safeParse(value).success;
   }
   if (isMarketAutoDetectEnabled) return enabledValueSchema.safeParse(value).success;
   if (isMarketSelectorEnabled) return enabledValueSchema.safeParse(value).success;
