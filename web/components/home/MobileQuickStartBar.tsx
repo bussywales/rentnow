@@ -109,9 +109,16 @@ const QUICK_START_LINKS = [
 
 type MobileQuickStartBarProps = {
   showExploreChip?: boolean;
+  requestAction?: {
+    href: string;
+    label: string;
+  } | null;
 };
 
-export function MobileQuickStartBar({ showExploreChip = true }: MobileQuickStartBarProps) {
+export function MobileQuickStartBar({
+  showExploreChip = true,
+  requestAction = null,
+}: MobileQuickStartBarProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const { market } = useMarketPreference();
   const quickSearchSheetId = "mobile-quicksearch-sheet-dialog";
@@ -137,6 +144,27 @@ export function MobileQuickStartBar({ showExploreChip = true }: MobileQuickStart
         Search for homes or stays
       </button>
       <div className="scrollbar-none -mx-1 mt-3 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1">
+        {requestAction ? (
+          <Link
+            href={requestAction.href}
+            className="inline-flex snap-start shrink-0 items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700"
+            data-testid="mobile-quickstart-chip-request"
+          >
+            <span className="text-sky-600">
+              <svg viewBox="0 0 24 24" aria-hidden className="h-4 w-4">
+                <path
+                  d="M5 12h14M12 5l7 7-7 7"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            {requestAction.label}
+          </Link>
+        ) : null}
         {quickStartLinks.map((entry) => (
           <Link
             key={entry.key}

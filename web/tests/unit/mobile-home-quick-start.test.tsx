@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { buildMobileQuickSearchHref } from "@/components/home/MobileQuickSearchSheet";
+import { getPropertyRequestQuickStartEntry } from "@/lib/requests/property-request-entry";
 
 void test("mobile quick-start renders search entry and category shortcuts", () => {
   const sourcePath = path.join(process.cwd(), "components", "home", "MobileQuickStartBar.tsx");
@@ -16,10 +17,36 @@ void test("mobile quick-start renders search entry and category shortcuts", () =
   assert.match(source, /aria-controls=\{quickSearchSheetId\}/);
   assert.match(source, /data-testid={`mobile-quickstart-chip-\$\{entry\.key\}`}/);
   assert.match(source, /href=\{entry\.href\}/);
+  assert.match(source, /data-testid="mobile-quickstart-chip-request"/);
+  assert.match(source, /requestAction\.label/);
+  assert.match(source, /requestAction\.href/);
+  assert.equal(
+    source.split('data-testid="mobile-quickstart-chip-request"').length - 1,
+    1,
+    "expected a single request quick-start chip marker"
+  );
   assert.match(source, /md:hidden/);
   assert.match(source, /sticky top-\[72px\] z-20/);
   assert.match(source, /snap-x snap-mandatory/);
   assert.match(source, /scrollbar-none/);
+});
+
+void test("property request quick-start entry is tenant-safe and login-safe", () => {
+  assert.deepEqual(getPropertyRequestQuickStartEntry("tenant"), {
+    label: "Make a Request",
+    href: "/requests/new",
+  });
+
+  assert.deepEqual(getPropertyRequestQuickStartEntry(null), {
+    label: "Make a Request",
+    href: "/auth/login?reason=auth&redirect=%2Frequests%2Fnew",
+  });
+});
+
+void test("property request quick-start entry stays hidden for non-seeker roles", () => {
+  assert.equal(getPropertyRequestQuickStartEntry("landlord"), null);
+  assert.equal(getPropertyRequestQuickStartEntry("agent"), null);
+  assert.equal(getPropertyRequestQuickStartEntry("admin"), null);
 });
 
 void test("mobile quick search href builder maps category params safely", () => {
@@ -69,4 +96,6 @@ void test("public home mounts mobile quick-start before long-form hero content",
   assert.ok(quickStartIndex >= 0, "expected MobileQuickStartBar mount on public home");
   assert.ok(heroIndex >= 0, "expected hero section marker on public home");
   assert.ok(quickStartIndex < heroIndex, "expected quick-start block above hero section");
+  assert.match(source, /getPropertyRequestQuickStartEntry\(role\)/);
+  assert.match(source, /requestAction=\{requestQuickStartEntry\}/);
 });
