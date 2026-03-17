@@ -6,7 +6,9 @@ import { PropertyRequestResponseComposer } from "@/components/requests/PropertyR
 import { PropertyRequestResponsesSection } from "@/components/requests/PropertyRequestResponsesSection";
 import { PropertyRequestStatusBadge } from "@/components/requests/PropertyRequestStatusBadge";
 import {
+  PROPERTY_REQUEST_MAX_EXTENSION_COUNT,
   canSendPropertyRequestResponses,
+  canExtendPropertyRequestExpiry,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
   getPropertyRequestMoveTimelineLabel,
@@ -60,10 +62,13 @@ function RequestFact({ label, value }: { label: string; value: string }) {
 
 export default async function PropertyRequestDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
   const access = await requirePropertyRequestsViewerAccess(`/requests/${id}`, {
     allowRoles: ["tenant", "landlord", "agent", "admin"],
   });
@@ -79,6 +84,15 @@ export default async function PropertyRequestDetailPage({
   }
 
   const viewerCanManage = access.role === "tenant" && request.ownerUserId === access.userId;
+  const viewerCanExtend =
+    viewerCanManage &&
+    canExtendPropertyRequestExpiry({
+      status: request.status,
+      publishedAt: request.publishedAt,
+      expiresAt: request.expiresAt,
+      extensionCount: request.extensionCount,
+      now: new Date(),
+    });
   const viewerCanRespond = canSendPropertyRequestResponses({
     role: access.role,
     viewerUserId: access.userId,
@@ -105,6 +119,8 @@ export default async function PropertyRequestDetailPage({
   const responderSentListingIds = viewerCanRespond
     ? Array.from(new Set(responses.flatMap((response) => response.listings.map((listing) => listing.id))))
     : [];
+  const extendState =
+    typeof resolvedSearchParams.extend === "string" ? resolvedSearchParams.extend : null;
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-8">
@@ -141,6 +157,22 @@ export default async function PropertyRequestDetailPage({
           ) : null}
         </div>
       </header>
+
+      {extendState === "success" ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          Request extended by another 30 days.
+        </div>
+      ) : null}
+      {extendState === "unavailable" ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          This request cannot be extended right now.
+        </div>
+      ) : null}
+      {extendState === "error" ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          Unable to extend the request right now. Try again from this page.
+        </div>
+      ) : null}
 
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2">
@@ -194,6 +226,26 @@ export default async function PropertyRequestDetailPage({
             Publish when the request is ready, pause it back to draft if you want it hidden, or close
             it when you no longer need responses.
           </p>
+          {viewerCanExtend ? (
+            <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Keep this request live</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Extend the expiry by 30 days. You have{" "}
+                    {Math.max(PROPERTY_REQUEST_MAX_EXTENSION_COUNT - request.extensionCount, 0)}{" "}
+                    extension{PROPERTY_REQUEST_MAX_EXTENSION_COUNT - request.extensionCount === 1 ? "" : "s"} remaining.
+                  </p>
+                </div>
+                <Link
+                  href={`/requests/${request.id}/extend`}
+                  className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-sky-700"
+                >
+                  Extend 30 days
+                </Link>
+              </div>
+            </div>
+          ) : null}
           <div className="mt-4">
             <PropertyRequestManageActions requestId={request.id} status={request.status} />
           </div>

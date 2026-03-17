@@ -26,6 +26,8 @@ void test("property requests pages expose discovery and owner management routes"
   assert.match(detailPage, /PropertyRequestManageActions/);
   assert.match(detailPage, /PropertyRequestResponseComposer/);
   assert.match(detailPage, /PropertyRequestResponsesSection/);
+  assert.match(detailPage, /Extend 30 days/);
+  assert.match(detailPage, /keep this request live/i);
   assert.match(detailPage, /Back to request board/);
   assert.match(detailPage, /Seeker contact details remain private/);
   assert.match(detailPage, /Send matching listings/);

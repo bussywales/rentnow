@@ -1,0 +1,59 @@
+name: Property Request Reminders
+
+on:
+  schedule:
+    - cron: "15 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: property-request-reminders
+  cancel-in-progress: true
+
+jobs:
+  reminders:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call property request reminders endpoint
+        env:
+          APP_URL_SECRET: ${{ secrets.APP_URL }}
+        run: |
+          set -euo pipefail
+
+          APP_URL="${APP_URL_SECRET:-https://www.propatyhub.com}"
+          CRON_SECRET="${{ secrets.CRON_SECRET }}"
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "Missing required secret: CRON_SECRET"
+            exit 1
+          fi
+
+          REMINDERS_URL="${APP_URL%/}/api/internal/requests/send-expiry-reminders"
+          echo "Reminders URL: ${REMINDERS_URL}"
+
+          RESPONSE_BODY="$(mktemp)"
+          RESPONSE_HEADERS="$(mktemp)"
+          http_code="$(curl -sS \
+            -o "${RESPONSE_BODY}" \
+            -D "${RESPONSE_HEADERS}" \
+            -w "%{http_code}" \
+            -X POST "${REMINDERS_URL}" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "content-type: application/json" \
+            --data '{}')"
+
+          echo "HTTP status: ${http_code}"
+          cat "${RESPONSE_BODY}"
+
+          test "${http_code}" -ge 200
+          test "${http_code}" -lt 300
+
+          node -e '
+            const fs = require("fs");
+            const payload = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            if (!payload || payload.ok !== true) {
+              throw new Error("Property request reminders endpoint returned ok != true");
+            }
+          ' "${RESPONSE_BODY}"

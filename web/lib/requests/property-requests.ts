@@ -24,6 +24,11 @@ export const PROPERTY_REQUEST_RESPONSE_MAX_LISTINGS = 3;
 export const PROPERTY_REQUEST_RESPONSE_MESSAGE_MAX_LENGTH = 500;
 
 export const PROPERTY_REQUEST_DEFAULT_EXPIRY_DAYS = 30;
+export const PROPERTY_REQUEST_EXPIRY_REMINDER_DAYS = 3;
+export const PROPERTY_REQUEST_EXPIRY_REMINDER_CATCHUP_HOURS = 26;
+export const PROPERTY_REQUEST_EXPIRY_EXTENSION_DAYS = 30;
+export const PROPERTY_REQUEST_EXPIRY_EXTENSION_GRACE_DAYS = 7;
+export const PROPERTY_REQUEST_MAX_EXTENSION_COUNT = 2;
 export const PROPERTY_REQUEST_PROPERTY_TYPE_OPTIONS = [
   { value: "", label: "Any property type" },
   { value: "apartment", label: "Apartment" },
@@ -94,6 +99,8 @@ export type PropertyRequestRecord = {
   status: PropertyRequestStatus;
   published_at: string | null;
   expires_at: string | null;
+  extension_count?: number | null;
+  last_expiry_reminder_for_expires_at?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -120,6 +127,8 @@ export type PropertyRequest = {
   status: PropertyRequestStatus;
   publishedAt: string | null;
   expiresAt: string | null;
+  extensionCount: number;
+  lastExpiryReminderForExpiresAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -383,6 +392,70 @@ export function resolvePropertyRequestLifecycleDates(input: {
   return { publishedAt, expiresAt };
 }
 
+function parseValidTimestamp(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function isPropertyRequestDueForExpiryReminder(input: {
+  status: PropertyRequestStatus;
+  publishedAt?: string | null;
+  expiresAt?: string | null;
+  lastReminderForExpiresAt?: string | null;
+  now?: Date;
+}): boolean {
+  if (input.status !== "open") return false;
+  if (!input.publishedAt) return false;
+
+  const expiresAtMs = parseValidTimestamp(input.expiresAt);
+  if (expiresAtMs === null) return false;
+  if (input.lastReminderForExpiresAt && input.lastReminderForExpiresAt === input.expiresAt) {
+    return false;
+  }
+
+  const reminderAtMs =
+    expiresAtMs - PROPERTY_REQUEST_EXPIRY_REMINDER_DAYS * 24 * 60 * 60 * 1000;
+  const nowMs = (input.now ?? new Date()).getTime();
+  if (reminderAtMs > nowMs) return false;
+
+  return nowMs - reminderAtMs <= PROPERTY_REQUEST_EXPIRY_REMINDER_CATCHUP_HOURS * 60 * 60 * 1000;
+}
+
+export function canExtendPropertyRequestExpiry(input: {
+  status: PropertyRequestStatus;
+  publishedAt?: string | null;
+  expiresAt?: string | null;
+  extensionCount?: number | null;
+  now?: Date;
+}): boolean {
+  if (input.status !== "open") return false;
+  if (!input.publishedAt) return false;
+  if ((input.extensionCount ?? 0) >= PROPERTY_REQUEST_MAX_EXTENSION_COUNT) return false;
+
+  const expiresAtMs = parseValidTimestamp(input.expiresAt);
+  if (expiresAtMs === null) return false;
+
+  const nowMs = (input.now ?? new Date()).getTime();
+  const extensionWindowStartMs =
+    expiresAtMs - PROPERTY_REQUEST_EXPIRY_REMINDER_DAYS * 24 * 60 * 60 * 1000;
+  const extensionWindowEndMs =
+    expiresAtMs + PROPERTY_REQUEST_EXPIRY_EXTENSION_GRACE_DAYS * 24 * 60 * 60 * 1000;
+
+  return nowMs >= extensionWindowStartMs && nowMs <= extensionWindowEndMs;
+}
+
+export function resolveExtendedPropertyRequestExpiry(input: {
+  expiresAt?: string | null;
+  now: Date;
+}): string {
+  const currentExpiresAtMs = parseValidTimestamp(input.expiresAt);
+  const baseMs = currentExpiresAtMs ?? input.now.getTime();
+  return new Date(
+    baseMs + PROPERTY_REQUEST_EXPIRY_EXTENSION_DAYS * 24 * 60 * 60 * 1000
+  ).toISOString();
+}
+
 const PROPERTY_REQUEST_STATUS_LABELS: Record<PropertyRequestStatus, string> = {
   draft: "Draft",
   open: "Open",
@@ -455,6 +528,11 @@ export function mapPropertyRequestRecord(record: PropertyRequestRecord): Propert
     status: record.status,
     publishedAt: record.published_at,
     expiresAt: record.expires_at,
+    extensionCount:
+      typeof record.extension_count === "number" && Number.isFinite(record.extension_count)
+        ? record.extension_count
+        : 0,
+    lastExpiryReminderForExpiresAt: record.last_expiry_reminder_for_expires_at ?? null,
     createdAt: record.created_at,
     updatedAt: record.updated_at,
   };
@@ -594,6 +672,8 @@ export const PROPERTY_REQUEST_SELECT_COLUMNS = [
   "status",
   "published_at",
   "expires_at",
+  "extension_count",
+  "last_expiry_reminder_for_expires_at",
   "created_at",
   "updated_at",
 ].join(", ");
