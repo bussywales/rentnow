@@ -10,11 +10,14 @@ import {
   PROPERTY_REQUEST_MOVE_TIMELINE_OPTIONS,
   PROPERTY_REQUEST_PROPERTY_TYPE_OPTIONS,
   PROPERTY_REQUEST_STATUSES,
+  getPropertyRequestBoardActionLabel,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
   getPropertyRequestMoveTimelineLabel,
+  getPropertyRequestResponderBoardStateLabel,
   type PropertyRequest,
 } from "@/lib/requests/property-requests";
+import { listPropertyRequestResponderBoardStates } from "@/lib/requests/property-request-responses.server";
 import {
   listDiscoverablePropertyRequests,
   requirePropertyRequestsViewerAccess,
@@ -74,6 +77,15 @@ export default async function RequestsIndexPage({ searchParams }: RequestsPagePr
     userId: access.userId,
     filters,
   });
+  const responderBoardStates =
+    access.role === "landlord" || access.role === "agent"
+      ? await listPropertyRequestResponderBoardStates({
+          supabase: access.supabase,
+          role: access.role,
+          userId: access.userId,
+          requestIds: requests.map((request) => request.id),
+        })
+      : new Map();
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8">
@@ -230,47 +242,58 @@ export default async function RequestsIndexPage({ searchParams }: RequestsPagePr
         </section>
       ) : (
         <div className="grid gap-4" data-testid="property-request-discovery-board">
-          {requests.map((request) => (
-            <article
-              key={request.id}
-              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <PropertyRequestStatusBadge status={request.status} />
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
-                      {getPropertyRequestIntentLabel(request.intent)}
-                    </p>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
-                      {request.marketCode}
-                    </p>
+          {requests.map((request) => {
+            const responderState = responderBoardStates.get(request.id) ?? null;
+            const responderStateLabel = getPropertyRequestResponderBoardStateLabel(responderState);
+            const actionLabel = getPropertyRequestBoardActionLabel({ responderState });
+
+            return (
+              <article
+                key={request.id}
+                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <PropertyRequestStatusBadge status={request.status} />
+                      <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                        {getPropertyRequestIntentLabel(request.intent)}
+                      </p>
+                      <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                        {request.marketCode}
+                      </p>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-semibold text-slate-900">
+                        {getPropertyRequestLocationSummary(request)}
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-600">{formatBudget(request)}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600">
+                      <span>Property type: {request.propertyType ?? "Any"}</span>
+                      <span>Bedrooms: {request.bedrooms ?? "Any"}</span>
+                      <span>Move timeline: {getPropertyRequestMoveTimelineLabel(request.moveTimeline)}</span>
+                      <span>
+                        {request.expiresAt
+                          ? `Expires ${new Date(request.expiresAt).toLocaleDateString()}`
+                          : "No expiry set"}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-slate-900">
-                      {getPropertyRequestLocationSummary(request)}
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-600">{formatBudget(request)}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600">
-                    <span>Property type: {request.propertyType ?? "Any"}</span>
-                    <span>Bedrooms: {request.bedrooms ?? "Any"}</span>
-                    <span>Move timeline: {getPropertyRequestMoveTimelineLabel(request.moveTimeline)}</span>
-                    <span>
-                      {request.expiresAt
-                        ? `Expires ${new Date(request.expiresAt).toLocaleDateString()}`
-                        : "No expiry set"}
-                    </span>
+                  <div className="flex shrink-0 flex-col items-end gap-3">
+                    {responderStateLabel ? (
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-emerald-700">
+                        {responderStateLabel}
+                      </p>
+                    ) : null}
+                    <Link href={`/requests/${request.id}`}>
+                      <Button>{actionLabel}</Button>
+                    </Link>
                   </div>
                 </div>
-                <div className="flex shrink-0 gap-3">
-                  <Link href={`/requests/${request.id}`}>
-                    <Button>Open request</Button>
-                  </Link>
-                </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       )}
     </div>

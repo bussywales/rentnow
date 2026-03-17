@@ -183,6 +183,11 @@ export type PropertyRequestResponse = {
   listings: PropertyRequestResponseListing[];
 };
 
+export type PropertyRequestResponderBoardState = {
+  hasResponded: boolean;
+  respondedListingCount: number;
+};
+
 export const propertyRequestDraftSchema = z
   .object({
     intent: z.enum(PROPERTY_REQUEST_INTENTS).optional(),
@@ -503,6 +508,22 @@ export function getPropertyRequestLocationSummary(input: {
     return input.locationText.trim();
   }
   return "Location not set";
+}
+
+export function getPropertyRequestBoardActionLabel(input: {
+  responderState?: PropertyRequestResponderBoardState | null;
+}): string {
+  return input.responderState?.hasResponded ? "View request" : "Open request";
+}
+
+export function getPropertyRequestResponderBoardStateLabel(
+  responderState?: PropertyRequestResponderBoardState | null
+): string | null {
+  if (!responderState?.hasResponded) return null;
+  if (responderState.respondedListingCount > 0) {
+    return `Responded · ${responderState.respondedListingCount} listing${responderState.respondedListingCount === 1 ? "" : "s"} sent`;
+  }
+  return "Responded";
 }
 
 export function mapPropertyRequestRecord(record: PropertyRequestRecord): PropertyRequest {

@@ -7,9 +7,11 @@ import {
   canOwnerWritePropertyRequestStatus,
   canViewPropertyRequest,
   doesListingIntentMatchPropertyRequest,
+  getPropertyRequestBoardActionLabel,
   getPropertyRequestMoveTimelineLabel,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
+  getPropertyRequestResponderBoardStateLabel,
   getPropertyRequestStatusLabel,
   isPropertyRequestDiscoverable,
   isPropertyRequestOpenForResponses,
@@ -359,5 +361,30 @@ void test("labels and location summaries stay human-readable", () => {
   assert.equal(
     getPropertyRequestLocationSummary({ city: null, area: null, locationText: "Near Yaba Tech" }),
     "Near Yaba Tech"
+  );
+});
+
+void test("request board responder helpers keep prior response state compact and clear", () => {
+  assert.equal(getPropertyRequestBoardActionLabel({ responderState: null }), "Open request");
+  assert.equal(
+    getPropertyRequestBoardActionLabel({
+      responderState: { hasResponded: true, respondedListingCount: 2 },
+    }),
+    "View request"
+  );
+  assert.equal(getPropertyRequestResponderBoardStateLabel(null), null);
+  assert.equal(
+    getPropertyRequestResponderBoardStateLabel({
+      hasResponded: true,
+      respondedListingCount: 3,
+    }),
+    "Responded · 3 listings sent"
+  );
+  assert.equal(
+    getPropertyRequestResponderBoardStateLabel({
+      hasResponded: true,
+      respondedListingCount: 0,
+    }),
+    "Responded"
   );
 });

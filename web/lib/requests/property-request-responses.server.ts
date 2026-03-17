@@ -14,6 +14,7 @@ import {
   isPropertyRequestOpenForResponses,
   mapPropertyRequestResponseRecord,
   type PropertyRequest,
+  type PropertyRequestResponderBoardState,
   type PropertyRequestResponse,
   type PropertyRequestResponseCreateInput,
   type PropertyRequestResponseItemRecord,
@@ -249,6 +250,56 @@ export async function listVisiblePropertyRequestResponses(input: {
   return responses.map((response) =>
     mapPropertyRequestResponseRecord(response, itemsByResponseId.get(response.id) ?? [])
   );
+}
+
+export async function listPropertyRequestResponderBoardStates(input: {
+  supabase: AuthenticatedSupabase;
+  role: UserRole;
+  userId: string;
+  requestIds: string[];
+}): Promise<Map<string, PropertyRequestResponderBoardState>> {
+  if (!canRoleRespondToPropertyRequests(input.role) || input.requestIds.length === 0) {
+    return new Map();
+  }
+
+  const requestIds = Array.from(new Set(input.requestIds));
+  const authDataClient = input.supabase as unknown as UntypedAdminClient;
+  const { data } = await authDataClient
+    .from<Pick<PropertyRequestResponseRecord, "id" | "request_id">>("property_request_responses")
+    .select("id, request_id")
+    .eq("responder_user_id", input.userId)
+    .in("request_id", requestIds);
+
+  const responses = (data ?? []) as Array<Pick<PropertyRequestResponseRecord, "id" | "request_id">>;
+  if (responses.length === 0) {
+    return new Map();
+  }
+
+  const responseIds = responses.map((response) => response.id);
+  const { data: itemRows } = await authDataClient
+    .from<Pick<PropertyRequestResponseItemRecord, "response_id">>("property_request_response_items")
+    .select("response_id")
+    .in("response_id", responseIds);
+
+  const listingCountsByResponseId = new Map<string, number>();
+  for (const item of (itemRows ?? []) as Array<Pick<PropertyRequestResponseItemRecord, "response_id">>) {
+    listingCountsByResponseId.set(
+      item.response_id,
+      (listingCountsByResponseId.get(item.response_id) ?? 0) + 1
+    );
+  }
+
+  const boardStates = new Map<string, PropertyRequestResponderBoardState>();
+  for (const response of responses) {
+    const current = boardStates.get(response.request_id) ?? {
+      hasResponded: true,
+      respondedListingCount: 0,
+    };
+    current.respondedListingCount += listingCountsByResponseId.get(response.id) ?? 0;
+    boardStates.set(response.request_id, current);
+  }
+
+  return boardStates;
 }
 
 async function resolveResponderEligibleListings(input: {

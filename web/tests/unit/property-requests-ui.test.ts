@@ -21,6 +21,10 @@ void test("property requests pages expose discovery and owner management routes"
   assert.match(indexPage, /Request discovery/);
   assert.match(indexPage, /property-request-discovery-board/);
   assert.match(indexPage, /Search city or area/);
+  assert.match(indexPage, /listPropertyRequestResponderBoardStates/);
+  assert.match(indexPage, /getPropertyRequestResponderBoardStateLabel/);
+  assert.match(indexPage, /getPropertyRequestBoardActionLabel/);
+  assert.match(indexPage, /access\.role === "landlord" \|\| access\.role === "agent"/);
   assert.match(myPage, /My requests/);
   assert.match(myPage, /Create property request/);
   assert.match(detailPage, /PropertyRequestManageActions/);
