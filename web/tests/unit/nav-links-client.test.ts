@@ -31,6 +31,14 @@ test("tenant desktop nav keeps shortlets, properties, trips, and saved", () => {
   );
 });
 
+test("tenant request links stay drawer-only and do not change desktop top nav", () => {
+  const links = resolveDesktopTopNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "tenant" });
+  assert.equal(
+    links.some((link) => link.href === "/requests/new" || link.href === "/requests/my"),
+    false
+  );
+});
+
 test("guest desktop nav exposes shortlets and properties only", () => {
   const links = resolveDesktopTopNavLinks(MAIN_NAV_LINKS, { isAuthed: false, role: null });
   assert.deepEqual(links.map((link) => link.href), ["/shortlets", "/properties"]);

@@ -63,8 +63,23 @@ void test("mobile drawer links are role-aware", () => {
     "tenant should see Trips link"
   );
   assert.ok(
+    tenantLinks.find((link) => link.href === "/requests/new"),
+    "tenant should see Make a Request link"
+  );
+  assert.ok(
+    tenantLinks.find((link) => link.href === "/requests/my"),
+    "tenant should see My Requests link"
+  );
+  assert.ok(
     tenantLinks.find((link) => link.href === "/tenant/saved"),
     "tenant should see Saved link"
+  );
+  assert.equal(
+    buildMobileNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "landlord" }).some(
+      (link) => link.href === "/requests/new" || link.href === "/requests/my"
+    ),
+    false,
+    "non-tenant roles should not inherit tenant request menu links"
   );
 });
 
@@ -83,6 +98,8 @@ void test("mobile drawer groups include Help & Support, Company, and Legal secti
     mainGroup?.links.find((link) => link.href === "/agents")?.label,
     "Agents"
   );
+  assert.ok(mainGroup?.links.find((link) => link.href === "/requests/new"));
+  assert.ok(mainGroup?.links.find((link) => link.href === "/requests/my"));
 
   const helpGroup = groups.find((group) => group.title === "Help & Support");
   assert.ok(helpGroup?.links.find((link) => link.href === "/help/tenant"));

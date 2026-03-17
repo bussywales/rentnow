@@ -21,6 +21,8 @@ export const MAIN_NAV_LINKS: Array<{
 }> = [
   { href: "/properties", label: "Properties" },
   { href: "/shortlets", label: "Shortlets" },
+  { href: "/requests/new", label: "Make a Request", requireAuth: true, requireRole: "tenant" },
+  { href: "/requests/my", label: "My Requests", requireAuth: true, requireRole: "tenant" },
   { href: "/tenant/saved", label: "Saved", requireAuth: true, requireRole: "tenant" },
   { href: "/trips", label: "Trips", requireAuth: true, requireRole: "tenant" },
   { href: "/host/calendar", label: "Calendar", requireAuth: true, denyRoles: ["tenant", "admin"] },
