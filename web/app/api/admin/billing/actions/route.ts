@@ -22,6 +22,7 @@ const actionSchema = z.discriminatedUnion("action", [
     action: z.literal("set_plan_tier"),
     profileId: z.string().uuid(),
     planTier: z.enum(["free", "starter", "pro", "tenant_pro"]),
+    maxListingsOverride: z.number().int().positive().max(1_000).nullable().optional(),
     validUntil: z.string().datetime().nullable().optional(),
     reason: z.string().max(500),
   }),
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
 
   const { data: existingPlan } = await adminClient
     .from("profile_plans")
-    .select("plan_tier, valid_until")
+    .select("plan_tier, valid_until, max_listings_override")
     .eq("profile_id", payload.profileId)
     .maybeSingle();
 
@@ -72,6 +73,9 @@ export async function POST(request: Request) {
   const now = new Date();
   let validUntil: string | null =
     (existingPlan as { valid_until?: string | null } | null)?.valid_until ?? null;
+  let maxListingsOverride: number | null =
+    (existingPlan as { max_listings_override?: number | null } | null)?.max_listings_override ??
+    null;
 
   if (payload.action === "extend_valid_until") {
     const days = payload.days ?? 30;
@@ -85,6 +89,7 @@ export async function POST(request: Request) {
 
   if (payload.action === "set_plan_tier") {
     validUntil = payload.validUntil ?? validUntil;
+    maxListingsOverride = payload.maxListingsOverride ?? null;
   }
 
   const adminDb = adminClient as unknown as {
@@ -103,6 +108,7 @@ export async function POST(request: Request) {
         plan_tier: planTier,
         billing_source: "manual",
         valid_until: validUntil,
+        max_listings_override: maxListingsOverride,
         updated_at: now.toISOString(),
         updated_by: auth.user.id,
         upgraded_at: now.toISOString(),
@@ -144,7 +150,7 @@ export async function POST(request: Request) {
     actorId: auth.user.id,
     profileId: payload.profileId,
     planTier,
-    maxListingsOverride: null,
+    maxListingsOverride,
     billingSource: "manual",
     validUntil,
   });
@@ -153,5 +159,6 @@ export async function POST(request: Request) {
     ok: true,
     planTier,
     validUntil,
+    maxListingsOverride,
   });
 }

@@ -49,6 +49,7 @@ export function AdminUserActions({
     typeof validUntil === "string" ? validUntil.slice(0, 10) : ""
   );
   const [notes, setNotes] = useState(billingNotes ?? "");
+  const [planReason, setPlanReason] = useState("");
   const disabled = !serviceReady || actionsDisabled;
 
   const post = async (body: Record<string, string>) => {
@@ -71,22 +72,31 @@ export function AdminUserActions({
     setPlanMessage(null);
     const overrideValue =
       override.trim().length > 0 ? Number.parseInt(override.trim(), 10) : null;
+    const trimmedReason = planReason.trim();
+    const trimmedNotes = notes.trim();
     if (overrideValue !== null && (!Number.isFinite(overrideValue) || overrideValue <= 0)) {
       setPlanStatus("error");
       setPlanMessage("Override must be a positive number.");
       return;
     }
-    const res = await fetch("/api/admin/plans", {
-      method: "PATCH",
+    if (!trimmedReason) {
+      setPlanStatus("error");
+      setPlanMessage("Reason is required for plan changes.");
+      return;
+    }
+
+    const res = await fetch("/api/admin/billing/actions", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        action: "set_plan_tier",
         profileId: userId,
         planTier: tier,
         maxListingsOverride: overrideValue,
         validUntil: validUntilValue
           ? `${validUntilValue}T23:59:59.999Z`
           : null,
-        billingNotes: notes,
+        reason: trimmedReason,
       }),
     });
     if (!res.ok) {
@@ -95,6 +105,24 @@ export function AdminUserActions({
       setPlanMessage(data?.error || `Request failed (${res.status})`);
       return;
     }
+
+    if (trimmedNotes && trimmedNotes !== (billingNotes ?? "").trim()) {
+      const notesRes = await fetch("/api/admin/billing/notes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profileId: userId,
+          note: trimmedNotes,
+        }),
+      });
+      if (!notesRes.ok) {
+        const data = await notesRes.json().catch(() => ({}));
+        setPlanStatus("error");
+        setPlanMessage(data?.error || `Billing notes update failed (${notesRes.status})`);
+        return;
+      }
+    }
+
     setPlanStatus("done");
     setPlanMessage("Plan updated.");
   };
@@ -296,6 +324,18 @@ export function AdminUserActions({
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               disabled={disabled || planStatus === "loading"}
+            />
+          </label>
+          <label className="text-xs font-semibold text-slate-500 md:col-span-2">
+            Reason (required)
+            <Input
+              className="mt-1"
+              type="text"
+              placeholder="Required for plan changes"
+              value={planReason}
+              onChange={(event) => setPlanReason(event.target.value)}
+              disabled={disabled || planStatus === "loading"}
+              data-testid="admin-user-plan-reason"
             />
           </label>
         </div>
