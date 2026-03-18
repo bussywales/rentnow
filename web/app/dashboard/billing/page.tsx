@@ -15,7 +15,7 @@ import { normalizeRole } from "@/lib/roles";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
-import { normalizePlanTier, type PlanTier } from "@/lib/plans";
+import { normalizePlanTier, resolveEffectivePlanTier, type PlanTier } from "@/lib/plans";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
@@ -109,7 +109,10 @@ export default async function BillingPage() {
   const now = new Date();
   const expired =
     !!validUntil && Number.isFinite(Date.parse(validUntil)) && new Date(validUntil).getTime() < now.getTime();
-  const planTier = normalizePlanTier((planRow as PlanRow | null)?.plan_tier);
+  const effectivePlanTier = resolveEffectivePlanTier(
+    normalizePlanTier((planRow as PlanRow | null)?.plan_tier),
+    validUntil
+  );
   const usage = await getPlanUsage({
     supabase,
     ownerId: profile.id,
@@ -260,7 +263,7 @@ export default async function BillingPage() {
             </p>
           </div>
           <PlansGrid
-            currentTier={planTier}
+            currentTier={effectivePlanTier}
             currentRole={normalizedRole}
             billingSource={billingSource}
             stripeStatus={stripeStatus}

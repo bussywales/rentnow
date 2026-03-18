@@ -5,7 +5,7 @@ import { AdminUserActions } from "@/components/admin/AdminUserActions";
 import { AdminUserBadge } from "@/components/admin/AdminUserBadge";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/components/ui/cn";
-import { isPlanExpired, normalizePlanTier } from "@/lib/plans";
+import { isPlanExpired, normalizePlanTier, resolveEffectivePlanTier } from "@/lib/plans";
 import { formatRoleLabel, formatRoleStatus } from "@/lib/roles";
 import { getAdminUserStatus, type AdminUserRow } from "@/lib/admin/admin-users";
 
@@ -74,7 +74,8 @@ export function AdminUserDrawer({
   if (!user) return null;
 
   const status = getAdminUserStatus(user);
-  const normalizedPlan = normalizePlanTier(user.planTier ?? null);
+  const normalizedPlan = resolveEffectivePlanTier(user.planTier ?? null, user.validUntil ?? null);
+  const rawPlan = normalizePlanTier(user.planTier ?? null);
   const planLabel = planLabelMap[normalizedPlan];
   const roleLabel = formatRoleLabel(user.role ?? null);
   const roleStatus = formatRoleStatus(user.role ?? null, user.onboardingCompleted);
@@ -158,6 +159,11 @@ export function AdminUserDrawer({
                   </p>
                 </div>
               </div>
+              {planExpired && rawPlan !== normalizedPlan ? (
+                <p className="mt-4 text-xs text-rose-700">
+                  Previous override: {planLabelMap[rawPlan]}. Current access has fallen back to Free.
+                </p>
+              ) : null}
             </div>
 
             <div className="mt-6">

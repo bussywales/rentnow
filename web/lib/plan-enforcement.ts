@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getPlanForTier, type PlanGate } from "@/lib/plans";
+import {
+  getPlanForTier,
+  isPlanExpired,
+  resolveEffectivePlanTier,
+  type PlanGate,
+} from "@/lib/plans";
 
 type PlanUsage = {
   plan: PlanGate;
@@ -32,11 +37,11 @@ export async function getPlanUsage({
     .maybeSingle();
 
   const validUntil = planRow?.valid_until ?? null;
-  const expired =
-    !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
+  const expired = isPlanExpired(validUntil);
+  const effectivePlanTier = resolveEffectivePlanTier(planRow?.plan_tier ?? "free", validUntil);
   const plan = getPlanForTier(
-    expired ? "free" : planRow?.plan_tier ?? "free",
-    expired ? null : planRow?.max_listings_override ?? null
+    effectivePlanTier,
+    effectivePlanTier === "free" ? null : planRow?.max_listings_override ?? null
   );
 
   if (planError) {

@@ -14,7 +14,7 @@ import {
   type AdminUserRow,
   type AdminUsersQuery,
 } from "@/lib/admin/admin-users";
-import { normalizePlanTier } from "@/lib/plans";
+import { isPlanExpired, normalizePlanTier, resolveEffectivePlanTier } from "@/lib/plans";
 import { formatRoleLabel, normalizeRole } from "@/lib/roles";
 import { cn } from "@/components/ui/cn";
 
@@ -335,7 +335,9 @@ export function AdminUsersPanelClient({
         <div data-testid="admin-users-table">
           {users.map((user, index) => {
             const status = getAdminUserStatus(user);
-            const normalizedPlan = normalizePlanTier(user.planTier ?? null);
+            const normalizedPlan = resolveEffectivePlanTier(user.planTier ?? null, user.validUntil ?? null);
+            const rawPlan = normalizePlanTier(user.planTier ?? null);
+            const planExpired = isPlanExpired(user.validUntil ?? null);
             const planLabel = planLabelMap[normalizedPlan];
             const normalizedRole = normalizeRole(user.role ?? null);
             const roleLabel = normalizedRole ? formatRoleLabel(user.role) : "—";
@@ -375,6 +377,9 @@ export function AdminUsersPanelClient({
                 </div>
                 <div>
                   <AdminUserBadge label={planLabel} tone="sky" />
+                  {planExpired && rawPlan !== normalizedPlan ? (
+                    <p className="mt-1 text-xs text-rose-600">Expired override</p>
+                  ) : null}
                 </div>
                 <div className="text-xs text-slate-500">
                   <p>Created {formatDateTime(user.createdAt)}</p>

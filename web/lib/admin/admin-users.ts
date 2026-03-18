@@ -1,4 +1,4 @@
-import { normalizePlanTier, type PlanTier } from "@/lib/plans";
+import { normalizePlanTier, resolveEffectivePlanTier, type PlanTier } from "@/lib/plans";
 import { normalizeRole, type KnownRole } from "@/lib/roles";
 
 export type AdminUserStatus = "active" | "pending" | "incomplete" | "missing";
@@ -170,7 +170,7 @@ export function filterAdminUsers<T extends AdminUserRow>(
     }
 
     if (query.plan !== "all") {
-      const normalizedPlan = normalizePlanTier(user.planTier ?? null);
+      const normalizedPlan = resolveEffectivePlanTier(user.planTier ?? null, user.validUntil ?? null);
       if (normalizedPlan !== query.plan) return false;
     }
 

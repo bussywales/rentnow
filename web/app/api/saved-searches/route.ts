@@ -3,7 +3,11 @@ import { z } from "zod";
 import { getUserRole, requireUser } from "@/lib/authz";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure, logSavedSearchLimitHit } from "@/lib/observability";
-import { getTenantPlanForTier, isSavedSearchLimitReached } from "@/lib/plans";
+import {
+  getTenantPlanForTier,
+  isSavedSearchLimitReached,
+  resolveEffectiveTenantPlanTier,
+} from "@/lib/plans";
 import {
   buildDefaultSavedSearchName,
   normalizeSavedSearchFilters,
@@ -218,9 +222,9 @@ export async function postSavedSearchResponse(
         .maybeSingle();
 
       const validUntil = planRow?.valid_until ?? null;
-      const expired =
-        !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
-      const tenantPlan = deps.getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
+      const tenantPlan = deps.getTenantPlanForTier(
+        resolveEffectiveTenantPlanTier(planRow?.plan_tier ?? "free", validUntil)
+      );
       const searchCount = existing.length;
       if (deps.isSavedSearchLimitReached(searchCount, tenantPlan)) {
         deps.logSavedSearchLimitHit({

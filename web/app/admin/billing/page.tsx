@@ -852,10 +852,16 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
               </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div>
-                  <p className="text-xs uppercase text-slate-400">Plan tier</p>
+                  <p className="text-xs uppercase text-slate-400">Current access</p>
                   <p className="text-sm font-semibold text-slate-900">
-                    {snapshotResult.snapshot.planTier.replace("_", " ")}
+                    {snapshotResult.snapshot.effectivePlanTier.replace("_", " ")}
                   </p>
+                  {snapshotResult.snapshot.isExpired &&
+                  snapshotResult.snapshot.planTier !== snapshotResult.snapshot.effectivePlanTier ? (
+                    <p className="mt-1 text-xs text-rose-600">
+                      Previous override: {snapshotResult.snapshot.planTier.replace("_", " ")}
+                    </p>
+                  ) : null}
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-400">Billing source</p>

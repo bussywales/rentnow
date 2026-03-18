@@ -5,6 +5,7 @@ import { maskEmail, maskIdentifier } from "../../lib/billing/mask";
 import { buildBillingSnapshot } from "../../lib/billing/snapshot";
 import { isAdminRole, validateUpgradeRequestAction } from "../../lib/billing/admin-validation";
 import { buildSupportSnapshot } from "../../lib/billing/support-snapshot";
+import { resolveEffectivePlanTier, resolveEffectiveTenantPlanTier } from "../../lib/plans";
 
 void test("maskIdentifier hides long identifiers and keeps short values", () => {
   assert.equal(maskIdentifier(null), "—");
@@ -31,7 +32,7 @@ void test("buildBillingSnapshot normalizes plan and masks Stripe fields", () => 
       stripe_subscription_id: "sub_1234567890",
       stripe_price_id: "price_1234567890",
       stripe_status: "active",
-      valid_until: "2026-01-01T00:00:00.000Z",
+      valid_until: "2099-01-01T00:00:00.000Z",
     },
     notes: {
       billing_notes: "VIP account",
@@ -39,11 +40,44 @@ void test("buildBillingSnapshot normalizes plan and masks Stripe fields", () => 
   });
 
   assert.equal(snapshot.planTier, "pro");
+  assert.equal(snapshot.effectivePlanTier, "pro");
   assert.equal(snapshot.billingSource, "stripe");
   assert.equal(snapshot.stripeCustomerId, "cus_12...7890");
   assert.equal(snapshot.stripeSubscriptionId, "sub_12...7890");
   assert.equal(snapshot.stripePriceId, "price_...7890");
   assert.equal(snapshot.billingNotes, "VIP account");
+});
+
+void test("expired tenant overrides resolve to free entitlements", () => {
+  assert.equal(
+    resolveEffectivePlanTier("tenant_pro", "2026-01-01T00:00:00.000Z", Date.parse("2026-03-18T00:00:00.000Z")),
+    "free"
+  );
+  assert.equal(
+    resolveEffectiveTenantPlanTier(
+      "tenant_pro",
+      "2026-01-01T00:00:00.000Z",
+      Date.parse("2026-03-18T00:00:00.000Z")
+    ),
+    "free"
+  );
+
+  const snapshot = buildBillingSnapshot({
+    profileId: "11111111-1111-1111-1111-111111111111",
+    email: "tenant@example.com",
+    role: "tenant",
+    fullName: "Tenant User",
+    plan: {
+      plan_tier: "tenant_pro",
+      billing_source: "manual",
+      valid_until: "2026-01-01T00:00:00.000Z",
+    },
+    notes: null,
+  });
+
+  assert.equal(snapshot.planTier, "tenant_pro");
+  assert.equal(snapshot.effectivePlanTier, "free");
+  assert.equal(snapshot.isExpired, true);
 });
 
 void test("validateUpgradeRequestAction enforces admin role and reject reason", () => {
@@ -84,7 +118,7 @@ void test("buildSupportSnapshot masks ids and includes recent events", () => {
       stripe_customer_id: "cus_1234567890",
       stripe_subscription_id: "sub_1234567890",
       stripe_status: "active",
-      valid_until: "2026-01-01T00:00:00.000Z",
+      valid_until: "2099-01-01T00:00:00.000Z",
     },
     notes: null,
   });

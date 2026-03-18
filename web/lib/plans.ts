@@ -71,6 +71,14 @@ export function normalizePlanTier(tier?: string | null): PlanTier {
   return "free";
 }
 
+export function resolveEffectivePlanTier(
+  tier?: string | null,
+  validUntil?: string | null,
+  now = Date.now()
+): PlanTier {
+  return normalizePlanTier(isPlanExpired(validUntil ?? null, now) ? "free" : tier);
+}
+
 export function getPlanForTier(
   tier?: string | null,
   maxOverride?: number | null
@@ -88,6 +96,14 @@ export function getPlanForTier(
 export function normalizeTenantPlanTier(tier?: string | null): TenantPlanTier {
   if (tier === "tenant_pro") return "tenant_pro";
   return "free";
+}
+
+export function resolveEffectiveTenantPlanTier(
+  tier?: string | null,
+  validUntil?: string | null,
+  now = Date.now()
+): TenantPlanTier {
+  return normalizeTenantPlanTier(isPlanExpired(validUntil ?? null, now) ? "free" : tier);
 }
 
 export function getTenantPlanForTier(tier?: string | null): TenantPlanGate {

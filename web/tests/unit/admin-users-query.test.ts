@@ -60,6 +60,15 @@ void test("filterAdminUsers matches query text and status", () => {
       role: "tenant",
       planTier: "free",
     },
+    {
+      ...base,
+      id: "user-3",
+      email: "carol@example.com",
+      fullName: "Carol Expired",
+      role: "tenant",
+      planTier: "tenant_pro",
+      validUntil: "2026-01-01T00:00:00.000Z",
+    },
   ];
 
   const filtered = filterAdminUsers(users, {
@@ -74,4 +83,61 @@ void test("filterAdminUsers matches query text and status", () => {
   assert.equal(filtered.length, 1);
   assert.equal(filtered[0].email, "alice@example.com");
   assert.equal(getAdminUserStatus(filtered[0]), "pending");
+});
+
+void test("plan filter uses effective plan after override expiry", () => {
+  const base: Omit<AdminUserRow, "id" | "email" | "fullName"> = {
+    createdAt: null,
+    lastSignInAt: null,
+    role: "tenant",
+    onboardingCompleted: true,
+    planTier: "free",
+    maxListingsOverride: null,
+    validUntil: null,
+    billingNotes: null,
+    billingSource: null,
+    stripeStatus: null,
+    stripeCurrentPeriodEnd: null,
+    pendingCount: 0,
+    profileMissing: false,
+  };
+
+  const users: AdminUserRow[] = [
+    {
+      ...base,
+      id: "user-1",
+      email: "expired@example.com",
+      fullName: "Expired Tenant Pro",
+      planTier: "tenant_pro",
+      validUntil: "2026-01-01T00:00:00.000Z",
+    },
+    {
+      ...base,
+      id: "user-2",
+      email: "active@example.com",
+      fullName: "Active Tenant Pro",
+      planTier: "tenant_pro",
+      validUntil: "2099-01-01T00:00:00.000Z",
+    },
+  ];
+
+  const freeUsers = filterAdminUsers(users, {
+    q: null,
+    role: "all",
+    status: "all",
+    plan: "free",
+    page: 1,
+    pageSize: 25,
+  });
+  const tenantProUsers = filterAdminUsers(users, {
+    q: null,
+    role: "all",
+    status: "all",
+    plan: "tenant_pro",
+    page: 1,
+    pageSize: 25,
+  });
+
+  assert.deepEqual(freeUsers.map((user) => user.email), ["expired@example.com"]);
+  assert.deepEqual(tenantProUsers.map((user) => user.email), ["active@example.com"]);
 });

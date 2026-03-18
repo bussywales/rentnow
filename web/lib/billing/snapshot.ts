@@ -1,4 +1,4 @@
-import { isPlanExpired, normalizePlanTier } from "@/lib/plans";
+import { isPlanExpired, normalizePlanTier, resolveEffectivePlanTier } from "@/lib/plans";
 import { maskIdentifier } from "@/lib/billing/mask";
 
 export type BillingPlanRow = {
@@ -29,6 +29,7 @@ export type BillingSnapshot = {
   role: string | null;
   fullName: string | null;
   planTier: string;
+  effectivePlanTier: string;
   billingSource: string;
   validUntil: string | null;
   isExpired: boolean;
@@ -58,6 +59,7 @@ export function buildBillingSnapshot(input: {
   const planTier = normalizePlanTier(plan?.plan_tier ?? "free");
   const validUntil = plan?.valid_until ?? null;
   const billingSource = plan?.billing_source ?? "manual";
+  const effectivePlanTier = resolveEffectivePlanTier(plan?.plan_tier ?? "free", validUntil);
 
   return {
     profileId: input.profileId,
@@ -65,6 +67,7 @@ export function buildBillingSnapshot(input: {
     role: input.role ?? null,
     fullName: input.fullName ?? null,
     planTier,
+    effectivePlanTier,
     billingSource,
     validUntil,
     isExpired: isPlanExpired(validUntil),
