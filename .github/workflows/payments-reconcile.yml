@@ -18,14 +18,39 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20.9.0"
           cache: npm
           cache-dependency-path: web/package-lock.json
+
+      - name: Validate required secrets
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ]; then
+            echo "::error title=Missing workflow secret::APP_URL is required for the payments reconcile workflow."
+            exit 1
+          fi
+
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error title=Missing workflow secret::CRON_SECRET is required for the payments reconcile workflow."
+            exit 1
+          fi
+
+          {
+            echo "### payments-reconcile"
+            echo ""
+            echo "- APP_URL: configured"
+            echo "- CRON_SECRET: configured"
+            echo ""
+          } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Install web deps
         run: npm --prefix web ci
@@ -39,75 +64,31 @@ jobs:
       - name: Run shortlets perf budgets guard
         run: npm --prefix web run guard:shortlets-perf
 
-      - name: Call payments reconcile endpoints
+      - name: Call payments reconcile batch endpoint
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DEBUG_ROOT: ${{ github.workspace }}/.cron-debug/payments-reconcile
+          ATTEMPTS: "3"
+          SLEEP_SECONDS: "10"
         run: |
-          set -euo pipefail
+          bash .github/scripts/call-cron-endpoint.sh "payments-batch" "/api/jobs/payments/reconcile"
 
-          if [ -z "${APP_URL:-}" ]; then
-            echo "Missing required secret: APP_URL"
-            exit 1
-          fi
+      - name: Call shortlet payments reconcile endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DEBUG_ROOT: ${{ github.workspace }}/.cron-debug/payments-reconcile
+          ATTEMPTS: "3"
+          SLEEP_SECONDS: "10"
+        run: |
+          bash .github/scripts/call-cron-endpoint.sh "shortlet-reconcile" "/api/internal/shortlet/reconcile-payments"
 
-          if [ -z "${CRON_SECRET:-}" ]; then
-            echo "Missing required secret: CRON_SECRET"
-            exit 1
-          fi
-
-          ATTEMPTS=3
-          SLEEP_SECONDS=10
-          call_endpoint() {
-            local endpoint="$1"
-            local reconcile_url="${APP_URL%/}${endpoint}"
-            local attempt=1
-            local success=0
-            local response_file
-
-            response_file="$(mktemp)"
-
-            echo "Reconcile URL: ${reconcile_url}"
-
-            while [ "${attempt}" -le "${ATTEMPTS}" ]; do
-              echo "[${endpoint}] Attempt ${attempt}/${ATTEMPTS}"
-
-              if ! http_code="$(curl -sS \
-                -o "${response_file}" \
-                -w "%{http_code}" \
-                -X POST "${reconcile_url}" \
-                -H "x-cron-secret: ${CRON_SECRET}" \
-                -H "content-type: application/json" \
-                --data '{}')"; then
-                http_code="curl_error"
-              fi
-
-              echo "[${endpoint}] HTTP status: ${http_code}"
-              echo "[${endpoint}] Response body (first 2048 bytes):"
-              head -c 2048 "${response_file}" || true
-              echo ""
-
-              if [[ "${http_code}" =~ ^[0-9]{3}$ ]] && [ "${http_code}" -ge 200 ] && [ "${http_code}" -lt 300 ]; then
-                success=1
-                break
-              fi
-
-              if [ "${attempt}" -lt "${ATTEMPTS}" ]; then
-                echo "[${endpoint}] Request failed; retrying in ${SLEEP_SECONDS}s..."
-                sleep "${SLEEP_SECONDS}"
-              fi
-
-              attempt=$((attempt + 1))
-            done
-
-            if [ "${success}" -ne 1 ]; then
-              echo "[${endpoint}] Reconcile failed after ${ATTEMPTS} attempts."
-              rm -f "${response_file}"
-              exit 1
-            fi
-
-            rm -f "${response_file}"
-          }
-
-          call_endpoint "/api/jobs/payments/reconcile"
-          call_endpoint "/api/internal/shortlet/reconcile-payments"
+      - name: Upload payments reconcile failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: payments-reconcile-failure-artifacts
+          path: .cron-debug/payments-reconcile
+          if-no-files-found: warn
+          retention-days: 7
