@@ -45,7 +45,12 @@ export function FilterDrawerShell({
   const titleId = useId();
   const panelRef = useRef<HTMLElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
   const resolvedDialogId = dialogId ?? generatedDialogId;
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -61,7 +66,7 @@ export function FilterDrawerShell({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       trapFocusWithinContainer(event, panelRef.current);
@@ -74,7 +79,7 @@ export function FilterDrawerShell({
       document.body.style.overflow = previousOverflow;
       previousFocusRef.current?.focus();
     };
-  }, [onClose, open]);
+  }, [open]);
 
   if (!open) return null;
 

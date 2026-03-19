@@ -99,6 +99,9 @@ export function AdvancedSearchPanel({ initialFilters }: Props) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<AdvancedFiltersDraft>(initialDraft);
   const drawerId = "properties-filters-drawer-panel";
+  const closeDrawer = useCallback(() => {
+    setOpen(false);
+  }, []);
 
   const updateQuery = useCallback(
     (next: URLSearchParams) => {
@@ -165,13 +168,13 @@ export function AdvancedSearchPanel({ initialFilters }: Props) {
     [readAppliedDraft]
   );
   const onApply = useMemo(
-    () => createApplyAndCloseAction(() => applyDraft(draft), () => setOpen(false)),
-    [applyDraft, draft]
+    () => createApplyAndCloseAction(() => applyDraft(draft), closeDrawer),
+    [applyDraft, closeDrawer, draft]
   );
   const onClear = useMemo(
     () =>
-      createClearApplyAndCloseAction(createDefaultDraft, setDraft, applyDraft, () => setOpen(false)),
-    [applyDraft]
+      createClearApplyAndCloseAction(createDefaultDraft, setDraft, applyDraft, closeDrawer),
+    [applyDraft, closeDrawer]
   );
 
   return (
@@ -206,7 +209,7 @@ export function AdvancedSearchPanel({ initialFilters }: Props) {
 
       <FilterDrawerShell
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={closeDrawer}
         title="Filters"
         subtitle="Apply the same workflow as shortlets: adjust, apply, reset, or clear."
         onApply={onApply}
