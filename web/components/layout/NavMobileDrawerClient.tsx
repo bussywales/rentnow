@@ -35,6 +35,13 @@ type DrawerLinkGroup = {
   links: DrawerLink[];
 };
 
+const YOUTUBE_TUTORIALS_LINK: DrawerLink = {
+  href: "https://www.youtube.com/@PropatyHub",
+  label: "Watch Video Tutorials",
+  external: true,
+  testId: "mobile-drawer-video-tutorials",
+};
+
 const LOGGED_OUT_LINKS: DrawerLink[] = [
   { href: "/onboarding", label: "Become a host" },
   { href: "/auth/login", label: "Log in" },
@@ -171,6 +178,7 @@ export function buildMobileNavLinkGroups(
       (supportHref === "/admin/support"
         ? { href: "/admin/support", label: "Admin support" }
         : { href: "/support", label: "Contact support" }),
+    YOUTUBE_TUTORIALS_LINK,
   ]);
   const connectLinks = dedupeLinks(
     socialLinks.map((link) => ({
@@ -394,6 +402,11 @@ export function NavMobileDrawerClient({
                             >
                               <span className="inline-flex items-center gap-1.5">
                                 <span>{link.label}</span>
+                                {link.external ? (
+                                  <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500">
+                                    External
+                                  </span>
+                                ) : null}
                                 {(link.badgeCount ?? 0) > 0 ? (
                                   <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
                                     {link.badgeCount}

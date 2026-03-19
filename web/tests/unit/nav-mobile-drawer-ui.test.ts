@@ -34,3 +34,25 @@ void test("mobile drawer includes opaque backdrop and panel markers", () => {
   assert.ok(contents.includes("h-[100dvh]"), "expected dvh height for drawer panel");
   assert.ok(contents.includes("overflow-y-auto"), "expected scrollable drawer content");
 });
+
+void test("mobile drawer external links open in a new tab and show an external badge", () => {
+  const filePath = path.join(process.cwd(), "components", "layout", "NavMobileDrawerClient.tsx");
+  const contents = fs.readFileSync(filePath, "utf8");
+
+  assert.ok(
+    contents.includes('target={link.external ? "_blank" : undefined}'),
+    "expected external drawer links to open in a new tab"
+  );
+  assert.ok(
+    contents.includes('rel={link.external ? "noreferrer noopener" : undefined}'),
+    "expected external drawer links to use safe rel attributes"
+  );
+  assert.ok(
+    contents.includes(">External<") || contents.includes("External"),
+    "expected external drawer links to render a visible external indicator"
+  );
+  assert.ok(
+    contents.includes("mobile-drawer-video-tutorials"),
+    "expected video tutorials drawer test id"
+  );
+});

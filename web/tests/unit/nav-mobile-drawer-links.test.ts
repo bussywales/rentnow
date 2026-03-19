@@ -104,6 +104,15 @@ void test("mobile drawer groups include Help & Support, Company, and Legal secti
   const helpGroup = groups.find((group) => group.title === "Help & Support");
   assert.ok(helpGroup?.links.find((link) => link.href === "/help/tenant"));
   assert.ok(helpGroup?.links.find((link) => link.href === "/support"));
+  assert.deepEqual(
+    helpGroup?.links.find((link) => link.href === "https://www.youtube.com/@PropatyHub"),
+    {
+      href: "https://www.youtube.com/@PropatyHub",
+      label: "Watch Video Tutorials",
+      external: true,
+      testId: "mobile-drawer-video-tutorials",
+    }
+  );
 
   const companyGroup = groups.find((group) => group.title === "Company");
   assert.ok(companyGroup?.links.find((link) => link.href === "/about"));
@@ -112,6 +121,31 @@ void test("mobile drawer groups include Help & Support, Company, and Legal secti
   const legalGroup = groups.find((group) => group.title === "Legal");
   assert.ok(legalGroup?.links.find((link) => link.href === "/legal"));
   assert.ok(legalGroup?.links.find((link) => link.href === "/legal/disclaimer"));
+});
+
+void test("mobile drawer includes video tutorials for logged-out users and every role group", () => {
+  const expectedHref = "https://www.youtube.com/@PropatyHub";
+  const scenarios = [
+    { isAuthed: false, role: null as const, label: "logged out" },
+    { isAuthed: true, role: "tenant" as const, label: "tenant" },
+    { isAuthed: true, role: "landlord" as const, label: "landlord" },
+    { isAuthed: true, role: "agent" as const, label: "agent" },
+    { isAuthed: true, role: "admin" as const, label: "admin" },
+  ];
+
+  for (const scenario of scenarios) {
+    const groups = buildMobileNavLinkGroups(MAIN_NAV_LINKS, {
+      isAuthed: scenario.isAuthed,
+      role: scenario.role,
+    });
+    const helpGroup = groups.find((group) => group.title === "Help & Support");
+    const tutorialsLink = helpGroup?.links.find((link) => link.href === expectedHref);
+
+    assert.ok(tutorialsLink, `expected video tutorials link for ${scenario.label}`);
+    assert.equal(tutorialsLink?.label, "Watch Video Tutorials");
+    assert.equal(tutorialsLink?.external, true);
+    assert.equal(tutorialsLink?.testId, "mobile-drawer-video-tutorials");
+  }
 });
 
 void test("admin mobile drawer retains admin support and legal access via grouped sections", () => {
