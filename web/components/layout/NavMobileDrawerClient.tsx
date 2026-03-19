@@ -403,8 +403,25 @@ export function NavMobileDrawerClient({
                               <span className="inline-flex items-center gap-1.5">
                                 <span>{link.label}</span>
                                 {link.external ? (
-                                  <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-slate-500">
-                                    External
+                                  <span
+                                    className="inline-flex items-center text-slate-400"
+                                    data-testid={`${link.testId ?? "mobile-drawer-external"}-icon`}
+                                  >
+                                    <svg
+                                      aria-hidden="true"
+                                      viewBox="0 0 20 20"
+                                      fill="none"
+                                      className="h-4 w-4"
+                                      stroke="currentColor"
+                                      strokeWidth="1.8"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    >
+                                      <path d="M7.5 12.5 12.5 7.5" />
+                                      <path d="M8.75 7.5h3.75v3.75" />
+                                      <path d="M11.25 10v3.125a.625.625 0 0 1-.625.625H6.875a.625.625 0 0 1-.625-.625V9.375a.625.625 0 0 1 .625-.625H10" />
+                                    </svg>
+                                    <span className="sr-only">Opens in a new tab</span>
                                   </span>
                                 ) : null}
                                 {(link.badgeCount ?? 0) > 0 ? (

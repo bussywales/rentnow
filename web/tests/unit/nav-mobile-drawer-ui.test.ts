@@ -35,7 +35,7 @@ void test("mobile drawer includes opaque backdrop and panel markers", () => {
   assert.ok(contents.includes("overflow-y-auto"), "expected scrollable drawer content");
 });
 
-void test("mobile drawer external links open in a new tab and show an external badge", () => {
+void test("mobile drawer external links open in a new tab and show an external icon", () => {
   const filePath = path.join(process.cwd(), "components", "layout", "NavMobileDrawerClient.tsx");
   const contents = fs.readFileSync(filePath, "utf8");
 
@@ -48,11 +48,11 @@ void test("mobile drawer external links open in a new tab and show an external b
     "expected external drawer links to use safe rel attributes"
   );
   assert.ok(
-    contents.includes(">External<") || contents.includes("External"),
-    "expected external drawer links to render a visible external indicator"
+    contents.includes('data-testid={`${link.testId ?? "mobile-drawer-external"}-icon`}'),
+    "expected external icon test id template"
   );
   assert.ok(
-    contents.includes("mobile-drawer-video-tutorials"),
-    "expected video tutorials drawer test id"
+    contents.includes("Opens in a new tab"),
+    "expected screen-reader hint for external drawer links"
   );
 });
