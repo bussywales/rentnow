@@ -50,6 +50,10 @@ function toNumberOrNull(value: string): number | null {
   return Math.max(0, num);
 }
 
+export function normalizePriceDraftValue(value: string): string {
+  return value.replace(/[^\d]/g, "");
+}
+
 function createDefaultDraft(): AdvancedFiltersDraft {
   return {
     bedrooms: "",
@@ -267,23 +271,35 @@ export function AdvancedSearchPanel({ initialFilters }: Props) {
             <label className="space-y-1 text-sm text-slate-700">
               <span>Price min</span>
               <Input
-                type="number"
-                min={0}
-                step={1}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={draft.minPrice}
-                onChange={(event) => setDraft((current) => ({ ...current, minPrice: event.target.value }))}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    minPrice: normalizePriceDraftValue(event.target.value),
+                  }))
+                }
                 placeholder="0"
+                data-testid="advanced-min-price"
               />
             </label>
             <label className="space-y-1 text-sm text-slate-700">
               <span>Price max</span>
               <Input
-                type="number"
-                min={0}
-                step={1}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={draft.maxPrice}
-                onChange={(event) => setDraft((current) => ({ ...current, maxPrice: event.target.value }))}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    maxPrice: normalizePriceDraftValue(event.target.value),
+                  }))
+                }
                 placeholder="Any"
+                data-testid="advanced-max-price"
               />
             </label>
           </section>

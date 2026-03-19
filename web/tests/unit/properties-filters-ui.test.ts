@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { normalizePriceDraftValue } from "@/components/properties/AdvancedSearchPanel";
 
 const panelPath = path.join(process.cwd(), "components", "properties", "AdvancedSearchPanel.tsx");
 const pagePath = path.join(process.cwd(), "app", "properties", "page.tsx");
@@ -33,4 +34,27 @@ void test("properties page uses shared filter chip row preview", () => {
   assert.match(source, /testId="properties-active-filter-summary"/);
   assert.match(source, /clearHref="\/properties"/);
   assert.match(source, /clearLabel="Clear"/);
+});
+
+void test("price draft normalization preserves multi-digit numbers while stripping non-digits", () => {
+  assert.equal(normalizePriceDraftValue("250000"), "250000");
+  assert.equal(normalizePriceDraftValue("25,000,000"), "25000000");
+  assert.equal(normalizePriceDraftValue("12a34"), "1234");
+  assert.equal(normalizePriceDraftValue(""), "");
+});
+
+void test("properties advanced search price inputs use text fields with numeric keyboard hints", () => {
+  const source = fs.readFileSync(panelPath, "utf8");
+
+  assert.match(source, /export function normalizePriceDraftValue/);
+  assert.match(source, /<span>Price min<\/span>/);
+  assert.match(source, /<span>Price max<\/span>/);
+  assert.match(source, /data-testid="advanced-min-price"/);
+  assert.match(source, /data-testid="advanced-max-price"/);
+  assert.match(source, /inputMode="numeric"/);
+  assert.match(source, /pattern="\[0-9\]\*"/);
+  assert.match(source, /minPrice: normalizePriceDraftValue\(event\.target\.value\)/);
+  assert.match(source, /maxPrice: normalizePriceDraftValue\(event\.target\.value\)/);
+  assert.match(source, /toNumberOrNull\(nextDraft\.minPrice\)/);
+  assert.match(source, /toNumberOrNull\(nextDraft\.maxPrice\)/);
 });
