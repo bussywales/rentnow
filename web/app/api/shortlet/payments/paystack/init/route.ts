@@ -31,14 +31,16 @@ function buildReference(bookingId: string) {
   return `shb_ps_${bookingId}_${Date.now()}`;
 }
 
+type Awaitable<T> = T | Promise<T>;
+
 export type InitShortletPaystackDeps = {
   hasServiceRoleEnv: typeof hasServiceRoleEnv;
-  hasPaystackServerEnv: typeof hasPaystackServerEnv;
+  hasPaystackServerEnv: () => Awaitable<boolean>;
   requireRole: typeof requireRole;
   getShortletPaymentsProviderFlags: typeof getShortletPaymentsProviderFlags;
   getShortletPaymentCheckoutContext: typeof getShortletPaymentCheckoutContext;
   getSiteUrl: typeof getSiteUrl;
-  getPaystackServerConfig: typeof getPaystackServerConfig;
+  getPaystackServerConfig: () => Awaitable<Awaited<ReturnType<typeof getPaystackServerConfig>>>;
   initializeTransaction: typeof initializeTransaction;
   upsertShortletPaymentIntent: typeof upsertShortletPaymentIntent;
   resolveShortletAvailabilityConflict?: typeof resolveShortletAvailabilityConflict;
@@ -65,7 +67,7 @@ export async function postInitShortletPaystackResponse(
   if (!deps.hasServiceRoleEnv()) {
     return NextResponse.json({ error: "Service role not configured" }, { status: 503 });
   }
-  if (!deps.hasPaystackServerEnv()) {
+  if (!(await deps.hasPaystackServerEnv())) {
     return NextResponse.json({ error: "Paystack is not configured" }, { status: 503 });
   }
 
@@ -156,7 +158,7 @@ export async function postInitShortletPaystackResponse(
   )}&provider=paystack&reference=${encodeURIComponent(reference)}`;
 
   try {
-    const paystackConfig = deps.getPaystackServerConfig();
+    const paystackConfig = await deps.getPaystackServerConfig();
     const transaction = await deps.initializeTransaction({
       secretKey: paystackConfig.secretKey || "",
       amountMinor,

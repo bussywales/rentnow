@@ -161,3 +161,21 @@ Changes:
 - admin/debug surfaces now expose route-specific Stripe webhook readiness
 
 This phase was chosen because it removes the most dangerous live ambiguity with the smallest safe code change.
+
+## G) Phase implemented after this plan
+
+Implemented next:
+
+- Phase 2: Paystack config source-of-truth unification
+
+Changes:
+
+- Paystack runtime, webhook, featured-init, and reconcile paths now resolve through the same underlying provider-settings-aware config helper
+- stored provider settings are the canonical source for Paystack live/test keys
+- env keys remain explicit fallback only when stored keys are absent
+- Paystack webhook secret precedence is explicit:
+  - mode-scoped webhook env
+  - single webhook env
+  - resolved Paystack secret key
+
+This phase removes the checkout-vs-ops split-brain risk where billing could succeed with stored keys while reconcile or webhook paths still believed Paystack was unconfigured.

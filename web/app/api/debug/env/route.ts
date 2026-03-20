@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getProviderModes, getProviderSettings } from "@/lib/billing/provider-settings";
+import { resolvePaystackServerConfig } from "@/lib/billing/paystack";
 
 export async function GET() {
   const providerModes = await getProviderModes();
@@ -63,6 +64,10 @@ export async function GET() {
   const stripeMissing = stripeRequired.filter(
     (key) => !hasEnvForMode(key, providerModes.stripeMode)
   );
+  const paystackConfig = resolvePaystackServerConfig({
+    mode: providerModes.paystackMode,
+    settings: providerSettings,
+  });
 
   return NextResponse.json({
     supabaseUrl: !!supabaseUrl,
@@ -126,6 +131,14 @@ export async function GET() {
       secretLive: !!process.env.PAYSTACK_SECRET_KEY_LIVE,
       publicTest: !!process.env.PAYSTACK_PUBLIC_KEY_TEST,
       publicLive: !!process.env.PAYSTACK_PUBLIC_KEY_LIVE,
+      webhook: !!process.env.PAYSTACK_WEBHOOK_SECRET,
+      webhookTest: !!process.env.PAYSTACK_WEBHOOK_SECRET_TEST,
+      webhookLive: !!process.env.PAYSTACK_WEBHOOK_SECRET_LIVE,
+      effectiveMode: paystackConfig.mode,
+      effectiveKeyPresent: paystackConfig.keyPresent,
+      effectiveSource: paystackConfig.source,
+      fallbackFromLive: paystackConfig.fallbackFromLive,
+      webhookSource: paystackConfig.webhookSource,
     },
     flutterwave: {
       mode: providerModes.flutterwaveMode,

@@ -79,9 +79,16 @@ Optional:
 - Paystack/Flutterwave modes are tracked alongside Stripe and default to test when live keys are missing.
 
 ### Paystack + Flutterwave provider keys
-- Paystack/Flutterwave keys live in `provider_settings` (not in env).
+- Paystack/Flutterwave keys live in `provider_settings` and are the canonical runtime source.
 - Admins update them in `/admin/settings/billing` (keys are masked on screen).
 - Mode selection is applied per provider; if live keys are missing, the config falls back to test.
+- Paystack env keys remain explicit fallback only when stored provider keys are missing:
+  - `PAYSTACK_SECRET_KEY[_TEST|_LIVE]`
+  - `PAYSTACK_PUBLIC_KEY[_TEST|_LIVE]`
+- Paystack webhook secret precedence is:
+  - `PAYSTACK_WEBHOOK_SECRET[_TEST|_LIVE]`
+  - `PAYSTACK_WEBHOOK_SECRET`
+  - resolved Paystack secret key for the active mode
 
 ### Paystack + Flutterwave test-mode checkout
 - Paystack init endpoint: `POST /api/billing/paystack/initialize`

@@ -51,9 +51,11 @@ type FeaturedRequestRow = {
   duration_days: number | null;
 };
 
+type Awaitable<T> = T | Promise<T>;
+
 type InitializeFeaturedPaymentDeps = {
   hasServiceRoleEnv: () => boolean;
-  hasPaystackServerEnv: () => boolean;
+  hasPaystackServerEnv: () => Awaitable<boolean>;
   requireRole: typeof requireRole;
   createServiceRoleClient: typeof createServiceRoleClient;
   hasActiveDelegation: typeof hasActiveDelegation;
@@ -63,7 +65,7 @@ type InitializeFeaturedPaymentDeps = {
   createFeaturedPaymentRecords: typeof createFeaturedPaymentRecords;
   markPaymentFailed: typeof markPaymentFailed;
   initializeTransaction: typeof initializeTransaction;
-  getPaystackServerConfig: typeof getPaystackServerConfig;
+  getPaystackServerConfig: () => Awaitable<Awaited<ReturnType<typeof getPaystackServerConfig>>>;
   getSiteUrl: typeof getSiteUrl;
 };
 
@@ -99,7 +101,7 @@ export async function postInitializeFeaturedPaymentResponse(
   if (!deps.hasServiceRoleEnv()) {
     return NextResponse.json({ error: "Service role not configured." }, { status: 503 });
   }
-  if (!deps.hasPaystackServerEnv()) {
+  if (!(await deps.hasPaystackServerEnv())) {
     return NextResponse.json({ error: "Paystack is not configured." }, { status: 503 });
   }
 
@@ -208,7 +210,7 @@ export async function postInitializeFeaturedPaymentResponse(
     },
   });
 
-  const paystackConfig = deps.getPaystackServerConfig();
+  const paystackConfig = await deps.getPaystackServerConfig();
   const siteUrl = await deps.getSiteUrl();
   const callbackUrl = `${siteUrl}/payments/featured/return?reference=${encodeURIComponent(reference)}`;
 

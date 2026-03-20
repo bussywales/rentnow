@@ -23,12 +23,14 @@ const querySchema = z.object({
   booking_id: z.string().uuid().optional(),
 });
 
+type Awaitable<T> = T | Promise<T>;
+
 type VerifyShortletPaystackDeps = {
   hasServiceRoleEnv: typeof hasServiceRoleEnv;
   createServiceRoleClient: typeof createServiceRoleClient;
-  hasPaystackServerEnv: typeof hasPaystackServerEnv;
+  hasPaystackServerEnv: () => Awaitable<boolean>;
   requireRole: typeof requireRole;
-  getPaystackServerConfig: typeof getPaystackServerConfig;
+  getPaystackServerConfig: () => Awaitable<Awaited<ReturnType<typeof getPaystackServerConfig>>>;
   verifyTransaction: typeof verifyTransaction;
   getShortletPaymentCheckoutContextByBookingId: typeof getShortletPaymentCheckoutContextByBookingId;
   resolveShortletBookingIdFromPaystackPayload: typeof resolveShortletBookingIdFromPaystackPayload;
@@ -73,7 +75,7 @@ export async function getShortletPaystackVerifyResponse(
   if (!deps.hasServiceRoleEnv()) {
     return NextResponse.json({ error: "Service role not configured" }, { status: 503 });
   }
-  if (!deps.hasPaystackServerEnv()) {
+  if (!(await deps.hasPaystackServerEnv())) {
     return NextResponse.json({ error: "Paystack is not configured" }, { status: 503 });
   }
 
@@ -116,7 +118,7 @@ export async function getShortletPaystackVerifyResponse(
 
   try {
     const adminClient = deps.createServiceRoleClient();
-    const paystackConfig = deps.getPaystackServerConfig();
+    const paystackConfig = await deps.getPaystackServerConfig();
     const verified = await deps.verifyTransaction({
       secretKey: paystackConfig.secretKey || "",
       reference: parsed.data.reference,

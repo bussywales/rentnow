@@ -44,12 +44,14 @@ type StripeSessionLike = {
   payment_intent?: string | { id?: string | null } | null;
 };
 
+type Awaitable<T> = T | Promise<T>;
+
 export type InternalShortletReconcileDeps = {
   hasServiceRoleEnv: typeof hasServiceRoleEnv;
-  hasPaystackServerEnv: typeof hasPaystackServerEnv;
+  hasPaystackServerEnv: () => Awaitable<boolean>;
   createServiceRoleClient: typeof createServiceRoleClient;
   getCronSecret: () => string;
-  getPaystackServerConfig: typeof getPaystackServerConfig;
+  getPaystackServerConfig: () => Awaitable<Awaited<ReturnType<typeof getPaystackServerConfig>>>;
   verifyTransaction: typeof verifyTransaction;
   getProviderModes: typeof getProviderModes;
   getStripeConfigForMode: typeof getStripeConfigForMode;
@@ -512,8 +514,8 @@ export async function postInternalShortletReconcilePaymentsResponse(
     summary.errors.push(`stripe_config:${error instanceof Error ? error.message : "unknown"}`);
   }
 
-  const paystackSecretKey = deps.hasPaystackServerEnv()
-    ? deps.getPaystackServerConfig().secretKey || null
+  const paystackSecretKey = (await deps.hasPaystackServerEnv())
+    ? (await deps.getPaystackServerConfig()).secretKey || null
     : null;
 
   const hasReconcileColumns = await (deps.detectReconcileSchemaSupport ?? detectReconcileSchemaSupport)({

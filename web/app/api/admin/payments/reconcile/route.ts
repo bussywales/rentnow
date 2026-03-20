@@ -34,12 +34,14 @@ export type ReconcileModePayload = {
   limit?: number;
 };
 
+type Awaitable<T> = T | Promise<T>;
+
 type ReconcileDeps = {
   requireRole: typeof requireRole;
   hasServiceRoleEnv: typeof hasServiceRoleEnv;
-  hasPaystackServerEnv: typeof hasPaystackServerEnv;
+  hasPaystackServerEnv: () => Awaitable<boolean>;
   createServiceRoleClient: typeof createServiceRoleClient;
-  getPaystackServerConfig: typeof getPaystackServerConfig;
+  getPaystackServerConfig: () => Awaitable<Awaited<ReturnType<typeof getPaystackServerConfig>>>;
   verifyTransaction: typeof verifyTransaction;
   getPaymentWithPurchaseByReference: typeof getPaymentWithPurchaseByReference;
   sendFeaturedReceiptIfNeeded: typeof sendFeaturedReceiptIfNeeded;
@@ -94,7 +96,7 @@ export async function postAdminPaymentsReconcileResponse(
   if (!deps.hasServiceRoleEnv()) {
     return NextResponse.json({ ok: false, reason: "service_role_missing" }, { status: 503 });
   }
-  if (!deps.hasPaystackServerEnv()) {
+  if (!(await deps.hasPaystackServerEnv())) {
     return NextResponse.json({ ok: false, reason: "paystack_not_configured" }, { status: 503 });
   }
 
@@ -105,7 +107,7 @@ export async function postAdminPaymentsReconcileResponse(
   }
 
   const client = deps.createServiceRoleClient() as unknown as UntypedAdminClient;
-  const paystackConfig = deps.getPaystackServerConfig();
+  const paystackConfig = await deps.getPaystackServerConfig();
   const secretKey = paystackConfig.secretKey || "";
 
   if (parsedPayload.kind === "mode") {

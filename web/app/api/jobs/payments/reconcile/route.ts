@@ -6,11 +6,13 @@ import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 const routeLabel = "/api/jobs/payments/reconcile";
 
+type Awaitable<T> = T | Promise<T>;
+
 export type PaymentsReconcileJobDeps = {
   hasServiceRoleEnv: typeof hasServiceRoleEnv;
-  hasPaystackServerEnv: typeof hasPaystackServerEnv;
+  hasPaystackServerEnv: () => Awaitable<boolean>;
   createServiceRoleClient: typeof createServiceRoleClient;
-  getPaystackServerConfig: typeof getPaystackServerConfig;
+  getPaystackServerConfig: () => Awaitable<Awaited<ReturnType<typeof getPaystackServerConfig>>>;
   getCronSecret: () => string;
   runPaymentsReconcileBatch: typeof runPaymentsReconcileBatch;
 };
@@ -42,12 +44,12 @@ export async function postPaymentsReconcileJobResponse(
     return NextResponse.json({ ok: false, error: "Service role not configured." }, { status: 503 });
   }
 
-  if (!deps.hasPaystackServerEnv()) {
+  if (!(await deps.hasPaystackServerEnv())) {
     return NextResponse.json({ ok: false, error: "Paystack not configured." }, { status: 503 });
   }
 
   const client = deps.createServiceRoleClient() as unknown as UntypedAdminClient;
-  const paystackConfig = deps.getPaystackServerConfig();
+  const paystackConfig = await deps.getPaystackServerConfig();
   const secretKey = paystackConfig.secretKey || "";
 
   try {

@@ -35,11 +35,13 @@ type PaystackWebhookEvent = {
   } | null;
 };
 
+type Awaitable<T> = T | Promise<T>;
+
 type PaystackWebhookDeps = {
   hasServiceRoleEnv: typeof hasServiceRoleEnv;
-  hasPaystackServerEnv: typeof hasPaystackServerEnv;
+  hasPaystackServerEnv: () => Awaitable<boolean>;
   createServiceRoleClient: typeof createServiceRoleClient;
-  getPaystackServerConfig: typeof getPaystackServerConfig;
+  getPaystackServerConfig: () => Awaitable<Awaited<ReturnType<typeof getPaystackServerConfig>>>;
   hashWebhookPayload: typeof hashWebhookPayload;
   insertPaymentWebhookEvent: typeof insertPaymentWebhookEvent;
   markPaymentWebhookEventError: typeof markPaymentWebhookEventError;
@@ -87,13 +89,13 @@ export async function postPaystackWebhookResponse(
   if (!deps.hasServiceRoleEnv()) {
     return NextResponse.json({ error: "Service role not configured." }, { status: 503 });
   }
-  if (!deps.hasPaystackServerEnv()) {
+  if (!(await deps.hasPaystackServerEnv())) {
     return NextResponse.json({ error: "Paystack not configured." }, { status: 503 });
   }
 
   const rawBody = await request.text();
   const signature = request.headers.get("x-paystack-signature");
-  const paystackConfig = deps.getPaystackServerConfig();
+  const paystackConfig = await deps.getPaystackServerConfig();
   const payloadHash = deps.hashWebhookPayload(rawBody);
 
   let payload: Record<string, unknown> = {};

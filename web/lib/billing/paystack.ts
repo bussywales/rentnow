@@ -1,5 +1,5 @@
 import type { ProviderMode, ProviderSettingsRow } from "@/lib/billing/provider-settings";
-import { getProviderSettings, normalizeProviderMode } from "@/lib/billing/provider-settings";
+import { getProviderModes, getProviderSettings, normalizeProviderMode } from "@/lib/billing/provider-settings";
 
 export type PaystackConfig = {
   mode: ProviderMode;
@@ -8,6 +8,11 @@ export type PaystackConfig = {
   keyPresent: boolean;
   source: "db" | "env" | "missing";
   fallbackFromLive: boolean;
+};
+
+export type PaystackServerConfig = PaystackConfig & {
+  webhookSecret: string | null;
+  webhookSource: "env" | "resolved_secret_key" | "missing";
 };
 
 type ResolveInput = {
@@ -60,7 +65,33 @@ export function resolvePaystackConfig({ mode, settings, env }: ResolveInput): Pa
   };
 }
 
+export function resolvePaystackServerConfig(input: ResolveInput): PaystackServerConfig {
+  const config = resolvePaystackConfig(input);
+  const sourceEnv = input.env ?? process.env;
+  const suffix = `_${config.mode.toUpperCase()}`;
+  const scopedWebhookSecret = sourceEnv[`PAYSTACK_WEBHOOK_SECRET${suffix}`];
+  const genericWebhookSecret = sourceEnv.PAYSTACK_WEBHOOK_SECRET;
+  const webhookSecret = scopedWebhookSecret || genericWebhookSecret || config.secretKey || null;
+  const webhookSource: PaystackServerConfig["webhookSource"] = scopedWebhookSecret || genericWebhookSecret
+    ? "env"
+    : config.secretKey
+      ? "resolved_secret_key"
+      : "missing";
+
+  return {
+    ...config,
+    webhookSecret,
+    webhookSource,
+  };
+}
+
 export async function getPaystackConfig(mode: ProviderMode): Promise<PaystackConfig> {
   const settings = await getProviderSettings();
   return resolvePaystackConfig({ mode, settings });
+}
+
+export async function getPaystackServerConfig(mode?: ProviderMode): Promise<PaystackServerConfig> {
+  const settings = await getProviderSettings();
+  const resolvedMode = mode ?? (await getProviderModes()).paystackMode;
+  return resolvePaystackServerConfig({ mode: resolvedMode, settings });
 }

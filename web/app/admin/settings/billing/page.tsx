@@ -208,6 +208,9 @@ export default async function AdminBillingSettingsPage() {
     secretLive: !!process.env.PAYSTACK_SECRET_KEY_LIVE,
     publicTest: !!process.env.PAYSTACK_PUBLIC_KEY_TEST,
     publicLive: !!process.env.PAYSTACK_PUBLIC_KEY_LIVE,
+    webhook: !!process.env.PAYSTACK_WEBHOOK_SECRET,
+    webhookTest: !!process.env.PAYSTACK_WEBHOOK_SECRET_TEST,
+    webhookLive: !!process.env.PAYSTACK_WEBHOOK_SECRET_LIVE,
   };
 
   const flutterwaveEnv = {
@@ -243,7 +246,8 @@ export default async function AdminBillingSettingsPage() {
         <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Admin</p>
         <p className="text-xl font-semibold">Billing provider settings</p>
         <p className="text-sm text-slate-200">
-          Toggle live/test mode per provider. Env keys remain the source of truth.
+          Toggle live/test mode per provider. Paystack and Flutterwave resolve from stored provider
+          settings first, with env fallback only when stored keys are missing.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-200">
           <PaymentModeBadge mode={stripeMode} />
@@ -499,6 +503,9 @@ export default async function AdminBillingSettingsPage() {
                 <li>Public (single): {paystackEnv.public ? "Yes" : "No"}</li>
                 <li>Secret (test): {paystackEnv.secretTest ? "Yes" : "No"}</li>
                 <li>Secret (live): {paystackEnv.secretLive ? "Yes" : "No"}</li>
+                <li>Webhook (single): {paystackEnv.webhook ? "Yes" : "No"}</li>
+                <li>Webhook (test): {paystackEnv.webhookTest ? "Yes" : "No"}</li>
+                <li>Webhook (live): {paystackEnv.webhookLive ? "Yes" : "No"}</li>
               </ul>
             </div>
             <div>

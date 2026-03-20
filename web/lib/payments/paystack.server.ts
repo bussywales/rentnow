@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { getPaystackServerConfig as getCanonicalPaystackServerConfig } from "@/lib/billing/paystack";
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 
@@ -29,20 +30,9 @@ function readString(input: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
-function getPaystackSecretKey() {
-  return readString(process.env.PAYSTACK_SECRET_KEY);
-}
-
-export function getPaystackPublicKey() {
-  return readString(process.env.PAYSTACK_PUBLIC_KEY);
-}
-
-export function getPaystackWebhookSecret() {
-  return readString(process.env.PAYSTACK_WEBHOOK_SECRET) || getPaystackSecretKey();
-}
-
-export function hasPaystackServerEnv() {
-  return Boolean(getPaystackSecretKey());
+export async function hasPaystackServerEnv() {
+  const config = await getCanonicalPaystackServerConfig();
+  return config.keyPresent;
 }
 
 export function validateWebhookSignature(input: {
@@ -142,10 +132,6 @@ export async function verifyTransaction(input: { secretKey: string; reference: s
   };
 }
 
-export function getPaystackServerConfig() {
-  return {
-    secretKey: getPaystackSecretKey(),
-    publicKey: getPaystackPublicKey(),
-    webhookSecret: getPaystackWebhookSecret(),
-  };
+export async function getPaystackServerConfig() {
+  return getCanonicalPaystackServerConfig();
 }
