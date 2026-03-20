@@ -53,13 +53,13 @@ export default function AdminPaymentsReconcilePanel() {
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <h2 className="text-base font-semibold text-slate-900">Reconcile Paystack reference</h2>
       <p className="mt-1 text-sm text-slate-600">
-        Verify and reprocess a payment by reference. Safe to run multiple times.
+        Verify and reprocess a canonical featured activation payment by reference. Safe to run multiple times.
       </p>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         <input
           value={reference}
           onChange={(event) => setReference(event.target.value)}
-          placeholder="featpay_xxx or Paystack reference"
+          placeholder="featpay_xxx or canonical Paystack reference"
           className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm"
           data-testid="admin-payments-reconcile-input"
         />

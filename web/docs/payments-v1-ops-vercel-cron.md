@@ -1,10 +1,10 @@
 # Payments v1 Ops — Scheduled Reconcile (GitHub Actions on Hobby)
 
-This runbook covers the fallback reconcile job for Paystack Featured payments.
+This runbook covers the fallback reconcile job for the canonical Paystack featured activation payments lane.
 
 ## Purpose
 
-- Paystack webhooks are primary for payment success updates; cron reconcile is fallback safety.
+- Paystack webhooks are primary for canonical featured activation success updates; cron reconcile is fallback safety.
 - Keep Featured activation reliable even when webhooks are delayed or missed.
 - Reconcile pending/initialized payments and send any missing receipts.
 - Provide admin-visible ops status from `/admin/payments`.

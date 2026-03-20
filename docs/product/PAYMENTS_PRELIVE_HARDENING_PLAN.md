@@ -26,6 +26,7 @@ The highest-priority hardening sequence is:
 2. Paystack config source-of-truth unification
 3. subscription success backstop hardening for non-Stripe providers
 4. featured payments canonical model decision
+   - completed 2026-03-20: canonical launch ops model is `payments` + `featured_purchases`; `/admin/payments` now scopes canonical vs legacy lanes explicitly
 5. final live smoke and ops checklist
 
 ## B) Initial live scope recommendation
@@ -95,6 +96,7 @@ Why:
 Scope:
 
 - choose one canonical model for featured monetisation and align ops visibility around it
+  - done for launch scope: canonical = `payments` + `featured_purchases`; legacy PAYG `feature_purchases` remains secondary and explicitly bounded
 
 Why:
 

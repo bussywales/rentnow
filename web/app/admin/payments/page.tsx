@@ -2,7 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getServerAuthUser } from "@/lib/auth/server-session";
-import { fetchAdminPayments } from "@/lib/payments/featured-payments.server";
+import {
+  fetchAdminLegacyFeaturePurchases,
+  fetchAdminPayments,
+} from "@/lib/payments/featured-payments.server";
 import { fetchPaymentWebhookEvents } from "@/lib/payments/featured-payments-ops.server";
 import { fetchPaymentsOpsSnapshot } from "@/lib/payments/reconcile.server";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
@@ -23,15 +26,39 @@ function toAnchorSafe(value: string) {
   return value.replace(/[^a-zA-Z0-9_-]+/g, "-");
 }
 
+function formatMinorAmount(currency: string, amountMinor: number) {
+  const amount = Number(amountMinor || 0) / 100;
+  try {
+    return new Intl.NumberFormat("en-NG", {
+      style: "currency",
+      currency: currency || "NGN",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${currency || "NGN"} ${amount.toFixed(2)}`;
+  }
+}
+
+function formatUnitAmount(currency: string, amount: number) {
+  const numericAmount = Number(amount || 0);
+  try {
+    return new Intl.NumberFormat("en-NG", {
+      style: "currency",
+      currency: currency || "NGN",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(numericAmount);
+  } catch {
+    return `${currency || "NGN"} ${numericAmount.toFixed(2)}`;
+  }
+}
+
 async function requireAdmin() {
   const { supabase, user } = await getServerAuthUser();
   if (!user) redirect("/auth/required?redirect=/admin/payments&reason=auth");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
 
   if (profile?.role !== "admin") redirect("/forbidden?reason=role");
 
@@ -49,19 +76,12 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps) {
   const to = firstValue(params.to) || "";
 
   const { client } = await requireAdmin();
-  const [rows, webhookEvents, opsSnapshot] = await Promise.all([
-    fetchAdminPayments({
-      client,
-      filters: { status, from, to, limit: 200 },
-    }),
-    fetchPaymentWebhookEvents({
-      client,
-      limit: 50,
-    }),
-    fetchPaymentsOpsSnapshot({
-      client,
-      stuckLimit: 10,
-    }),
+  const filters = { status, from, to, limit: 200 };
+  const [rows, legacyFeatureRows, webhookEvents, opsSnapshot] = await Promise.all([
+    fetchAdminPayments({ client, filters }),
+    fetchAdminLegacyFeaturePurchases({ client, filters }),
+    fetchPaymentWebhookEvents({ client, limit: 50 }),
+    fetchPaymentsOpsSnapshot({ client, stuckLimit: 10 }),
   ]);
 
   return (
@@ -70,7 +90,13 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps) {
         <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Admin</p>
         <p className="text-xl font-semibold">Payments</p>
         <p className="text-sm text-slate-200">
-          Featured activation payments (Paystack). Use this for reconciliation.
+          Canonical featured payment ops for approved featured-request activations. Trust the
+          <span className="font-semibold"> payments + featured_purchases</span> lane below for launch-critical
+          activation and reconciliation.
+        </p>
+        <p className="mt-2 text-sm text-slate-300">
+          Legacy PAYG featured listing charges still write to <span className="font-semibold">feature_purchases</span>.
+          They remain in scope for monetisation, but they are a secondary lane until later consolidation.
         </p>
         <div className="mt-3 flex gap-3 text-sm">
           <Link href="/admin/settings/billing" className="underline underline-offset-4">
@@ -80,6 +106,15 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps) {
             Admin home
           </Link>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950 shadow-sm">
+        <p className="font-semibold">Canonical featured model</p>
+        <p className="mt-1">
+          Initial live-scope operator trust should center on <span className="font-semibold">payments</span> +{" "}
+          <span className="font-semibold">featured_purchases</span> for approved featured-request activations. Treat the
+          legacy PAYG featured table as a bounded secondary lane, not the canonical activation ledger.
+        </p>
       </div>
 
       <form className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -93,25 +128,17 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps) {
               <option value="succeeded">Succeeded</option>
               <option value="failed">Failed</option>
               <option value="cancelled">Cancelled</option>
+              <option value="paid">Paid</option>
+              <option value="activated">Activated</option>
             </select>
           </label>
           <label className="flex flex-col gap-1 text-sm text-slate-700">
             <span className="text-xs uppercase tracking-[0.14em] text-slate-500">From</span>
-            <input
-              type="date"
-              name="from"
-              defaultValue={from}
-              className="rounded-lg border border-slate-300 px-3 py-2"
-            />
+            <input type="date" name="from" defaultValue={from} className="rounded-lg border border-slate-300 px-3 py-2" />
           </label>
           <label className="flex flex-col gap-1 text-sm text-slate-700">
             <span className="text-xs uppercase tracking-[0.14em] text-slate-500">To</span>
-            <input
-              type="date"
-              name="to"
-              defaultValue={to}
-              className="rounded-lg border border-slate-300 px-3 py-2"
-            />
+            <input type="date" name="to" defaultValue={to} className="rounded-lg border border-slate-300 px-3 py-2" />
           </label>
           <div className="flex items-end">
             <button
@@ -132,7 +159,14 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps) {
 
       <AdminPaymentsReconcilePanel />
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 px-4 py-3">
+          <h2 className="text-sm font-semibold text-slate-900">Canonical featured activation payments</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Approved featured-request activations written through <code>payments</code> + <code>featured_purchases</code>.
+            This is the admin reconciliation source of truth for the initial live scope.
+          </p>
+        </div>
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.14em] text-slate-500">
             <tr>
@@ -148,8 +182,7 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps) {
             {rows.length ? (
               rows.map((row) => {
                 const purchase = Array.isArray((row as { featured_purchases?: unknown[] }).featured_purchases)
-                  ? ((row as { featured_purchases?: Array<Record<string, unknown>> }).featured_purchases?.[0] ??
-                    null)
+                  ? ((row as { featured_purchases?: Array<Record<string, unknown>> }).featured_purchases?.[0] ?? null)
                   : null;
                 const property = purchase && typeof purchase === "object"
                   ? ((purchase as { properties?: Record<string, unknown> | null }).properties ?? null)
@@ -162,8 +195,10 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps) {
                   <tr key={String((row as { id?: string }).id || "")} id={rowAnchor}>
                     <td className="px-4 py-3">{String((row as { status?: string }).status || "—")}</td>
                     <td className="px-4 py-3">
-                      {String((row as { currency?: string }).currency || "NGN")}{" "}
-                      {Number((row as { amount_minor?: number }).amount_minor || 0) / 100}
+                      {formatMinorAmount(
+                        String((row as { currency?: string }).currency || "NGN"),
+                        Number((row as { amount_minor?: number }).amount_minor || 0)
+                      )}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs">{reference || "—"}</td>
                     <td className="px-4 py-3">
@@ -188,13 +223,66 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps) {
             ) : (
               <tr>
                 <td className="px-4 py-6 text-sm text-slate-500" colSpan={6}>
-                  No payment records found for this filter.
+                  No canonical featured activation payments found for this filter.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      </div>
+      </section>
+
+      <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 px-4 py-3">
+          <h2 className="text-sm font-semibold text-slate-900">Legacy PAYG featured listing charges</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Secondary lane written through <code>feature_purchases</code> from the listing checkout flow. Keep this
+            visible for support and finance context, but do not treat it as the canonical featured activation model.
+          </p>
+        </div>
+        <table className="min-w-full divide-y divide-slate-200 text-sm">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.14em] text-slate-500">
+            <tr>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Amount</th>
+              <th className="px-4 py-3">Provider ref</th>
+              <th className="px-4 py-3">Listing</th>
+              <th className="px-4 py-3">Featured until</th>
+              <th className="px-4 py-3">Created</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {legacyFeatureRows.length ? (
+              legacyFeatureRows.map((row) => {
+                const property = row.properties ?? null;
+                return (
+                  <tr key={row.id}>
+                    <td className="px-4 py-3">{row.status || "—"}</td>
+                    <td className="px-4 py-3">{formatUnitAmount(row.currency, row.amount)}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{row.provider_ref || "—"}</td>
+                    <td className="px-4 py-3">
+                      {row.listing_id ? (
+                        <Link href={`/properties/${row.listing_id}`} className="text-sky-700 underline underline-offset-2">
+                          {String(property?.title || "View listing")}
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="px-4 py-3">{row.featured_until ? row.featured_until.slice(0, 19).replace("T", " ") : "—"}</td>
+                    <td className="px-4 py-3">{row.created_at ? row.created_at.slice(0, 19).replace("T", " ") : "—"}</td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td className="px-4 py-6 text-sm text-slate-500" colSpan={6}>
+                  No legacy PAYG featured listing charges found for this filter.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </section>
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-4 py-3">
@@ -215,18 +303,14 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps) {
               webhookEvents.map((row) => (
                 <tr key={String((row as { id?: string }).id || "")}>
                   <td className="px-4 py-3">
-                    {String((row as { received_at?: string }).received_at || "")
-                      .slice(0, 19)
-                      .replace("T", " ")}
+                    {String((row as { received_at?: string }).received_at || "").slice(0, 19).replace("T", " ")}
                   </td>
                   <td className="px-4 py-3">{String((row as { event?: string }).event || "—")}</td>
                   <td className="px-4 py-3 font-mono text-xs">
                     {String((row as { reference?: string }).reference || "").trim() ? (
                       <a
                         className="text-sky-700 underline underline-offset-2"
-                        href={`#payment-ref-${toAnchorSafe(
-                          String((row as { reference?: string }).reference || "")
-                        )}`}
+                        href={`#payment-ref-${toAnchorSafe(String((row as { reference?: string }).reference || ""))}`}
                       >
                         {String((row as { reference?: string }).reference || "")}
                       </a>
@@ -234,9 +318,7 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps) {
                       "—"
                     )}
                   </td>
-                  <td className="px-4 py-3">
-                    {(row as { processed?: boolean }).processed ? "Yes" : "No"}
-                  </td>
+                  <td className="px-4 py-3">{(row as { processed?: boolean }).processed ? "Yes" : "No"}</td>
                   <td className="px-4 py-3 text-xs text-slate-600">
                     {String((row as { process_error?: string }).process_error || "—")}
                   </td>

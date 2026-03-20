@@ -1,13 +1,13 @@
 # Payments v1 (Paystack) — Featured Activations
 
-This runbook documents the v1 payments flow for Featured listings in PropatyHub.
+This runbook documents the canonical v1 payments flow for approved Featured request activations in PropatyHub.
 
 ## Scope
 
 - Provider: Paystack
 - Product: Featured listing activation (`featured_7d`, `featured_30d`)
 - Currency: `featured_currency` app setting (Nigeria launch default should be `NGN`)
-- Source of truth: `payments` + `featured_purchases` tables
+- Canonical source of truth for approved featured-request activations: `payments` + `featured_purchases` tables
 - Activation source of truth: webhook + `public.activate_featured_purchase(...)`
 
 ## Required env vars

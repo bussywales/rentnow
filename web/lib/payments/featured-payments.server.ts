@@ -38,6 +38,22 @@ type RawPaymentWithPurchase = PaymentRow & {
   featured_purchases?: FeaturedPurchaseRow[] | null;
 };
 
+export type LegacyFeaturePurchaseRow = {
+  id: string;
+  user_id: string;
+  listing_id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  provider: string;
+  provider_ref: string | null;
+  featured_until: string | null;
+  paid_at: string | null;
+  created_at: string;
+  updated_at: string;
+  properties?: { id?: string | null; title?: string | null; city?: string | null } | null;
+};
+
 export function buildFeaturedPaymentReference() {
   return `featpay_${crypto.randomUUID()}`;
 }
@@ -201,6 +217,45 @@ export async function fetchAdminPayments(input: {
   }
 
   return ((data as Array<Record<string, unknown>> | null) ?? []);
+}
+
+export async function fetchAdminLegacyFeaturePurchases(input: {
+  client: UntypedAdminClient;
+  filters: AdminPaymentsFilters;
+}) {
+  const limit = Number.isFinite(input.filters.limit || NaN)
+    ? Math.max(1, Math.min(500, Math.trunc(input.filters.limit || 100)))
+    : 100;
+
+  let query = input.client
+    .from("feature_purchases")
+    .select(
+      "id,user_id,listing_id,amount,currency,status,provider,provider_ref,featured_until,paid_at,created_at,updated_at,properties(id,title,city)"
+    )
+    .eq("provider", "paystack")
+    .order("created_at", { ascending: false })
+    .range(0, limit - 1);
+
+  const status = String(input.filters.status || "").trim().toLowerCase();
+  if (status && status !== "all") {
+    query = query.eq("status", status);
+  }
+
+  const from = input.filters.from ? Date.parse(input.filters.from) : NaN;
+  if (Number.isFinite(from)) {
+    query = query.gte("created_at", new Date(from).toISOString());
+  }
+  const to = input.filters.to ? Date.parse(input.filters.to) : NaN;
+  if (Number.isFinite(to)) {
+    query = query.lte("created_at", new Date(to + 24 * 60 * 60 * 1000 - 1).toISOString());
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(error.message || "Unable to load legacy feature purchases.");
+  }
+
+  return ((data as LegacyFeaturePurchaseRow[] | null) ?? []);
 }
 
 export async function fetchMyPayments(input: {

@@ -95,7 +95,7 @@ export default function AdminPaymentsOpsPanel(props: {
         <div>
           <h2 className="text-base font-semibold text-slate-900">Ops</h2>
           <p className="text-sm text-slate-600">
-            Detect stuck payments and receipts pending delivery.
+            Detect stuck canonical featured activation payments and receipts pending delivery.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
