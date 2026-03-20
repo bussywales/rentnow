@@ -11,6 +11,8 @@ export async function GET() {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
   const stripeSecret = process.env.STRIPE_SECRET_KEY;
   const stripeWebhook = process.env.STRIPE_WEBHOOK_SECRET;
+  const stripeBillingWebhook = process.env.STRIPE_BILLING_WEBHOOK_SECRET;
+  const stripeShortletWebhook = process.env.STRIPE_SHORTLET_WEBHOOK_SECRET;
   const stripePublishable = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
   const stripeLandlordMonthly = process.env.STRIPE_PRICE_LANDLORD_MONTHLY;
   const stripeLandlordYearly = process.env.STRIPE_PRICE_LANDLORD_YEARLY;
@@ -27,6 +29,18 @@ export async function GET() {
   const hasEnvForMode = (key: string, mode: string) => {
     const suffix = `_${mode.toUpperCase()}`;
     return !!process.env[`${key}${suffix}`] || !!process.env[key];
+  };
+
+  const hasStripeWebhookEnvForScope = (scope: "billing" | "shortlet", mode: string) => {
+    const prefix =
+      scope === "shortlet" ? "STRIPE_SHORTLET_WEBHOOK_SECRET" : "STRIPE_BILLING_WEBHOOK_SECRET";
+    const suffix = `_${mode.toUpperCase()}`;
+    return (
+      !!process.env[`${prefix}${suffix}`] ||
+      !!process.env[prefix] ||
+      !!process.env[`STRIPE_WEBHOOK_SECRET${suffix}`] ||
+      !!process.env.STRIPE_WEBHOOK_SECRET
+    );
   };
 
   const required = [
@@ -75,6 +89,14 @@ export async function GET() {
       webhook: !!stripeWebhook,
       webhookTest: !!process.env.STRIPE_WEBHOOK_SECRET_TEST,
       webhookLive: !!process.env.STRIPE_WEBHOOK_SECRET_LIVE,
+      billingWebhook: !!stripeBillingWebhook,
+      billingWebhookTest: !!process.env.STRIPE_BILLING_WEBHOOK_SECRET_TEST,
+      billingWebhookLive: !!process.env.STRIPE_BILLING_WEBHOOK_SECRET_LIVE,
+      shortletWebhook: !!stripeShortletWebhook,
+      shortletWebhookTest: !!process.env.STRIPE_SHORTLET_WEBHOOK_SECRET_TEST,
+      shortletWebhookLive: !!process.env.STRIPE_SHORTLET_WEBHOOK_SECRET_LIVE,
+      billingWebhookReadyForMode: hasStripeWebhookEnvForScope("billing", providerModes.stripeMode),
+      shortletWebhookReadyForMode: hasStripeWebhookEnvForScope("shortlet", providerModes.stripeMode),
       publishable: !!stripePublishable,
       landlordMonthly: !!stripeLandlordMonthly,
       landlordYearly: !!stripeLandlordYearly,

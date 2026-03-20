@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import type { ProviderMode } from "@/lib/billing/provider-settings";
 
 const stripeClients: Record<string, Stripe> = {};
+export type StripeWebhookScope = "billing" | "shortlet";
 
 function resolveStripeSecretKey(mode?: ProviderMode | null) {
   const suffix = mode ? `_${mode.toUpperCase()}` : "";
@@ -9,18 +10,29 @@ function resolveStripeSecretKey(mode?: ProviderMode | null) {
   return modeKey || process.env.STRIPE_SECRET_KEY || null;
 }
 
-function resolveStripeWebhookSecret(mode?: ProviderMode | null) {
+function resolveScopedWebhookKey(scope: StripeWebhookScope, mode?: ProviderMode | null) {
+  const scopePrefix = scope === "shortlet" ? "STRIPE_SHORTLET_WEBHOOK_SECRET" : "STRIPE_BILLING_WEBHOOK_SECRET";
   const suffix = mode ? `_${mode.toUpperCase()}` : "";
-  const modeSecret = process.env[`STRIPE_WEBHOOK_SECRET${suffix}`];
-  return modeSecret || process.env.STRIPE_WEBHOOK_SECRET || null;
+  const scopedModeKey = process.env[`${scopePrefix}${suffix}`];
+  const scopedSingleKey = process.env[scopePrefix];
+  const genericModeKey = process.env[`STRIPE_WEBHOOK_SECRET${suffix}`];
+  const genericSingleKey = process.env.STRIPE_WEBHOOK_SECRET;
+  return scopedModeKey || scopedSingleKey || genericModeKey || genericSingleKey || null;
 }
 
-export function getStripeConfigForMode(mode?: ProviderMode | null) {
+function resolveStripeWebhookSecret(mode?: ProviderMode | null, scope: StripeWebhookScope = "billing") {
+  return resolveScopedWebhookKey(scope, mode);
+}
+
+export function getStripeConfigForMode(
+  mode?: ProviderMode | null,
+  webhookScope: StripeWebhookScope = "billing"
+) {
   const resolvedMode = mode === "live" ? "live" : "test";
   return {
     mode: resolvedMode as ProviderMode,
     secretKey: resolveStripeSecretKey(resolvedMode),
-    webhookSecret: resolveStripeWebhookSecret(resolvedMode),
+    webhookSecret: resolveStripeWebhookSecret(resolvedMode, webhookScope),
   };
 }
 

@@ -61,7 +61,7 @@ export async function POST(request: Request) {
   let event: Stripe.Event;
 
   const { stripeMode } = await getProviderModes();
-  const stripeConfig = getStripeConfigForMode(stripeMode);
+  const stripeConfig = getStripeConfigForMode(stripeMode, "billing");
   if (!stripeConfig.secretKey || !stripeConfig.webhookSecret) {
     return NextResponse.json({ error: "Stripe webhook not configured" }, { status: 503 });
   }

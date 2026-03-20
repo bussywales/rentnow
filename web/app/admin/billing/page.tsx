@@ -595,7 +595,10 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
   const stripeMode = providerModes.stripeMode;
   const stripeLiveSecretReady = Boolean(process.env.STRIPE_SECRET_KEY_LIVE || process.env.STRIPE_SECRET_KEY);
   const stripeLiveWebhookReady = Boolean(
-    process.env.STRIPE_WEBHOOK_SECRET_LIVE || process.env.STRIPE_WEBHOOK_SECRET
+    process.env.STRIPE_BILLING_WEBHOOK_SECRET_LIVE ||
+      process.env.STRIPE_BILLING_WEBHOOK_SECRET ||
+      process.env.STRIPE_WEBHOOK_SECRET_LIVE ||
+      process.env.STRIPE_WEBHOOK_SECRET
   );
   const stripeLiveReady = stripeLiveSecretReady && stripeLiveWebhookReady;
   const email = parseParam(searchParams, "email");

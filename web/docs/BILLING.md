@@ -41,6 +41,8 @@ This document covers manual billing (admin-driven), Stripe subscriptions, and te
 Server-only:
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_BILLING_WEBHOOK_SECRET` (optional route-specific override)
+- `STRIPE_SHORTLET_WEBHOOK_SECRET` (optional route-specific override)
 - `STRIPE_PRICE_LANDLORD_MONTHLY`
 - `STRIPE_PRICE_LANDLORD_YEARLY`
 - `STRIPE_PRICE_AGENT_MONTHLY`
@@ -65,8 +67,15 @@ Optional:
 - Stripe key resolution prefers mode-specific keys when present:
   - `STRIPE_SECRET_KEY_TEST` / `STRIPE_SECRET_KEY_LIVE`
   - `STRIPE_WEBHOOK_SECRET_TEST` / `STRIPE_WEBHOOK_SECRET_LIVE`
+  - `STRIPE_BILLING_WEBHOOK_SECRET_TEST` / `STRIPE_BILLING_WEBHOOK_SECRET_LIVE`
+  - `STRIPE_SHORTLET_WEBHOOK_SECRET_TEST` / `STRIPE_SHORTLET_WEBHOOK_SECRET_LIVE`
   - `STRIPE_PRICE_*_TEST` / `STRIPE_PRICE_*_LIVE`
 - If mode-specific keys are missing, the single-key env vars above are used as a fallback.
+- Webhook secret precedence is now:
+  - route-specific mode key
+  - route-specific single key
+  - generic mode key
+  - generic single key
 - Paystack/Flutterwave modes are tracked alongside Stripe and default to test when live keys are missing.
 
 ### Paystack + Flutterwave provider keys
@@ -100,7 +109,7 @@ Optional:
 
 ### Webhook flow
 - Endpoint: `POST /api/billing/stripe/webhook`
-- Verified using `STRIPE_WEBHOOK_SECRET`.
+- Verified using the billing-scoped Stripe webhook secret resolver.
 - Handles:
   - `checkout.session.completed`
   - `customer.subscription.created`
@@ -111,6 +120,15 @@ Optional:
 - Updates `profile_plans` with Stripe identifiers and `valid_until`.
 - Checkout sessions require `user_id` + `plan_tier` metadata; missing metadata is logged as an error and ignored.
 - Subscription events rely on price-id mapping and stored Stripe IDs to resolve the profile.
+
+### Stripe shortlet webhook
+- Endpoint: `POST /api/webhooks/stripe`
+- Verified using the shortlet-scoped Stripe webhook secret resolver.
+- Recommended live configuration:
+  - billing webhook route gets its own signing secret
+  - shortlet webhook route gets its own signing secret
+- Backward compatibility:
+  - if route-specific secrets are not set, the app falls back to generic `STRIPE_WEBHOOK_SECRET[_TEST|_LIVE]`
 
 ### Webhook audit
 - Stripe webhook events are recorded in `stripe_webhook_events` with metadata only (no raw payloads).
@@ -150,7 +168,9 @@ Optional:
 
 ## Ops checklist
 1) Set Stripe env vars in Vercel.
-2) Configure webhook endpoint: `/api/billing/stripe/webhook`.
+2) Configure webhook endpoints:
+   - `/api/billing/stripe/webhook`
+   - `/api/webhooks/stripe`
 3) Validate via `/api/debug/env` (Stripe section).
 4) Validate `/api/debug/rls` for Stripe columns in `profile_plans`.
 

@@ -79,7 +79,7 @@ export async function postStripeWebhookResponse(
   }
 
   const modes = await deps.getProviderModes();
-  const stripeConfig = deps.getStripeConfigForMode(modes.stripeMode);
+  const stripeConfig = deps.getStripeConfigForMode(modes.stripeMode, "shortlet");
   if (!stripeConfig.secretKey || !stripeConfig.webhookSecret) {
     return NextResponse.json({ error: "Stripe is not configured." }, { status: 503 });
   }

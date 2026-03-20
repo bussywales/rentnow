@@ -175,6 +175,12 @@ export default async function AdminBillingSettingsPage() {
     webhook: !!process.env.STRIPE_WEBHOOK_SECRET,
     webhookTest: !!process.env.STRIPE_WEBHOOK_SECRET_TEST,
     webhookLive: !!process.env.STRIPE_WEBHOOK_SECRET_LIVE,
+    billingWebhook: !!process.env.STRIPE_BILLING_WEBHOOK_SECRET,
+    billingWebhookTest: !!process.env.STRIPE_BILLING_WEBHOOK_SECRET_TEST,
+    billingWebhookLive: !!process.env.STRIPE_BILLING_WEBHOOK_SECRET_LIVE,
+    shortletWebhook: !!process.env.STRIPE_SHORTLET_WEBHOOK_SECRET,
+    shortletWebhookTest: !!process.env.STRIPE_SHORTLET_WEBHOOK_SECRET_TEST,
+    shortletWebhookLive: !!process.env.STRIPE_SHORTLET_WEBHOOK_SECRET_LIVE,
     landlordMonthly: !!process.env.STRIPE_PRICE_LANDLORD_MONTHLY,
     landlordYearly: !!process.env.STRIPE_PRICE_LANDLORD_YEARLY,
     landlordMonthlyTest: !!process.env.STRIPE_PRICE_LANDLORD_MONTHLY_TEST,
@@ -464,6 +470,12 @@ export default async function AdminBillingSettingsPage() {
               <li>Webhook (single): {stripeEnv.webhook ? "Yes" : "No"}</li>
               <li>Webhook (test): {stripeEnv.webhookTest ? "Yes" : "No"}</li>
               <li>Webhook (live): {stripeEnv.webhookLive ? "Yes" : "No"}</li>
+              <li>Billing webhook (single): {stripeEnv.billingWebhook ? "Yes" : "No"}</li>
+              <li>Billing webhook (test): {stripeEnv.billingWebhookTest ? "Yes" : "No"}</li>
+              <li>Billing webhook (live): {stripeEnv.billingWebhookLive ? "Yes" : "No"}</li>
+              <li>Shortlet webhook (single): {stripeEnv.shortletWebhook ? "Yes" : "No"}</li>
+              <li>Shortlet webhook (test): {stripeEnv.shortletWebhookTest ? "Yes" : "No"}</li>
+              <li>Shortlet webhook (live): {stripeEnv.shortletWebhookLive ? "Yes" : "No"}</li>
             </ul>
           </div>
           <div>
