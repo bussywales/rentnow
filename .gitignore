@@ -31,3 +31,7 @@ playwright-report/
 test-results/
 web/playwright-report/
 web/test-results/
+
+# Local working brand exports
+Branding Blueprint/
+.local-work/
