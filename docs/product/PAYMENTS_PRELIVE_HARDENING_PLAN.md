@@ -179,3 +179,25 @@ Changes:
   - resolved Paystack secret key
 
 This phase removes the checkout-vs-ops split-brain risk where billing could succeed with stored keys while reconcile or webhook paths still believed Paystack was unconfigured.
+
+## H) Phase implemented after Paystack config unification
+
+Implemented next:
+
+- Phase 3: subscription success backstop hardening
+
+Changes:
+
+- Paystack subscription finalization now runs through a shared server helper:
+  - [web/lib/billing/paystack-subscriptions.server.ts](/Users/olubusayoadewale/rentnow/web/lib/billing/paystack-subscriptions.server.ts)
+- the browser verify route and the Paystack billing webhook now both delegate to that helper
+- successful Paystack subscription charge events can now activate plan state even if the user never completes the browser return path
+- the shared finalizer is idempotent:
+  - already processed events short-circuit safely
+  - manual override protection still downgrades to `skipped`
+
+Why this matters:
+
+- callback-only subscription activation was one of the main remaining amber risks
+- this phase makes Paystack subscription success materially less dependent on the happy-path browser callback
+- support and ops now have a stronger provider-driven backstop before broader reconcile work

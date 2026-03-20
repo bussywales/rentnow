@@ -5,6 +5,10 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { getProviderModes } from "@/lib/billing/provider-settings";
 import { getPaystackConfig } from "@/lib/billing/paystack";
+import {
+  finalizePaystackSubscriptionEvent,
+  getPaystackSubscriptionEventByReference,
+} from "@/lib/billing/paystack-subscriptions.server";
 import { consumeListingCredit } from "@/lib/billing/listing-credits.server";
 import { consumeFeaturedCredit } from "@/lib/billing/featured-credits.server";
 import { getFeaturedConfig } from "@/lib/billing/featured";
@@ -104,6 +108,50 @@ export async function POST(request: Request) {
   }
 
   if (paymentError || (!typedPayment && !typedFeaturePurchase)) {
+    const subscriptionEvent = await getPaystackSubscriptionEventByReference({
+      adminClient,
+      reference,
+    });
+
+    if (subscriptionEvent) {
+      const result = await finalizePaystackSubscriptionEvent({
+        adminClient,
+        reference,
+        event: subscriptionEvent,
+        actorUserId: null,
+      });
+
+      if (result.status === "verified" || result.status === "already_processed" || result.status === "skipped") {
+        return NextResponse.json({
+          ok: true,
+          subscription: true,
+          status: result.status,
+          valid_until: result.validUntil,
+        });
+      }
+
+      if (result.retryable) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: result.httpStatus,
+          startTime,
+          error: result.reason,
+        });
+        return NextResponse.json(
+          { ok: false, subscription: true, error: result.reason },
+          { status: result.httpStatus }
+        );
+      }
+
+      return NextResponse.json({
+        ok: true,
+        subscription: true,
+        status: result.status,
+        reason: result.reason,
+      });
+    }
+
     logFailure({
       request,
       route: routeLabel,

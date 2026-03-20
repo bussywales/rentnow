@@ -38,6 +38,7 @@ export default defineConfig({
   use: {
     ...(baseConfig.use || {}),
     baseURL: resolvedBaseURL,
+    serviceWorkers: "block",
   },
   ...(useLocalServer
     ? {
