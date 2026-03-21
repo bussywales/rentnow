@@ -45,7 +45,9 @@ export default defineConfig({
         webServer: {
           command: "npm run build && npm run start -- -p 3000",
           url: resolvedBaseURL,
-          reuseExistingServer: true,
+          // Go-live smoke must validate the current build output, not a stale reused server
+          // that may still reference deleted asset chunks from an older build.
+          reuseExistingServer: false,
           timeout: 300_000,
         },
       }
