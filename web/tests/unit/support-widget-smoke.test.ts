@@ -26,6 +26,7 @@ void test("support widget exposes open, close, quick actions, and /support fallb
   assert.match(source, /data-testid="support-widget-send"/);
   assert.match(source, /data-testid="support-widget-escalate"/);
   assert.match(source, /data-testid="support-widget-ticket-success"/);
+  assert.match(source, /onClick=\{\(\) => setShowEscalationForm\(true\)\}/);
   assert.match(source, /fetch\("\/api\/support\/escalate"/);
   assert.match(source, /Open full support page/);
   assert.match(source, /href="\/support"/);

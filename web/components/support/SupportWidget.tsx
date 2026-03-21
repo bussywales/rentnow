@@ -470,7 +470,7 @@ export function SupportWidget({
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setShowEscalationForm((prev) => !prev)}
+                    onClick={() => setShowEscalationForm(true)}
                     className="mt-1 inline-flex text-xs font-semibold text-amber-900 underline underline-offset-4"
                     data-testid="support-widget-escalate"
                   >
