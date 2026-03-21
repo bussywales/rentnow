@@ -8,6 +8,7 @@ type Props = {
   propertyId: string;
   isFeatured: boolean;
   isDemo?: boolean;
+  listingStatus?: string | null;
   featuredUntil?: string | null;
   onUpdated?: (next: { is_featured: boolean; featured_until: string | null }) => void;
   onToast?: (message: string) => void;
@@ -21,6 +22,7 @@ export default function AdminFeaturedToggleButton({
   propertyId,
   isFeatured,
   isDemo = false,
+  listingStatus = null,
   featuredUntil = null,
   onUpdated,
   onToast,
@@ -38,11 +40,17 @@ export default function AdminFeaturedToggleButton({
   );
   const nextFeatured = !featuredActive;
   const featureBlockedByDemo = isDemo && nextFeatured;
+  const featureBlockedByRemoved =
+    (listingStatus ?? "").toLowerCase() === "removed" && nextFeatured;
   const title = nextFeatured ? "Mark listing as featured?" : "Remove featured status?";
 
   const handleConfirm = async () => {
     if (featureBlockedByDemo) {
       setError("Demo listings can't be featured.");
+      return;
+    }
+    if (featureBlockedByRemoved) {
+      setError("Removed listings can't be featured.");
       return;
     }
     setPending(true);
@@ -88,12 +96,17 @@ export default function AdminFeaturedToggleButton({
             onToast?.("Demo listings can't be featured.");
             return;
           }
+          if (featureBlockedByRemoved) {
+            setError("Removed listings can't be featured.");
+            onToast?.("Removed listings can't be featured.");
+            return;
+          }
           setError(null);
           setOpen(true);
         }}
-        disabled={featureBlockedByDemo}
+        disabled={featureBlockedByDemo || featureBlockedByRemoved}
         className={
-          featureBlockedByDemo
+          featureBlockedByDemo || featureBlockedByRemoved
             ? "rounded border border-slate-200 bg-slate-100 px-3 py-1 text-xs text-slate-400"
             : buttonClassName ||
           "rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50"
@@ -102,6 +115,8 @@ export default function AdminFeaturedToggleButton({
         title={
           featureBlockedByDemo
             ? "Demo listings can't be featured"
+            : featureBlockedByRemoved
+              ? "Removed listings can't be featured"
             : nextFeatured
               ? "Mark as featured"
               : "Remove featured"
@@ -198,7 +213,7 @@ export default function AdminFeaturedToggleButton({
               <Button
                 size="sm"
                 onClick={handleConfirm}
-                disabled={pending || featureBlockedByDemo}
+                disabled={pending || featureBlockedByDemo || featureBlockedByRemoved}
                 data-testid="admin-featured-confirm"
               >
                 {pending ? "Saving..." : "Confirm"}

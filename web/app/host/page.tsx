@@ -76,6 +76,7 @@ type PropertyStatus =
   | "draft"
   | "pending"
   | "live"
+  | "removed"
   | "expired"
   | "rejected"
   | "paused"

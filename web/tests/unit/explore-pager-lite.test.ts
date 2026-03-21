@@ -5,6 +5,7 @@ import path from "node:path";
 
 import {
   accumulatePagerLiteWheelDelta,
+  getPagerLiteInitialViewportHeight,
   PAGER_LITE_AXIS_THRESHOLD_PX,
   PAGER_LITE_WHEEL_THRESHOLD_PX,
   resolvePagerLiteAxis,
@@ -16,6 +17,10 @@ import {
   shouldStartPagerLitePointerGesture,
   shouldThrottlePagerLiteWheelNavigation,
 } from "@/components/explore/PagerLite";
+
+void test("pager lite uses a hydration-safe initial viewport height", () => {
+  assert.equal(getPagerLiteInitialViewportHeight(), 1);
+});
 
 void test("pager lite axis resolver waits for threshold and identifies dominant axis", () => {
   assert.equal(resolvePagerLiteAxis(4, 5), null);
@@ -72,6 +77,7 @@ void test("pager lite source uses axis-intent ownership for gallery-start gestur
   assert.match(source, /onWheelCapture=\{\(event\) => \{/);
   assert.match(source, /data-testid="explore-pager-lite-track"/);
   assert.match(source, /touchAction: "pan-y pinch-zoom"/);
+  assert.match(source, /useState\(getPagerLiteInitialViewportHeight\)/);
 });
 
 void test("pager lite arbitration allows vertical paging but reserves horizontal for carousel when gesture starts in gallery", () => {

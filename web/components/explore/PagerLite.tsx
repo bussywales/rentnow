@@ -47,6 +47,10 @@ export type PagerLiteProps = {
   testId?: string;
 };
 
+export function getPagerLiteInitialViewportHeight(): number {
+  return 1;
+}
+
 function createIdleGestureState(): PagerLiteGestureState {
   return {
     active: false,
@@ -205,10 +209,7 @@ export const PagerLite = memo(function PagerLite({
   const pointerCaptureTargetRef = useRef<HTMLDivElement | null>(null);
   const pointerCaptureIdRef = useRef<number | null>(null);
 
-  const [viewportHeight, setViewportHeight] = useState(() => {
-    if (typeof window === "undefined") return 1;
-    return Math.max(1, window.innerHeight || 1);
-  });
+  const [viewportHeight, setViewportHeight] = useState(getPagerLiteInitialViewportHeight);
   const [dragOffsetPx, setDragOffsetPx] = useState(0);
   const [isSnapping, setIsSnapping] = useState(false);
 

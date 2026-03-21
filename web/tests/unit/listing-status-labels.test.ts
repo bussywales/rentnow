@@ -4,6 +4,7 @@ import { mapStatusLabel } from "@/lib/properties/status";
 
 void test("status labels are friendly", () => {
   assert.equal(mapStatusLabel("pending"), "Under review");
+  assert.equal(mapStatusLabel("removed"), "Removed by admin");
   assert.equal(mapStatusLabel("paused_owner"), "Paused (Owner hold)");
   assert.equal(mapStatusLabel("paused_occupied"), "Paused (Occupied)");
   assert.equal(mapStatusLabel("changes_requested"), "Changes requested");

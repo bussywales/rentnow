@@ -2,7 +2,7 @@
 
 - Route: `/admin/listings` (admin-only).
 - Purpose: ops-friendly registry of **all** listings (not just reviewable).
-- Selection: clicking a row navigates to `/admin/listings/[id]` for read-only inspection.
+- Selection: clicking a row navigates to `/admin/listings/[id]` for inspection and guarded admin lifecycle controls.
 
 ## Query params (server-side)
 The registry is backed by `GET /api/admin/listings` and the server-side page uses the same query parsing.
@@ -98,8 +98,54 @@ Recommended ops pattern:
 
 ## Listing Inspector
 - Route: `/admin/listings/[id]`
-- Read-only detail panel (overview, media, location, notes)
-- No approve/reject actions (decision mode is only in `/admin/review`).
+- Detail panel for overview, media, location, quality, and guarded lifecycle controls
+- No approve/reject actions here (decision mode is still `/admin/review`).
+
+### Lifecycle controls
+
+The inspector now separates two admin-only actions:
+
+- `Deactivate listing`
+  - default moderation action
+  - sets the listing to `removed`
+  - removes it from public browse/search
+  - clears active featured visibility
+  - revokes property share links
+  - keeps listing history for support, payments, bookings, and ops
+
+- `Delete permanently`
+  - irreversible hard delete
+  - only available after the listing is already `removed`
+  - requires a typed confirmation and admin reason
+  - blocked when protected history still exists
+  - preserves a lightweight admin audit record even after the listing row is gone
+
+Use `Deactivate listing` for almost every operational takedown. Use `Delete permanently` only for spam, duplicate junk, test data, or legal/privacy removal.
+
+### Purge dependency model
+
+Permanent delete is intentionally conservative.
+
+Protected history blocks purge, including:
+
+- shortlet bookings and payments
+- message threads
+- listing leads
+- viewing requests
+- commission agreements
+- featured/listing payment records
+- property request response items
+
+Cleanup-only records may still be deleted by cascade when purge is allowed, including:
+
+- listing media
+- share links
+- saved/favourite references
+- analytics/check-in telemetry
+- shortlet settings
+
+This keeps marketplace removal safe by default and avoids silently destroying commercial or support history.
+Permanent delete still leaves an admin audit stub with the purge reason, deleted listing id, and dependency counts.
 
 ### Quality panel in the inspector
 

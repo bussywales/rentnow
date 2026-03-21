@@ -18,6 +18,8 @@ export function mapStatusLabel(status?: string | null): string {
   switch (normalized) {
     case "live":
       return "Live";
+    case "removed":
+      return "Removed by admin";
     case "pending":
       return "Under review";
     case "draft":

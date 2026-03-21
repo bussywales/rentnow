@@ -73,6 +73,14 @@ const STATUS_ROWS = [
     adminVisible: "Yes",
     action: "Prompt renewal or archive if outdated.",
   },
+  {
+    status: "removed",
+    label: "Removed by admin",
+    publicVisible: "No",
+    ownerVisible: "Yes",
+    adminVisible: "Yes",
+    action: "Use for marketplace takedown; purge only if history-free.",
+  },
 ];
 
 export default function ListingsStatusesHelpPage() {
@@ -209,6 +217,16 @@ export default function ListingsStatusesHelpPage() {
             actions={["Prompt renewal", "Archive if outdated", "Verify data before reactivation"]}
             report="Explain that the listing expired and ask the host to renew or update details."
           />
+          <HelpStatusCard
+            status="removed"
+            label="Removed by admin"
+            meaning="Listing is intentionally taken off the marketplace by admin and stays hidden from public discovery."
+            who="Admin"
+            triggers={["Spam or duplicate cleanup", "Policy or legal takedown", "Marketplace moderation removal"]}
+            visibility={["Tenants: hidden", "Owners: visible in private/admin contexts", "Admin: visible"]}
+            actions={["Capture a short admin reason", "Revoke share links", "Use permanent delete only if protected history is absent"]}
+            report="Confirm this is a deliberate marketplace removal. Do not use permanent delete unless the listing is already removed and the dependency audit is clear."
+          />
         </div>
       </section>
 
@@ -219,6 +237,7 @@ export default function ListingsStatusesHelpPage() {
             "Confirm the current status against the quick table above.",
             "Check tenant visibility before responding to any inquiry.",
             "If a change is needed, record a short reason in the admin notes.",
+            "Use Removed by admin for takedown, not Rejected or Paused.",
             "Use the review workflow for approvals or changes requested.",
           ]}
         />

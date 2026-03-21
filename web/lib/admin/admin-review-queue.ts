@@ -10,6 +10,7 @@ export const ALLOWED_PROPERTY_STATUSES = [
   "draft",
   "pending",
   "live",
+  "removed",
   "expired",
   "rejected",
   "paused",

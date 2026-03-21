@@ -346,6 +346,9 @@ async function getListingsData(
 }
 
 export default async function AdminListingsPage({ searchParams }: Props) {
+  const resolvedSearchParams = await resolveSearchParams(searchParams);
+  const noticeParam = resolvedSearchParams?.notice;
+  const notice = Array.isArray(noticeParam) ? noticeParam[0] : noticeParam;
   const {
     listings,
     listingQuery,
@@ -359,7 +362,7 @@ export default async function AdminListingsPage({ searchParams }: Props) {
     ownerSummary,
     featuredSummary,
     featuredError,
-  } = await getListingsData(searchParams);
+  } = await getListingsData(resolvedSearchParams);
 
   const listingStart = listingTotalCount > 0 ? (listingPage - 1) * listingPageSize + 1 : 0;
   const listingEnd =
@@ -384,7 +387,7 @@ export default async function AdminListingsPage({ searchParams }: Props) {
             <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Admin</p>
             <h1 className="text-2xl font-semibold text-slate-900">Listings registry</h1>
             <p className="text-sm text-slate-600">
-              All listings, searchable and filterable. Read-only operations.
+              All listings, searchable and filterable. Open the inspector for admin controls.
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-sm">
@@ -407,6 +410,13 @@ export default async function AdminListingsPage({ searchParams }: Props) {
           <AdminSavedViews route="/admin/listings" />
         </div>
       </div>
+
+      {notice === "purged" ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <div className="font-semibold text-emerald-950">Listing permanently deleted</div>
+          <p className="mt-1">The listing and cleanup-only dependencies were purged. Protected-history lanes were blocked from purge.</p>
+        </div>
+      ) : null}
 
       {(error || contractDegraded) && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">

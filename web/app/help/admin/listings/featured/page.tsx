@@ -158,6 +158,7 @@ export default function ListingsFeaturedHelpPage() {
           <li>Only admins can feature listings.</li>
           <li>Hosts and agents cannot self-feature.</li>
           <li>Featured listings must be Live.</li>
+          <li>Removed by admin listings cannot be featured again until they return to an eligible live state.</li>
           <li>Featured does not bypass review, expiry, or pause rules.</li>
         </ul>
       </section>

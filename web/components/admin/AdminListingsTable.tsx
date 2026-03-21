@@ -22,6 +22,7 @@ function statusAccent(status?: string | null) {
   const normalized = (status ?? "").toLowerCase();
   if (normalized === "pending") return "bg-amber-400";
   if (normalized === "live") return "bg-emerald-500";
+  if (normalized === "removed") return "bg-rose-500";
   if (normalized === "expired") return "bg-amber-500";
   if (normalized === "rejected") return "bg-red-500";
   if (normalized === "paused" || normalized === "paused_owner" || normalized === "paused_occupied") {
@@ -383,6 +384,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                       propertyId={item.id}
                       isFeatured={!!item.is_featured}
                       isDemo={!!item.is_demo}
+                      listingStatus={item.status}
                       featuredUntil={item.featured_until ?? null}
                       dataTestId={`admin-featured-toggle-${item.id}`}
                       buttonClassName="shrink-0 rounded border border-slate-300 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50 lg:px-3 lg:text-xs"

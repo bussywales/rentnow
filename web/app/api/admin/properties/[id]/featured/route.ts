@@ -191,7 +191,7 @@ export async function postAdminFeaturedResponse(
 
   const { data: property } = await client
     .from("properties")
-    .select("id,is_demo")
+    .select("id,is_demo,status")
     .eq("id", propertyId)
     .maybeSingle();
 
@@ -201,6 +201,12 @@ export async function postAdminFeaturedResponse(
 
   if (payload.is_featured && (property as { is_demo?: boolean | null }).is_demo) {
     return NextResponse.json({ error: "Demo listings can't be featured." }, { status: 409 });
+  }
+  if (
+    payload.is_featured &&
+    (property as { status?: string | null }).status?.toLowerCase() === "removed"
+  ) {
+    return NextResponse.json({ error: "Removed listings can't be featured." }, { status: 409 });
   }
 
   const nowIso = new Date().toISOString();

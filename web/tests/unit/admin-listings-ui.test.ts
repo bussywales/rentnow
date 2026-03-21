@@ -149,12 +149,24 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
     "expected featured toggle to accept demo state"
   );
   assert.ok(
+    featuredToggleContents.includes("listingStatus?: string | null;"),
+    "expected featured toggle to accept listing status"
+  );
+  assert.ok(
     featuredToggleContents.includes("featureBlockedByDemo"),
     "expected featured toggle to block demo feature attempts client-side"
   );
   assert.ok(
+    featuredToggleContents.includes("featureBlockedByRemoved"),
+    "expected featured toggle to block removed listings client-side"
+  );
+  assert.ok(
     featuredToggleContents.includes("Demo listings can't be featured."),
     "expected featured toggle to show explicit demo guardrail copy"
+  );
+  assert.ok(
+    featuredToggleContents.includes("Removed listings can't be featured."),
+    "expected featured toggle to show explicit removed guardrail copy"
   );
 
   const inspectorPath = path.join(root, "components", "admin", "AdminListingInspectorPanel.tsx");
@@ -164,11 +176,29 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
     "expected listing inspector featured toggle to receive demo state"
   );
   assert.ok(
+    inspectorContents.includes("listingStatus={effectiveStatus}"),
+    "expected listing inspector featured toggle to receive effective status"
+  );
+  assert.ok(
     inspectorContents.includes('data-testid="admin-inspector-listing-quality"'),
     "expected inspector listing quality section test id"
   );
   assert.ok(
     inspectorContents.includes("Completeness score and missing core details."),
     "expected inspector listing quality guidance copy"
+  );
+  const lifecyclePath = path.join(root, "components", "admin", "AdminListingLifecyclePanel.tsx");
+  const lifecycleContents = fs.readFileSync(lifecyclePath, "utf8");
+  assert.ok(
+    lifecycleContents.includes('data-testid="admin-inspector-listing-lifecycle"'),
+    "expected inspector lifecycle section test id"
+  );
+  assert.ok(
+    lifecycleContents.includes("Marketplace removal"),
+    "expected lifecycle section heading in lifecycle panel"
+  );
+  assert.ok(
+    lifecycleContents.includes("Removed from marketplace"),
+    "expected explicit removed-marketplace copy"
   );
 });

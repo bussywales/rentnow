@@ -10,21 +10,36 @@ import AdminFeaturedToggleButton from "@/components/admin/AdminFeaturedToggleBut
 import { resolveAdminListingQualityStatus } from "@/lib/admin/listing-quality";
 import { computeListingCompleteness } from "@/lib/properties/listing-quality";
 import { isFeaturedListingActive } from "@/lib/properties/featured";
+import AdminListingLifecyclePanel from "@/components/admin/AdminListingLifecyclePanel";
 
 type Props = {
   listing: AdminReviewListItem;
+  dependencySummary: {
+    protected: Array<{ key: string; label: string; count: number }>;
+    cleanup: Array<{ key: string; label: string; count: number }>;
+    protectedCount: number;
+    cleanupCount: number;
+    errors: string[];
+    canPurge: boolean;
+  };
   backHref?: string;
 };
 
-export default function AdminListingInspectorPanel({ listing, backHref = "/admin/listings" }: Props) {
+export default function AdminListingInspectorPanel({
+  listing,
+  dependencySummary,
+  backHref = "/admin/listings",
+}: Props) {
   const router = useRouter();
   const [overrideDemo, setOverrideDemo] = useState<boolean | null>(null);
+  const [overrideStatus, setOverrideStatus] = useState<string | null>(null);
   const [overrideFeatured, setOverrideFeatured] = useState<{
     is_featured: boolean;
     featured_until: string | null;
   } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const isDemo = overrideDemo ?? !!listing.is_demo;
+  const effectiveStatus = overrideStatus ?? listing.status ?? null;
   const featuredActive = isFeaturedListingActive({
     is_featured: overrideFeatured?.is_featured ?? listing.is_featured,
     featured_until: overrideFeatured?.featured_until ?? listing.featured_until,
@@ -113,6 +128,7 @@ export default function AdminListingInspectorPanel({ listing, backHref = "/admin
                 overrideFeatured?.is_featured ?? !!listing.is_featured
               }
               isDemo={isDemo}
+              listingStatus={effectiveStatus}
               featuredUntil={overrideFeatured?.featured_until ?? listing.featured_until}
               onUpdated={(next) => setOverrideFeatured(next)}
               onToast={(message) => {
@@ -124,6 +140,19 @@ export default function AdminListingInspectorPanel({ listing, backHref = "/admin
           </div>
         </div>
       </section>
+
+      <AdminListingLifecyclePanel
+        listingId={listing.id}
+        listingTitle={listing.title}
+        status={effectiveStatus}
+        dependencySummary={dependencySummary}
+        onDeactivated={() => {
+          setOverrideStatus("removed");
+          setOverrideFeatured({ is_featured: false, featured_until: null });
+          setToast("Listing removed from marketplace.");
+          setTimeout(() => setToast(null), 2000);
+        }}
+      />
 
       <section
         className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"

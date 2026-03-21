@@ -13,6 +13,7 @@ import { normalizeStatus, isReviewableRow, isFixRequestRow } from "@/lib/admin/a
 import { ADMIN_REVIEW_QUEUE_SELECT, ADMIN_REVIEW_VIEW_TABLE, normalizeSelect } from "@/lib/admin/admin-review-contracts";
 import { assertNoForbiddenColumns } from "@/lib/admin/admin-review-schema-allowlist";
 import AdminListingInspectorPanel from "@/components/admin/AdminListingInspectorPanel";
+import { getListingRemovalDependencySummary } from "@/lib/admin/listing-removal.server";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -136,9 +137,14 @@ export default async function AdminListingInspectorPage({ params }: Props) {
     .select("id, description")
     .eq("id", row.id)
     .maybeSingle();
-  const [{ data: ownerProfile }, { data: descriptionRow }] = await Promise.all([
+  const dependencySummaryPromise = getListingRemovalDependencySummary({
+    client,
+    listingId: row.id,
+  });
+  const [{ data: ownerProfile }, { data: descriptionRow }, dependencySummary] = await Promise.all([
     ownerProfilePromise,
     descriptionRowPromise,
+    dependencySummaryPromise,
   ]);
 
   const ownerName =
@@ -239,7 +245,11 @@ export default async function AdminListingInspectorPage({ params }: Props) {
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4">
-      <AdminListingInspectorPanel listing={listing} backHref="/admin/listings" />
+      <AdminListingInspectorPanel
+        listing={listing}
+        dependencySummary={dependencySummary}
+        backHref="/admin/listings"
+      />
     </div>
   );
 }

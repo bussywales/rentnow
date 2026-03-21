@@ -19,6 +19,8 @@ function statusChipClass(value: string | null) {
   switch (normalized) {
     case "live":
       return "bg-emerald-100 text-emerald-700";
+    case "removed":
+      return "bg-rose-100 text-rose-700";
     case "pending":
       return "bg-amber-100 text-amber-700";
     case "draft":
