@@ -26,33 +26,18 @@ Batch v1 note:
 
 ## Required tabs
 
-1. `README`
-2. `Assumptions`
-3. `Baseline Valuation`
-4. `Weekly Increments`
-5. `Cumulative Totals`
-6. `Workstream Log`
-7. `Notes & Confidence`
+The current canonical workbook is the six-tab workbook already created at [build-cost-ledger-v1.xlsx](/Users/olubusayoadewale/rentnow/output/spreadsheet/build-cost-ledger-v1.xlsx).
 
-## 1. README tab
+README-style usage guidance lives inside `Notes & Confidence` rather than a separate README sheet.
 
-Purpose:
+1. `Assumptions`
+2. `Baseline Valuation`
+3. `Weekly Increments`
+4. `Cumulative Totals`
+5. `Workstream Log`
+6. `Notes & Confidence`
 
-- explain how to use the workbook
-- identify the valuation date and current owner
-- warn that this is an estimate model
-
-Recommended fields:
-
-- workbook version
-- current methodology doc
-- baseline snapshot date
-- current reviewer
-- weekly update cadence
-- last reviewed at
-- model warning
-
-## 2. Assumptions tab
+## 1. Assumptions tab
 
 Purpose:
 
@@ -84,7 +69,7 @@ Suggested rows:
 - continuation monthly burn bands
 - confidence policy labels
 
-## 3. Baseline Valuation tab
+## 2. Baseline Valuation tab
 
 Purpose:
 
@@ -117,7 +102,7 @@ Formula guidance:
 - cost columns should use formulas referencing the `Assumptions` tab where practical
 - totals row should sum the workstream rows directly above
 
-## 4. Weekly Increments tab
+## 3. Weekly Increments tab
 
 Purpose:
 
@@ -160,8 +145,9 @@ Rules:
 - one row for compact weeks
 - one block of rows if multiple major workstreams shipped in the same week
 - do not overwrite historical rows silently
+- only rows marked `approved` should affect `Cumulative Totals`
 
-## 5. Cumulative Totals tab
+## 4. Cumulative Totals tab
 
 Purpose:
 
@@ -211,7 +197,7 @@ Formula guidance:
 - sum baseline plus all approved weekly increments
 - ignore rows where `approval_status` is not approved
 
-## 6. Workstream Log tab
+## 5. Workstream Log tab
 
 Purpose:
 
@@ -231,11 +217,11 @@ Recommended columns:
 
 This tab is for readability. The financial math should live in `Weekly Increments` and `Cumulative Totals`.
 
-## 7. Notes & Confidence tab
+## 6. Notes & Confidence tab
 
 Purpose:
 
-- preserve model caveats and explicit review remarks
+- preserve model caveats, explicit review remarks, and workbook usage guidance
 
 Recommended columns:
 
@@ -261,6 +247,7 @@ Use cases:
 3. Historical baseline rows should not be edited without a note in `Notes & Confidence`.
 4. If a weekly run is skipped, the next run should widen the review window and say so.
 5. If evidence is weak, lower confidence instead of faking precision.
+6. The workbook structure should be kept aligned with the existing six-tab artifact instead of reintroducing a separate README sheet unless explicitly approved.
 
 ## Recommended formatting
 

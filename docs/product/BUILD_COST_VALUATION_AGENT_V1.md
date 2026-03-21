@@ -98,6 +98,14 @@ Required fields:
 - `confidence`
 - `notes`
 
+Canonical format:
+
+- [BUILD_COST_VALUATION_WEEKLY_REPORT_TEMPLATE.md](/Users/olubusayoadewale/rentnow/docs/product/BUILD_COST_VALUATION_WEEKLY_REPORT_TEMPLATE.md)
+
+Canonical weekly process:
+
+- [BUILD_COST_VALUATION_WEEKLY_WORKFLOW.md](/Users/olubusayoadewale/rentnow/docs/product/BUILD_COST_VALUATION_WEEKLY_WORKFLOW.md)
+
 ## Estimation rules
 
 ### Effort band rules
@@ -145,7 +153,10 @@ The agent should use the spreadsheet workflow conservatively.
 
 - read the current workbook
 - propose one or more new weekly rows
-- populate a draft workbook copy or draft row block for review
+- prepare exact draft row values for:
+  - `Weekly Increments`
+  - `Workstream Log`
+  - `Notes & Confidence`
 - preserve formulas and cumulative totals
 
 ### Not allowed autonomously
@@ -162,6 +173,7 @@ The agent should use the spreadsheet workflow conservatively.
 
 - produce the review summary first
 - include the exact rows proposed for `Weekly Increments`
+- include any matching `Workstream Log` and `Notes & Confidence` rows that would be needed after approval
 - wait for human approval before mutating the canonical workbook
 
 ### Optional approved mode later
@@ -188,3 +200,17 @@ The agent must not autonomously:
 - change historical valuation assumptions without review
 - rewrite prior approved weekly increments
 - present the model as audited spend or business valuation
+
+## Current v1 operating rule
+
+The current workbook is a live starter ledger, but the workflow remains review-first.
+
+Default sequence:
+
+1. inspect the review window
+2. classify shipped work into workstreams
+3. estimate low/base/high person-days
+4. prepare the weekly report
+5. prepare draft row values for workbook insertion
+6. wait for a human `accept`, `revise`, or `reject` decision
+7. only after acceptance, append rows into the canonical workbook

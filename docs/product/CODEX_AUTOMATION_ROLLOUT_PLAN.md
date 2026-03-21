@@ -268,7 +268,44 @@ Current rollout state:
 - daily output should use [PAYMENTS_GUARDIAN_REPORT_TEMPLATE.md](/Users/olubusayoadewale/rentnow/docs/product/PAYMENTS_GUARDIAN_REPORT_TEMPLATE.md)
 - no autonomous routing, webhook, secret, entitlement, or cutover changes are allowed
 
-## D) Recommended daily cadence
+## D) Adjacent reviewed workflow
+
+### Build Cost Valuation Agent v1
+
+This is not part of the original first three automations, but it now has a practical reviewed weekly workflow.
+
+Purpose:
+
+- turn one week of shipped repo changes into a reviewed build-cost increment proposal against the starter ledger workbook
+
+Cadence:
+
+- weekly, typically Friday review
+
+Primary inputs:
+
+- [BUILD_COST_VALUATION_METHOD.md](/Users/olubusayoadewale/rentnow/docs/product/BUILD_COST_VALUATION_METHOD.md)
+- [BUILD_COST_BASELINE_REPORT_2026-03-21.md](/Users/olubusayoadewale/rentnow/docs/product/BUILD_COST_BASELINE_REPORT_2026-03-21.md)
+- [BUILD_COST_LEDGER_SPEC.md](/Users/olubusayoadewale/rentnow/docs/product/BUILD_COST_LEDGER_SPEC.md)
+- [BUILD_COST_VALUATION_AGENT_V1.md](/Users/olubusayoadewale/rentnow/docs/product/BUILD_COST_VALUATION_AGENT_V1.md)
+- [BUILD_COST_VALUATION_WEEKLY_WORKFLOW.md](/Users/olubusayoadewale/rentnow/docs/product/BUILD_COST_VALUATION_WEEKLY_WORKFLOW.md)
+- [build-cost-ledger-v1.xlsx](/Users/olubusayoadewale/rentnow/output/spreadsheet/build-cost-ledger-v1.xlsx)
+
+Expected outputs:
+
+- weekly valuation report
+- proposed row block for `Weekly Increments`
+- matching narrative rows for `Workstream Log`
+- confidence notes when the week is ambiguous or split
+
+Review gate:
+
+- always review-first
+- no silent assumption changes
+- no silent baseline restatement
+- no silent append to the canonical ledger without human approval
+
+## E) Recommended daily cadence
 
 Use this daily sequence:
 
@@ -281,7 +318,7 @@ Use this daily sequence:
 
 This ordering reduces the chance of one agent reacting to stale inputs from another.
 
-## E) Review queue format
+## F) Review queue format
 
 Every run should produce one review queue item using this structure:
 
@@ -314,7 +351,7 @@ Every run should produce one review queue item using this structure:
 | Files touched | docs-only delta to payment cutover checklist |
 | Recommended next step | hold billing-lane cutover until webhook readiness and operator checks are both green |
 
-## F) Allowed-touch boundaries for rollout
+## G) Allowed-touch boundaries for rollout
 
 During initial rollout, keep each automation tighter than the architecture’s maximum envelope.
 
@@ -343,7 +380,18 @@ During initial rollout, keep each automation tighter than the architecture’s m
 - not allowed:
   - payment code or config mutation without approval
 
-## G) Never-autonomous boundaries
+### Build Cost Valuation Agent
+
+- allowed:
+  - valuation docs
+  - weekly valuation reports
+  - draft workbook row preparation
+- not allowed:
+  - silent approval of ledger rows
+  - baseline restatement
+  - app-code changes
+
+## H) Never-autonomous boundaries
 
 The following stay human-controlled even after these automations are live:
 
@@ -356,8 +404,9 @@ The following stay human-controlled even after these automations are live:
 - legal or compliance copy changes
 - broad UI or information-architecture changes
 - permanent delete / purge logic
+- silent historical valuation rewrites
 
-## H) Operator adoption guidance
+## I) Operator adoption guidance
 
 Use this adoption pattern:
 
