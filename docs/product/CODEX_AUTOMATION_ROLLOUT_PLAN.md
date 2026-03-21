@@ -262,6 +262,12 @@ Operational success condition:
 
 - payments are cut over lane by lane using documented evidence, not memory
 
+Current rollout state:
+
+- v1 is now defined as a daily review-queue workflow in [PAYMENTS_GUARDIAN_V1.md](/Users/olubusayoadewale/rentnow/docs/product/PAYMENTS_GUARDIAN_V1.md)
+- daily output should use [PAYMENTS_GUARDIAN_REPORT_TEMPLATE.md](/Users/olubusayoadewale/rentnow/docs/product/PAYMENTS_GUARDIAN_REPORT_TEMPLATE.md)
+- no autonomous routing, webhook, secret, entitlement, or cutover changes are allowed
+
 ## D) Recommended daily cadence
 
 Use this daily sequence:
