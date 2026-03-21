@@ -2,7 +2,7 @@
 title: "Agent core workflows"
 description: "Portfolio workflow for listing quality, lead handling, demand capture, and property request response operations."
 order: 20
-updated_at: "2026-03-16"
+updated_at: "2026-03-21"
 ---
 
 ## Portfolio listing operations
@@ -22,6 +22,21 @@ updated_at: "2026-03-16"
 - The submit step shows `Listing quality` and a `Best next fix` block with jump-back actions so you can fix the highest-impact gap quickly.
 
 These cues help improve conversion and approval readiness, but they do not act as hard publish blocks by themselves.
+
+## Demo listings workflow
+
+- Use demo listings only for sandbox, training, or showcase scenarios that should not behave like live client inventory.
+- In the editor, open `Basics` and use `Mark as demo listing` to set the listing as demo.
+- After save, the same `is_demo` flag is what admins see in the registry and inspector.
+
+Expected outcome:
+
+- Demo listings follow demo visibility policy rather than normal live-inventory assumptions.
+- A `Demo` badge can appear on cards and detail pages when admin settings keep demo badges enabled.
+- A `DEMO` watermark can appear on listing images when admin settings keep demo watermarks enabled.
+- Demo listings are excluded from featured placement and other promotional/customer-facing highlight surfaces.
+
+Do not treat a demo listing as real, bookable, or promotable inventory.
 
 ## Lead and message operations
 

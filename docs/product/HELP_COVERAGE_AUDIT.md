@@ -1,6 +1,6 @@
 # Help Coverage Audit
 
-Last updated: 2026-03-16
+Last updated: 2026-03-21
 
 ## Purpose
 
@@ -24,6 +24,7 @@ This pass covers the current shipped host/admin/request/ops work, including:
 - admin analytics navigation and discoverability
 - admin review email notifications
 - image optimisation mode control
+- demo listings workflow, visibility policy, and presentation controls
 - migration/deployment runbook relevance for operators
 
 ## Status definitions
@@ -45,6 +46,7 @@ This pass covers the current shipped host/admin/request/ops work, including:
 | CTA copy experiment interpretation | Admin | [web/docs/help/admin/analytics.md](/Users/olubusayoadewale/rentnow/web/docs/help/admin/analytics.md) | Covered | Keep variant semantics aligned if labels change. | Medium | Admin analytics help is sufficient. |
 | Host listing quality guidance | Host, agent, landlord | [web/docs/help/landlord/core-workflows.md](/Users/olubusayoadewale/rentnow/web/docs/help/landlord/core-workflows.md), [web/docs/help/agent/core-workflows.md](/Users/olubusayoadewale/rentnow/web/docs/help/agent/core-workflows.md) | Covered | Keep step labels aligned if the editor flow changes. | High | Workflow docs plus in-product cues are the right mix. |
 | Host best-next-fix submit guidance | Host, agent, landlord | [web/docs/help/landlord/core-workflows.md](/Users/olubusayoadewale/rentnow/web/docs/help/landlord/core-workflows.md), [web/docs/help/agent/core-workflows.md](/Users/olubusayoadewale/rentnow/web/docs/help/agent/core-workflows.md) | Covered | None beyond future stepper changes. | High | No extra standalone article needed. |
+| Demo listings workflow, visibility policy, and presentation controls | Host, agent, landlord, admin, operator | [web/content/help/creating-demo-listings.mdx](/Users/olubusayoadewale/rentnow/web/content/help/creating-demo-listings.mdx), [web/docs/help/landlord/core-workflows.md](/Users/olubusayoadewale/rentnow/web/docs/help/landlord/core-workflows.md), [web/docs/help/landlord/getting-started.md](/Users/olubusayoadewale/rentnow/web/docs/help/landlord/getting-started.md), [web/docs/help/agent/core-workflows.md](/Users/olubusayoadewale/rentnow/web/docs/help/agent/core-workflows.md), [web/docs/help/agent/getting-started.md](/Users/olubusayoadewale/rentnow/web/docs/help/agent/getting-started.md), [web/docs/ADMIN_OPS.md](/Users/olubusayoadewale/rentnow/web/docs/ADMIN_OPS.md), [web/docs/ADMIN_LISTINGS.md](/Users/olubusayoadewale/rentnow/web/docs/ADMIN_LISTINGS.md), [web/docs/help/admin/ops.md](/Users/olubusayoadewale/rentnow/web/docs/help/admin/ops.md), [web/docs/help/admin/core-workflows.md](/Users/olubusayoadewale/rentnow/web/docs/help/admin/core-workflows.md) | Covered | Keep badge/watermark labels and visibility policy wording aligned with `/admin/settings` if those controls change again. | High | Durable help and internal admin docs now explain editor-side demo setup, registry toggles, and settings-based presentation separately. |
 | Host quality telemetry and admin interpretation | Admin | [web/docs/help/admin/analytics.md](/Users/olubusayoadewale/rentnow/web/docs/help/admin/analytics.md), [web/docs/help/admin/core-workflows.md](/Users/olubusayoadewale/rentnow/web/docs/help/admin/core-workflows.md) | Covered | None beyond metric contract changes. | Medium | Keep it in admin analytics docs, not public help. |
 | Admin listing quality visibility, filtering, sorting, and inspector use | Admin | [web/docs/ADMIN_LISTINGS.md](/Users/olubusayoadewale/rentnow/web/docs/ADMIN_LISTINGS.md), [web/docs/help/admin/core-workflows.md](/Users/olubusayoadewale/rentnow/web/docs/help/admin/core-workflows.md) | Covered | Keep labels aligned with UI if filter names change. | High | Internal admin doc is the right durable source. |
 | Admin analytics navigation and discoverability | Admin | [web/docs/help/admin/getting-started.md](/Users/olubusayoadewale/rentnow/web/docs/help/admin/getting-started.md), [web/docs/help/admin/analytics.md](/Users/olubusayoadewale/rentnow/web/docs/help/admin/analytics.md) | Covered | None beyond IA changes. | Medium | Hub-plus-sibling-nav guidance is enough. |
@@ -61,6 +63,7 @@ Most earlier gaps are now closed:
 - Property Requests is role-documented for tenant, responder, and admin flows.
 - Admin analytics now has a durable interpretation guide instead of relying on release notes.
 - Host listing quality behaviour is documented as an editor workflow, not only as a release note.
+- Demo listings are now documented as a durable workflow across host, agent, admin, and operator surfaces rather than relying on release notes alone.
 - Admin listing quality operations are documented as registry and inspector workflows.
 - Admin notification controls and image optimisation ops controls are documented as operator actions.
 

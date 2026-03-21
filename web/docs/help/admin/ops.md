@@ -2,7 +2,7 @@
 title: "Admin ops"
 description: "Ops-grade guide for webhooks, reconcile, alerts controls, property requests oversight, and system triage."
 order: 30
-updated_at: "2026-03-16"
+updated_at: "2026-03-21"
 ---
 
 ## Property requests operations
@@ -55,6 +55,26 @@ updated_at: "2026-03-16"
   - `Vercel default`
   - `Disable non-critical`
   - `Disable all shared images`
+
+## Demo listings visibility and presentation
+
+- `/admin/settings` is also where demo listing platform behavior is controlled.
+- Keep these settings conceptually separate:
+  - `demo_listings_visibility_policy`
+  - `demo_badge_enabled`
+  - `demo_watermark_enabled`
+
+Use them like this:
+
+- `demo_listings_visibility_policy`
+  - `restricted`: demo listings stay in admin and owner-facing contexts
+  - `public`: demo listings can be seen on public browse/search/detail surfaces
+- `demo_badge_enabled`
+  - controls the `Demo` badge on supported cards and detail pages
+- `demo_watermark_enabled`
+  - controls the `DEMO` watermark on supported listing images
+
+If a listing is marked demo but the badge or watermark is missing, check these presentation settings before assuming the listing flag failed.
 
 ## Product updates sync
 

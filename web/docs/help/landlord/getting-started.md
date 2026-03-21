@@ -2,7 +2,7 @@
 title: "Landlord getting started"
 description: "Set up listings correctly, pass approval faster, and understand visibility baselines."
 order: 10
-updated_at: "2026-03-16"
+updated_at: "2026-03-21"
 ---
 
 ## First-day checklist
@@ -19,6 +19,15 @@ updated_at: "2026-03-16"
 - Demo listings are excluded from normal public discovery for non-admin viewers.
 - Featured status boosts exposure but does not bypass core visibility rules.
 - Property Requests only show responder-eligible, open demand; seeker contact details stay private.
+
+## Demo listings quick start
+
+- Use demo listings for walkthroughs, training inventory, or non-live showcase content only.
+- Set them in the listing editor under `Basics` with `Mark as demo listing`.
+- Badge and watermark presentation come from admin settings:
+  - `Demo` badge can appear on cards and detail pages
+  - `DEMO` image watermark can appear when enabled
+- If a demo listing is unexpectedly visible or hidden, an admin should confirm the current demo visibility policy in `/admin/settings`.
 
 ## Where to operate
 

@@ -101,6 +101,31 @@ Modes:
 
 Use this only as an operational cost/stability lever when image optimisation usage spikes. It is not a product experiment toggle.
 
+## Demo listings controls
+
+- Route: `/admin/settings`
+- Settings:
+  - `demo_listings_visibility_policy`
+  - `demo_badge_enabled`
+  - `demo_watermark_enabled`
+
+Use these as separate controls:
+
+- `demo_listings_visibility_policy`
+  - `restricted`: demo listings stay limited to admin and owner/host contexts
+  - `public`: demo listings can appear on public browse/search/detail surfaces
+- `demo_badge_enabled`
+  - controls whether the `Demo` badge appears on supported cards and detail pages
+- `demo_watermark_enabled`
+  - controls whether demo listing images carry a `DEMO` watermark
+
+These settings change presentation and visibility policy. They do not change whether a listing is marked demo.
+
+The actual listing flag is managed in:
+
+- the host/agent editor under `Basics` with `Mark as demo listing`
+- `/admin/listings` row actions with `Set demo` or `Remove demo`
+
 ## Error handling & diagnostics
 - Admin review + listings surfaces never silently fail.
 - When a fetch fails, a visible error panel links to `/api/admin/review/diagnostics`.

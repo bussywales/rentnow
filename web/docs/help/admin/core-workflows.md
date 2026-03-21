@@ -2,7 +2,7 @@
 title: "Admin core workflows"
 description: "Product updates, featured operations, property requests oversight, and system guardrails."
 order: 20
-updated_at: "2026-03-16"
+updated_at: "2026-03-21"
 ---
 
 ## Product updates (docs-first)
@@ -39,6 +39,31 @@ updated_at: "2026-03-16"
 - Use quality status, quality score sorting, and missing-item quick filters to isolate weak inventory fast.
 - Use `/admin/listings/[id]` to confirm why the registry is flagging a listing before escalating or intervening.
 - Use `/admin/review` for actual approve, reject, or request-changes decisions.
+
+## Demo listings workflow
+
+- Use `/admin/listings` to manage the listing-level demo flag.
+- Row actions are state-aware:
+  - `Set demo`
+  - `Remove demo`
+- Use the demo filter in the registry when you need to isolate training/showcase inventory from real supply.
+
+Keep this distinction clear:
+
+- registry row actions change whether a listing is demo
+- `/admin/settings` controls how demo listings are presented and who can see them
+
+The main settings are:
+
+- `demo_listings_visibility_policy`
+- `demo_badge_enabled`
+- `demo_watermark_enabled`
+
+Operational expectation:
+
+- demo listings are not normal live inventory
+- badge and watermark presentation depends on admin settings
+- demo visibility follows the current platform policy, not a per-listing exception
 
 ## Admin notification controls
 

@@ -42,6 +42,31 @@ Canonical status param:
 - Use the **Saved views** dropdown on `/admin/listings` to apply or delete.
 - Use **Save view** to persist the current search + filter state.
 
+## Demo listings controls
+
+The registry is the admin operations surface for demo flag management.
+
+Use it to:
+
+- filter by demo status with `demo=all|true|false`
+- identify demo listings alongside other quality and lifecycle filters
+- change the demo flag directly from the row action
+
+State-aware row actions:
+
+- `Set demo`
+  - applies the listing’s `is_demo` flag
+- `Remove demo`
+  - clears the listing’s `is_demo` flag
+
+These row actions change the listing flag itself. They do not control demo visibility policy or badge/watermark presentation.
+
+Those presentation controls live in `/admin/settings`:
+
+- `demo_listings_visibility_policy`
+- `demo_badge_enabled`
+- `demo_watermark_enabled`
+
 ## Listing quality workflow
 
 The registry includes a separate listing-quality layer on top of the base query filters.
@@ -164,6 +189,15 @@ Use it to inspect:
   - location coverage
 
 The inspector is the place to confirm whether the listing needs host-side cleanup, admin follow-up, or a formal review action in `/admin/review`.
+
+### Demo listing expectations in the inspector
+
+When a listing is marked demo:
+
+- registry filters and row actions should reflect the demo state
+- cards and detail pages can show a `Demo` badge when enabled in admin settings
+- images can show a `DEMO` watermark when enabled in admin settings
+- visibility still depends on the platform-wide demo visibility policy
 
 ## Data source
 - Uses `public.admin_review_view` (contract-safe view).

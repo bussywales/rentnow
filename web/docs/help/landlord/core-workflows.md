@@ -2,7 +2,7 @@
 title: "Landlord core workflows"
 description: "Listing lifecycle, quality controls, demand capture, and property request response operations."
 order: 20
-updated_at: "2026-03-16"
+updated_at: "2026-03-21"
 ---
 
 ## Listing lifecycle
@@ -71,6 +71,20 @@ These are guidance cues, not hard publish blocks.
 - Demo listings are for sandbox/training only.
 - Do not use demos to represent live availability.
 - Production conversion should come from approved, active, real listings.
+
+## Demo listing workflow
+
+- In `/host/properties/[id]/edit`, go to `Basics` and use `Mark as demo listing` when a listing is training or showcase inventory rather than real supply.
+- Saving that toggle applies the same persistent demo flag that admins can later view or change from `/admin/listings`.
+
+Expected outcome:
+
+- Demo listings follow platform demo visibility policy instead of normal live-inventory assumptions.
+- A `Demo` badge can appear on cards and detail pages when admins keep demo badge presentation enabled.
+- A `DEMO` watermark can appear on images when admins keep demo watermark presentation enabled.
+- Demo listings are excluded from featured placement and other customer-facing promotional surfaces.
+
+If you need demo visibility or presentation to change, that is an admin settings decision, not a host-side editor control.
 
 ## Related guides
 
