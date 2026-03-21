@@ -150,6 +150,12 @@ Operational success condition:
 
 - future chats can trust durable docs to reflect current shipped product
 
+Current rollout state:
+
+- v1 is now defined as a daily review-queue workflow in [DOCS_HELP_DRIFT_AGENT_V1.md](/Users/olubusayoadewale/rentnow/docs/product/DOCS_HELP_DRIFT_AGENT_V1.md)
+- daily output should use [DOCS_HELP_DRIFT_REPORT_TEMPLATE.md](/Users/olubusayoadewale/rentnow/docs/product/DOCS_HELP_DRIFT_REPORT_TEMPLATE.md)
+- no autonomous merge behavior is allowed
+
 ### 2. CI & Release Health Agent
 
 Purpose:
@@ -390,4 +396,3 @@ If an automation is proposed outside these three agents, it should not be activa
 
 1. its purpose and boundaries are written to the architecture doc, and
 2. its rollout steps are added or referenced here
-
