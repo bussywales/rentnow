@@ -139,7 +139,7 @@ export async function postPaystackWebhookResponse(
   const validSignature = deps.validateWebhookSignature({
     rawBody,
     signature,
-    secret: paystackConfig.secretKey,
+    secret: paystackConfig.webhookSecret,
   });
   if (!validSignature) {
     console.error(`[${routeLabel}] invalid_signature`, { hasSignature: Boolean(signature) });

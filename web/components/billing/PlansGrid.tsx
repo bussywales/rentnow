@@ -18,6 +18,7 @@ type Props = {
   paystackMode: string;
   flutterwaveEnabled: boolean;
   flutterwaveMode: string;
+  flutterwaveCheckoutVisible?: boolean;
   showManage: boolean;
   pendingUpgrade: boolean;
   activeCount: number;
@@ -69,6 +70,7 @@ export function PlansGrid({
   paystackMode,
   flutterwaveEnabled,
   flutterwaveMode,
+  flutterwaveCheckoutVisible = false,
   showManage,
   pendingUpgrade,
   activeCount,
@@ -301,7 +303,11 @@ export function PlansGrid({
             usageCount={plan.usageType === "saved_searches" ? savedSearchCount : activeCount}
             onUpgrade={startCheckout}
             onPaystack={(tier) => startProviderCheckout("paystack", tier)}
-            onFlutterwave={(tier) => startProviderCheckout("flutterwave", tier)}
+            onFlutterwave={
+              flutterwaveCheckoutVisible
+                ? (tier) => startProviderCheckout("flutterwave", tier)
+                : undefined
+            }
             onManage={openPortal}
             requestUpgradeAction={requestUpgradeAction}
           />

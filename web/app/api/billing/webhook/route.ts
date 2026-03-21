@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { getProviderModes } from "@/lib/billing/provider-settings";
-import { getPaystackConfig } from "@/lib/billing/paystack";
+import { getPaystackServerConfig } from "@/lib/billing/paystack";
 import {
   finalizePaystackSubscriptionEvent,
   getPaystackSubscriptionEventByReference,
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   }
 
   const { paystackMode } = await getProviderModes();
-  const config = await getPaystackConfig(paystackMode);
+  const config = await getPaystackServerConfig(paystackMode);
   if (!config.keyPresent) {
     return NextResponse.json({ error: "Paystack not configured" }, { status: 503 });
   }
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing signature" }, { status: 400 });
   }
   const computed = crypto
-    .createHmac("sha512", config.secretKey || "")
+    .createHmac("sha512", config.webhookSecret || "")
     .update(rawBody)
     .digest("hex");
   if (computed !== signature) {

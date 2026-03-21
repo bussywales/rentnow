@@ -10,11 +10,38 @@ This runbook documents the canonical v1 payments flow for approved Featured requ
 - Canonical source of truth for approved featured-request activations: `payments` + `featured_purchases` tables
 - Activation source of truth: webhook + `public.activate_featured_purchase(...)`
 
-## Required env vars
+## Canonical config model
+
+Paystack runtime configuration is now provider-settings first.
+
+Canonical runtime source:
+
+- `provider_settings` row managed in `/admin/settings/billing`
+- mode is chosen from `paystack_mode`
+- the app resolves stored test/live keys first
+
+Explicit env fallback still remains for safe rollout and ops continuity when stored keys are absent:
 
 - `PAYSTACK_SECRET_KEY`
+- `PAYSTACK_SECRET_KEY_TEST`
+- `PAYSTACK_SECRET_KEY_LIVE`
 - `PAYSTACK_PUBLIC_KEY`
-- `PAYSTACK_WEBHOOK_SECRET` (optional; falls back to `PAYSTACK_SECRET_KEY`)
+- `PAYSTACK_PUBLIC_KEY_TEST`
+- `PAYSTACK_PUBLIC_KEY_LIVE`
+
+Webhook secret precedence is:
+
+1. `PAYSTACK_WEBHOOK_SECRET_<MODE>`
+2. `PAYSTACK_WEBHOOK_SECRET`
+3. resolved Paystack secret key for the active mode
+
+This means env is still relevant for webhook signing and fallback, but it is no longer the primary runtime source of truth.
+
+## Required operator inputs
+
+- active Paystack mode chosen in `/admin/settings/billing`
+- stored Paystack keys in `provider_settings` for the intended mode
+- webhook secret env if using a dedicated signing secret
 - `RESEND_API_KEY` (for receipts)
 - `RESEND_FROM` (optional; defaults to `PropatyHub <no-reply@propatyhub.com>`)
 
@@ -51,11 +78,26 @@ This runbook documents the canonical v1 payments flow for approved Featured requ
 
 ## Paystack webhook setup
 
-Configure Paystack webhook URL:
+Current repo reality:
+
+- canonical featured activation and shortlet webhook route: `POST /api/webhooks/paystack`
+- billing subscription backstop and legacy billing events also exist at: `POST /api/billing/webhook`
+
+Operator guidance:
+
+- do not assume Paystack ingress is fully simplified to one route across every lane
+- verify which webhook ingress is being used for the intended launch lane before live cutover
+- if using a dedicated webhook signing secret, make sure the matching `PAYSTACK_WEBHOOK_SECRET[_TEST|_LIVE]` env is present
+
+For the canonical featured-activation lane documented here, the expected webhook URL is:
 
 - `https://<your-domain>/api/webhooks/paystack`
 
-Make sure the same secret configured in env is used for signature verification.
+If webhook delivery or signing looks wrong, check in this order:
+
+1. `/admin/settings/billing` mode and stored keys
+2. `PAYSTACK_WEBHOOK_SECRET[_TEST|_LIVE]` or `PAYSTACK_WEBHOOK_SECRET`
+3. reconcile fallback via the scheduled payments job
 
 ## Manual QA
 
@@ -66,3 +108,4 @@ Make sure the same secret configured in env is used for signature verification.
 5. Confirm listing is featured (`is_featured=true`, `featured_until` set).
 6. Confirm receipt email delivered.
 7. Confirm `/admin/payments` shows the transaction.
+8. If verification fails, confirm the active mode, stored keys, and webhook secret precedence before rotating or changing provider settings.

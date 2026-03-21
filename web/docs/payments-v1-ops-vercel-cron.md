@@ -9,15 +9,36 @@ This runbook covers the fallback reconcile job for the canonical Paystack featur
 - Reconcile pending/initialized payments and send any missing receipts.
 - Provide admin-visible ops status from `/admin/payments`.
 
-## Required environment variables
+## Runtime config assumptions
+
+Canonical Paystack runtime config is provider-settings first.
+
+The job resolves Paystack through the same shared helper used by billing/runtime paths:
+
+- `/admin/settings/billing` selects `paystack_mode`
+- stored provider keys in `provider_settings` are preferred
+- env keys are explicit fallback only when stored keys are absent
+
+Required operator inputs:
 
 - `CRON_SECRET`
-- `PAYSTACK_SECRET_KEY`
+- Paystack keys stored in `provider_settings` for the intended mode, or env fallback keys if stored keys are absent
 - `RESEND_API_KEY`
+
+Relevant Paystack env fallback keys:
+
+- `PAYSTACK_SECRET_KEY`
+- `PAYSTACK_SECRET_KEY_TEST`
+- `PAYSTACK_SECRET_KEY_LIVE`
+- `PAYSTACK_PUBLIC_KEY`
+- `PAYSTACK_PUBLIC_KEY_TEST`
+- `PAYSTACK_PUBLIC_KEY_LIVE`
+- `PAYSTACK_WEBHOOK_SECRET`
+- `PAYSTACK_WEBHOOK_SECRET_TEST`
+- `PAYSTACK_WEBHOOK_SECRET_LIVE`
 
 Optional but recommended:
 
-- `PAYSTACK_WEBHOOK_SECRET`
 - `RESEND_FROM`
 
 ## Scheduler configuration (Hobby)
@@ -52,6 +73,14 @@ Then idempotently:
 2. Activates featured purchase via `activate_featured_purchase`
 3. Sends receipt only if `receipt_sent_at` is null
 
+## Current cutover reality
+
+- canonical featured activation webhook lane is `/api/webhooks/paystack`
+- billing subscription backstop and older billing charge handling still exist at `/api/billing/webhook`
+- the reconcile job is fallback safety, not the primary source of truth
+
+Operators should treat Paystack webhook ingress as a review point during cutover, not as an assumed single-route setup across all lanes.
+
 ## Manual triggers
 
 ### Cron route (service)
@@ -78,6 +107,11 @@ curl -X POST "https://www.propatyhub.com/api/jobs/payments/reconcile" \
 - Receipts pending count
 - Webhook events table
 - Reconcile actions for batch/stuck/receipts/reference
+
+For provider readiness and mode verification, also check:
+
+- `/admin/settings/billing`
+- `/api/debug/env`
 
 ## Idempotency guarantees
 

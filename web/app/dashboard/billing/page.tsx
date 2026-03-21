@@ -162,7 +162,9 @@ export default async function BillingPage() {
   const stripeEnabled = !!stripeConfig.secretKey && hasStripePrice;
   const paystackEnabled =
     !!paystackConfig.secretKey && !(providerModes.paystackMode === "live" && paystackConfig.fallbackFromLive);
+  const flutterwaveCheckoutVisible = false;
   const flutterwaveEnabled =
+    flutterwaveCheckoutVisible &&
     !!flutterwaveConfig.secretKey && !(providerModes.flutterwaveMode === "live" && flutterwaveConfig.fallbackFromLive);
   const showManage = billingSource === "stripe" && !!stripeCustomerId;
 
@@ -273,6 +275,7 @@ export default async function BillingPage() {
             paystackMode={providerModes.paystackMode}
             flutterwaveEnabled={flutterwaveEnabled}
             flutterwaveMode={providerModes.flutterwaveMode}
+            flutterwaveCheckoutVisible={flutterwaveCheckoutVisible}
             showManage={showManage}
             pendingUpgrade={pendingUpgrade}
             activeCount={usage.activeCount}

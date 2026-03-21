@@ -95,6 +95,7 @@ Optional:
 - Paystack verify endpoint: `POST /api/billing/paystack/verify`
 - Flutterwave init endpoint: `POST /api/billing/flutterwave/initialize`
 - Flutterwave verify endpoint: `POST /api/billing/flutterwave/verify`
+- Flutterwave remains out of the initial live payment scope and is not exposed in the self-serve billing UI by default.
 - Billing page handles provider return URLs and triggers verification:
   - Paystack expects `reference` (or `trxref`) in the query string.
   - Flutterwave expects `tx_ref` (and optional `transaction_id`) in the query string.
