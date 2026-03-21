@@ -15,15 +15,16 @@ const navLinksPath = path.join(process.cwd(), "components", "layout", "NavLinksC
 void test("shortlets shell no-ssr delegates directly to dynamic client shell", () => {
   const contents = fs.readFileSync(shellNoSsrPath, "utf8");
 
-  assert.equal(contents.includes('import { useSyncExternalStore } from "react";'), false);
-  assert.equal(contents.includes("const hasMounted = useSyncExternalStore("), false);
-  assert.equal(contents.includes("if (!hasMounted) {"), false);
+  assert.ok(contents.includes('import { useSyncExternalStore } from "react";'));
+  assert.ok(contents.includes("const hasMounted = useSyncExternalStore("));
+  assert.ok(contents.includes("if (!hasMounted) {"));
   assert.equal(contents.includes("return null;"), false);
   assert.ok(contents.includes("function ShortletsSearchShellFallback()"));
   assert.ok(contents.includes('data-testid="shortlets-search-shell"'));
   assert.ok(contents.includes('data-testid="shortlets-shell-background"'));
   assert.match(contents, /ssr:\s*false/);
   assert.match(contents, /loading:\s*ShortletsSearchShellFallback/);
+  assert.ok(contents.includes("return <ShortletsSearchShellFallback />;"));
   assert.ok(contents.includes("return <ShortletsSearchShellClient {...props} />;"));
 });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useSyncExternalStore } from "react";
 
 function ShortletsSearchShellFallback() {
   return (
@@ -39,6 +40,28 @@ type Props = {
   initialViewerRole?: "tenant" | "landlord" | "agent" | "admin" | null;
 };
 
+function subscribeToMountState() {
+  return () => {};
+}
+
+function getClientMountedSnapshot() {
+  return true;
+}
+
+function getServerMountedSnapshot() {
+  return false;
+}
+
 export function ShortletsSearchShellNoSsr(props: Props) {
+  const hasMounted = useSyncExternalStore(
+    subscribeToMountState,
+    getClientMountedSnapshot,
+    getServerMountedSnapshot
+  );
+
+  if (!hasMounted) {
+    return <ShortletsSearchShellFallback />;
+  }
+
   return <ShortletsSearchShellClient {...props} />;
 }
