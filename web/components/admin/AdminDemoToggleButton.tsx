@@ -27,7 +27,7 @@ export default function AdminDemoToggleButton({
   const [error, setError] = useState<string | null>(null);
 
   const nextIsDemo = !isDemo;
-  const title = nextIsDemo ? "Mark listing as demo?" : "Remove demo status?";
+  const title = nextIsDemo ? "Set listing as demo?" : "Remove demo status?";
 
   const handleConfirm = async () => {
     const previousIsDemo = isDemo;
@@ -74,10 +74,9 @@ export default function AdminDemoToggleButton({
           "rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50"
         }
         data-testid={dataTestId}
-        title={nextIsDemo ? "Mark as demo" : "Remove demo"}
+        title={nextIsDemo ? "Set demo" : "Remove demo"}
       >
-        <span className="hidden lg:inline">{nextIsDemo ? "Mark as demo" : "Remove demo"}</span>
-        <span className="lg:hidden">{nextIsDemo ? "Demo" : "Remove"}</span>
+        {nextIsDemo ? "Set demo" : "Remove demo"}
       </button>
       {open ? (
         <div

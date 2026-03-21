@@ -42,7 +42,7 @@ export default function AdminFeaturedToggleButton({
   const featureBlockedByDemo = isDemo && nextFeatured;
   const featureBlockedByRemoved =
     (listingStatus ?? "").toLowerCase() === "removed" && nextFeatured;
-  const title = nextFeatured ? "Mark listing as featured?" : "Remove featured status?";
+  const title = nextFeatured ? "Feature listing?" : "Remove featured status?";
 
   const handleConfirm = async () => {
     if (featureBlockedByDemo) {
@@ -118,14 +118,11 @@ export default function AdminFeaturedToggleButton({
             : featureBlockedByRemoved
               ? "Removed listings can't be featured"
             : nextFeatured
-              ? "Mark as featured"
-              : "Remove featured"
+              ? "Feature"
+              : "Unfeature"
         }
       >
-        <span className="hidden lg:inline">
-          {nextFeatured ? "Mark as featured" : "Remove featured"}
-        </span>
-        <span className="lg:hidden">{nextFeatured ? "Feature" : "Unfeature"}</span>
+        {nextFeatured ? "Feature" : "Unfeature"}
       </button>
 
       {open ? (

@@ -379,7 +379,17 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                   className="w-[220px] px-3 py-2 text-right whitespace-nowrap"
                   data-testid="admin-listings-row-actions"
                 >
-                  <div className="flex flex-wrap items-center justify-end gap-2">
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onSelect(item.id);
+                      }}
+                      className="shrink-0 rounded border border-slate-400 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-800 hover:bg-slate-100 lg:text-xs"
+                    >
+                      View
+                    </button>
                     <AdminFeaturedToggleButton
                       propertyId={item.id}
                       isFeatured={!!item.is_featured}
@@ -387,7 +397,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                       listingStatus={item.status}
                       featuredUntil={item.featured_until ?? null}
                       dataTestId={`admin-featured-toggle-${item.id}`}
-                      buttonClassName="shrink-0 rounded border border-slate-300 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50 lg:px-3 lg:text-xs"
+                      buttonClassName="shrink-0 rounded border border-slate-300 px-2.5 py-1 text-[11px] text-slate-700 hover:bg-slate-50 lg:text-xs"
                       onUpdated={(next) => {
                         setRows((prev) =>
                           prev.map((row) =>
@@ -410,7 +420,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                       propertyId={item.id}
                       isDemo={!!item.is_demo}
                       dataTestId={`admin-demo-toggle-${item.id}`}
-                      buttonClassName="shrink-0 rounded border border-slate-300 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50 lg:px-3 lg:text-xs"
+                      buttonClassName="shrink-0 rounded border border-slate-300 px-2.5 py-1 text-[11px] text-slate-700 hover:bg-slate-50 lg:text-xs"
                       onOptimisticUpdate={(next) => {
                         setRows((prev) =>
                           prev.map((row) => (row.id === item.id ? { ...row, is_demo: next } : row))
@@ -434,16 +444,6 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                         Demo
                       </span>
                     ) : null}
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onSelect(item.id);
-                      }}
-                      className="shrink-0 rounded border border-slate-300 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50 lg:px-3 lg:text-xs"
-                    >
-                      Open
-                    </button>
                   </div>
                 </td>
               </tr>

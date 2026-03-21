@@ -54,6 +54,19 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
     tableContents.includes('data-testid="admin-listings-row-actions"'),
     "expected row actions cell test id"
   );
+  assert.match(
+    tableContents,
+    />\s*View\s*<\/button>/,
+    "expected primary row action to use View label"
+  );
+  assert.ok(
+    tableContents.includes("gap-1.5"),
+    "expected tighter row action spacing"
+  );
+  assert.ok(
+    tableContents.includes("font-semibold text-slate-800"),
+    "expected View action to render as the stronger primary action"
+  );
   assert.ok(
     tableContents.includes('data-testid="admin-listings-row-quality"'),
     "expected row quality cell test id"
@@ -168,6 +181,10 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
     featuredToggleContents.includes("Removed listings can't be featured."),
     "expected featured toggle to show explicit removed guardrail copy"
   );
+  assert.ok(
+    featuredToggleContents.includes('{nextFeatured ? "Feature" : "Unfeature"}'),
+    "expected featured toggle label to be state-aware and compact"
+  );
 
   const inspectorPath = path.join(root, "components", "admin", "AdminListingInspectorPanel.tsx");
   const inspectorContents = fs.readFileSync(inspectorPath, "utf8");
@@ -200,5 +217,11 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
   assert.ok(
     lifecycleContents.includes("Removed from marketplace"),
     "expected explicit removed-marketplace copy"
+  );
+
+  const demoToggleLabelCheck = fs.readFileSync(demoTogglePath, "utf8");
+  assert.ok(
+    demoToggleLabelCheck.includes('{nextIsDemo ? "Set demo" : "Remove demo"}'),
+    "expected demo toggle label to be state-aware and compact"
   );
 });
