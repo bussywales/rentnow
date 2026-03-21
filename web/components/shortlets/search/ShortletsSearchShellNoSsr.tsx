@@ -40,12 +40,38 @@ type Props = {
   initialViewerRole?: "tenant" | "landlord" | "agent" | "admin" | null;
 };
 
-function subscribeToMountState() {
-  return () => {};
+let hasMountedSnapshot = false;
+let mountNotificationQueued = false;
+const mountListeners = new Set<() => void>();
+
+function flushMountedSnapshot() {
+  hasMountedSnapshot = true;
+  mountNotificationQueued = false;
+  for (const listener of mountListeners) {
+    listener();
+  }
+}
+
+function queueMountedSnapshot() {
+  if (hasMountedSnapshot || mountNotificationQueued) return;
+  mountNotificationQueued = true;
+  if (typeof queueMicrotask === "function") {
+    queueMicrotask(flushMountedSnapshot);
+    return;
+  }
+  Promise.resolve().then(flushMountedSnapshot);
+}
+
+function subscribeToMountState(listener: () => void) {
+  mountListeners.add(listener);
+  queueMountedSnapshot();
+  return () => {
+    mountListeners.delete(listener);
+  };
 }
 
 function getClientMountedSnapshot() {
-  return true;
+  return hasMountedSnapshot;
 }
 
 function getServerMountedSnapshot() {

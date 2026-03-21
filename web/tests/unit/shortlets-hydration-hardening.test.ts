@@ -16,6 +16,9 @@ void test("shortlets shell no-ssr delegates directly to dynamic client shell", (
   const contents = fs.readFileSync(shellNoSsrPath, "utf8");
 
   assert.ok(contents.includes('import { useSyncExternalStore } from "react";'));
+  assert.ok(contents.includes("let hasMountedSnapshot = false;"));
+  assert.ok(contents.includes("const mountListeners = new Set<() => void>();"));
+  assert.ok(contents.includes("queueMicrotask(flushMountedSnapshot);"));
   assert.ok(contents.includes("const hasMounted = useSyncExternalStore("));
   assert.ok(contents.includes("if (!hasMounted) {"));
   assert.equal(contents.includes("return null;"), false);
