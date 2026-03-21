@@ -204,6 +204,12 @@ Operational success condition:
 
 - failures become diagnosable from GitHub output without guesswork
 
+Current rollout state:
+
+- v1 is now defined as a daily review-queue workflow in [CI_RELEASE_HEALTH_AGENT_V1.md](/Users/olubusayoadewale/rentnow/docs/product/CI_RELEASE_HEALTH_AGENT_V1.md)
+- daily output should use [CI_RELEASE_HEALTH_REPORT_TEMPLATE.md](/Users/olubusayoadewale/rentnow/docs/product/CI_RELEASE_HEALTH_REPORT_TEMPLATE.md)
+- no autonomous reruns, workflow-policy changes, or merges are allowed
+
 ### 3. Payments Guardian
 
 Purpose:
