@@ -89,8 +89,9 @@ test.describe("explore labs smoke", () => {
       if (rect.width <= 0 || rect.height <= 0) return false;
       const x = rect.left + rect.width * 0.5;
       const startY = rect.top + rect.height * 0.65;
-      const midY = startY - rect.height * 0.2;
-      const endY = startY - rect.height * 0.38;
+      const swipeDistance = Math.max(rect.height * 0.5, window.innerHeight * 0.24, 180);
+      const midY = startY - swipeDistance * 0.55;
+      const endY = startY - swipeDistance;
       const dispatchTouch = (type: "touchstart" | "touchmove" | "touchend", y: number) => {
         const event = new Event(type, { bubbles: true, cancelable: true }) as Event & {
           touches: Array<{ clientX: number; clientY: number }>;
