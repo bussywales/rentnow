@@ -15,6 +15,8 @@ export type ListingRemovalDependencySummary = {
   canPurge: boolean;
 };
 
+export type ListingRemovalDependencySummaryById = Record<string, ListingRemovalDependencySummary>;
+
 type DependencyDefinition = {
   key: string;
   label: string;
@@ -159,24 +161,54 @@ const DEPENDENCIES: DependencyDefinition[] = [
   },
 ];
 
-async function countDependencyRows(
+function buildEmptySummary(): ListingRemovalDependencySummary {
+  return {
+    protected: [],
+    cleanup: [],
+    protectedCount: 0,
+    cleanupCount: 0,
+    errors: [],
+    canPurge: true,
+  };
+}
+
+type DependencyRow = Record<string, unknown>;
+
+async function countDependencyRowsForListings(
   client: SupabaseClient,
   dependency: DependencyDefinition,
-  listingId: string
-): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
-  const result = await client
-    .from(dependency.table)
-    .select("*", { count: "exact", head: true })
-    .eq(dependency.column, listingId);
+  listingIds: string[]
+): Promise<{ ok: true; counts: Map<string, number> } | { ok: false; error: string }> {
+  const counts = new Map(listingIds.map((listingId) => [listingId, 0]));
+  const pageSize = 1000;
+  let from = 0;
 
-  if (result.error) {
-    return {
-      ok: false,
-      error: `${dependency.label}: ${result.error.message}`,
-    };
+  while (true) {
+    const result = await client
+      .from(dependency.table)
+      .select(dependency.column)
+      .in(dependency.column, listingIds)
+      .range(from, from + pageSize - 1);
+
+    if (result.error) {
+      return {
+        ok: false,
+        error: `${dependency.label}: ${result.error.message}`,
+      };
+    }
+
+    const rows = ((result.data ?? []) as unknown) as DependencyRow[];
+    for (const row of rows) {
+      const listingId = row[dependency.column];
+      if (typeof listingId !== "string" || !counts.has(listingId)) continue;
+      counts.set(listingId, (counts.get(listingId) ?? 0) + 1);
+    }
+
+    if (rows.length < pageSize) break;
+    from += pageSize;
   }
 
-  return { ok: true, count: result.count ?? 0 };
+  return { ok: true, counts };
 }
 
 export async function getListingRemovalDependencySummary({
@@ -186,36 +218,50 @@ export async function getListingRemovalDependencySummary({
   client: SupabaseClient;
   listingId: string;
 }): Promise<ListingRemovalDependencySummary> {
-  const protectedRows: ListingRemovalDependencyCount[] = [];
-  const cleanupRows: ListingRemovalDependencyCount[] = [];
-  const errors: string[] = [];
+  const summaries = await getListingRemovalDependencySummaries({
+    client,
+    listingIds: [listingId],
+  });
+  return summaries[listingId] ?? buildEmptySummary();
+}
 
-  const results = await Promise.all(
-    DEPENDENCIES.map(async (dependency) => ({
-      dependency,
-      result: await countDependencyRows(client, dependency, listingId),
-    }))
-  );
+export async function getListingRemovalDependencySummaries({
+  client,
+  listingIds,
+}: {
+  client: SupabaseClient;
+  listingIds: string[];
+}): Promise<ListingRemovalDependencySummaryById> {
+  const ids = Array.from(new Set(listingIds.filter(Boolean)));
+  if (!ids.length) return {};
 
-  for (const { dependency, result } of results) {
-    const target = dependency.group === "protected" ? protectedRows : cleanupRows;
-    if (!result.ok) {
-      errors.push(result.error);
-      target.push({ key: dependency.key, label: dependency.label, count: 0 });
-      continue;
+  const summaries = Object.fromEntries(ids.map((id) => [id, buildEmptySummary()])) as ListingRemovalDependencySummaryById;
+  for (const dependency of DEPENDENCIES) {
+    const result = await countDependencyRowsForListings(client, dependency, ids);
+    for (const listingId of ids) {
+      const summary = summaries[listingId];
+      const target = dependency.group === "protected" ? summary.protected : summary.cleanup;
+
+      if (!result.ok) {
+        summary.errors.push(result.error);
+        target.push({ key: dependency.key, label: dependency.label, count: 0 });
+        continue;
+      }
+
+      target.push({
+        key: dependency.key,
+        label: dependency.label,
+        count: result.counts.get(listingId) ?? 0,
+      });
     }
-    target.push({ key: dependency.key, label: dependency.label, count: result.count });
   }
 
-  const protectedCount = protectedRows.reduce((sum, row) => sum + row.count, 0);
-  const cleanupCount = cleanupRows.reduce((sum, row) => sum + row.count, 0);
+  for (const listingId of ids) {
+    const summary = summaries[listingId];
+    summary.protectedCount = summary.protected.reduce((sum, row) => sum + row.count, 0);
+    summary.cleanupCount = summary.cleanup.reduce((sum, row) => sum + row.count, 0);
+    summary.canPurge = summary.errors.length === 0 && summary.protectedCount === 0;
+  }
 
-  return {
-    protected: protectedRows,
-    cleanup: cleanupRows,
-    protectedCount,
-    cleanupCount,
-    errors,
-    canPurge: errors.length === 0 && protectedCount === 0,
-  };
+  return summaries;
 }

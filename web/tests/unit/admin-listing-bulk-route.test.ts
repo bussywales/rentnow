@@ -141,6 +141,24 @@ void test("bulk purge preflight separates eligible rows, blockers, and recommend
       }
       return emptySummary;
     },
+    getListingRemovalDependencySummaries: async ({ listingIds }) =>
+      Object.fromEntries(
+        await Promise.all(
+          listingIds.map(async (listingId) => [
+            listingId,
+            listingId === PREVIEW_ELIGIBLE_ID
+              ? emptySummary
+              : listingId === PREVIEW_PROTECTED_ID
+                ? {
+                    ...emptySummary,
+                    protected: [{ key: "listing_leads", label: "Listing leads", count: 2 }],
+                    protectedCount: 2,
+                    canPurge: false,
+                  }
+                : emptySummary,
+          ])
+        )
+      ),
   };
 
   const response = await postAdminListingsBulkLifecycleResponse(
@@ -191,6 +209,8 @@ void test("bulk deactivate executes only eligible selected rows and writes a bat
       }) as Awaited<ReturnType<AdminBulkListingsRouteDeps["requireRole"]>>,
     logFailure: () => undefined,
     getListingRemovalDependencySummary: async () => emptySummary,
+    getListingRemovalDependencySummaries: async ({ listingIds }) =>
+      Object.fromEntries(listingIds.map((listingId) => [listingId, emptySummary])),
   };
 
   const response = await postAdminListingsBulkLifecycleResponse(
@@ -242,6 +262,8 @@ void test("bulk purge requires typed confirmation derived from eligible delete c
       }) as Awaited<ReturnType<AdminBulkListingsRouteDeps["requireRole"]>>,
     logFailure: () => undefined,
     getListingRemovalDependencySummary: async () => emptySummary,
+    getListingRemovalDependencySummaries: async ({ listingIds }) =>
+      Object.fromEntries(listingIds.map((listingId) => [listingId, emptySummary])),
   };
 
   const response = await postAdminListingsBulkLifecycleResponse(
@@ -296,6 +318,20 @@ void test("bulk purge deletes only eligible rows and leaves blocked rows untouch
       }
       return emptySummary;
     },
+    getListingRemovalDependencySummaries: async ({ listingIds }) =>
+      Object.fromEntries(
+        listingIds.map((listingId) => [
+          listingId,
+          listingId === PURGE_BLOCKED_ID
+            ? {
+                ...emptySummary,
+                protected: [{ key: "message_threads", label: "Message threads", count: 4 }],
+                protectedCount: 4,
+                canPurge: false,
+              }
+            : emptySummary,
+        ])
+      ),
   };
 
   const response = await postAdminListingsBulkLifecycleResponse(
@@ -364,6 +400,22 @@ void test("bulk purge re-checks eligibility at execution time and invalidates st
         canPurge: false,
       };
     },
+    getListingRemovalDependencySummaries: async ({ listingIds }) => {
+      dependencyCalls += 1;
+      return Object.fromEntries(
+        listingIds.map((listingId) => [
+          listingId,
+          dependencyCalls === 1
+            ? emptySummary
+            : {
+                ...emptySummary,
+                protected: [{ key: "listing_leads", label: "Listing leads", count: 1 }],
+                protectedCount: 1,
+                canPurge: false,
+              },
+        ])
+      );
+    },
   };
 
   const preflightResponse = await postAdminListingsBulkLifecycleResponse(
@@ -396,4 +448,80 @@ void test("bulk purge re-checks eligibility at execution time and invalidates st
   assert.equal(executeJson.preflight.eligibleCount, 0);
   assert.equal(executeJson.preflight.blockedCount, 1);
   assert.deepEqual(capture.deletedIds, []);
+});
+
+void test("bulk purge supports 50 selected safe listings without route-level caps or per-row dependency fan-out", async () => {
+  const capture: Capture = { propertyUpdates: [], deletedIds: [], auditEntries: [] };
+  const ids = Array.from({ length: 50 }, (_, index) => {
+    const suffix = String(index + 1).padStart(12, "0");
+    return `70000000-0000-4000-8000-${suffix}`;
+  });
+  const listings = ids.map((id, index) => ({
+    id,
+    title: `Bulk safe ${index + 1}`,
+    status: "removed",
+    is_active: false,
+    is_approved: false,
+    is_featured: false,
+  })) satisfies AdminListingLifecycleRow[];
+  const supabase = buildSupabaseStub({
+    listings,
+    capture,
+  }) as ReturnType<AdminBulkListingsRouteDeps["createServerSupabaseClient"]>;
+
+  let batchCalls = 0;
+  let singularCalls = 0;
+  const deps: AdminBulkListingsRouteDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => false,
+    createServerSupabaseClient: async () => supabase,
+    createServiceRoleClient: () => ({} as ReturnType<AdminBulkListingsRouteDeps["createServiceRoleClient"]>),
+    requireRole: async () =>
+      ({
+        ok: true,
+        supabase,
+        user: { id: "admin-1" } as User,
+        role: "admin",
+      }) as Awaited<ReturnType<AdminBulkListingsRouteDeps["requireRole"]>>,
+    logFailure: () => undefined,
+    getListingRemovalDependencySummary: async () => {
+      singularCalls += 1;
+      return emptySummary;
+    },
+    getListingRemovalDependencySummaries: async ({ listingIds }) => {
+      batchCalls += 1;
+      return Object.fromEntries(listingIds.map((listingId) => [listingId, emptySummary]));
+    },
+  };
+
+  const preflightResponse = await postAdminListingsBulkLifecycleResponse(
+    makeRequest({
+      action: "purge",
+      mode: "preflight",
+      ids,
+    }),
+    deps
+  );
+  assert.equal(preflightResponse.status, 200);
+  const preflightJson = await preflightResponse.json();
+  assert.equal(preflightJson.preflight.eligibleCount, 50);
+  assert.equal(preflightJson.preflight.requiredConfirmationText, "DELETE 50 LISTINGS");
+
+  const executeResponse = await postAdminListingsBulkLifecycleResponse(
+    makeRequest({
+      action: "purge",
+      mode: "execute",
+      ids,
+      reason: "Batch-safe purge for 50 tutorial listings.",
+      confirmationText: "DELETE 50 LISTINGS",
+    }),
+    deps
+  );
+
+  assert.equal(executeResponse.status, 200);
+  const executeJson = await executeResponse.json();
+  assert.equal(executeJson.affectedCount, 50);
+  assert.equal(batchCalls, 2);
+  assert.equal(singularCalls, 0);
+  assert.equal(capture.deletedIds.length, 50);
 });

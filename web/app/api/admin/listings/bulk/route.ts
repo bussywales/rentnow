@@ -5,7 +5,10 @@ import { requireRole } from "@/lib/authz";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
-import { getListingRemovalDependencySummary } from "@/lib/admin/listing-removal.server";
+import {
+  getListingRemovalDependencySummaries,
+  getListingRemovalDependencySummary,
+} from "@/lib/admin/listing-removal.server";
 import {
   buildAdminBulkListingPreflight,
   deactivateListingForAdmin,
@@ -36,6 +39,7 @@ export type AdminBulkListingsRouteDeps = {
   requireRole: typeof requireRole;
   logFailure: typeof logFailure;
   getListingRemovalDependencySummary: typeof getListingRemovalDependencySummary;
+  getListingRemovalDependencySummaries: typeof getListingRemovalDependencySummaries;
 };
 
 const defaultDeps: AdminBulkListingsRouteDeps = {
@@ -46,6 +50,7 @@ const defaultDeps: AdminBulkListingsRouteDeps = {
   requireRole,
   logFailure,
   getListingRemovalDependencySummary,
+  getListingRemovalDependencySummaries,
 };
 
 async function loadListings(client: SupabaseClient, ids: string[]) {
@@ -67,29 +72,24 @@ async function buildPreflight({
   client,
   action,
   ids,
-  getListingRemovalDependencySummary,
+  getListingRemovalDependencySummaries,
 }: {
   client: SupabaseClient;
   action: AdminBulkListingAction;
   ids: string[];
-  getListingRemovalDependencySummary: typeof defaultDeps.getListingRemovalDependencySummary;
+  getListingRemovalDependencySummaries: typeof defaultDeps.getListingRemovalDependencySummaries;
 }) {
   const listings = await loadListings(client, ids);
-  const dependencyEntries = await Promise.all(
-    listings.map(async (listing) => {
-      const summary = await getListingRemovalDependencySummary({
-        client,
-        listingId: listing.id,
-      });
-      return [listing.id, summary] as const;
-    })
-  );
+  const dependencySummaryById = await getListingRemovalDependencySummaries({
+    client,
+    listingIds: listings.map((listing) => listing.id),
+  });
 
   return buildAdminBulkListingPreflight({
     action,
     selectedIds: ids,
     listings,
-    dependencySummaryById: Object.fromEntries(dependencyEntries),
+    dependencySummaryById,
   });
 }
 
@@ -132,7 +132,7 @@ export async function postAdminListingsBulkLifecycleResponse(
       client,
       action: parsed.action,
       ids,
-      getListingRemovalDependencySummary: deps.getListingRemovalDependencySummary,
+      getListingRemovalDependencySummaries: deps.getListingRemovalDependencySummaries,
     });
   } catch (error) {
     deps.logFailure({
