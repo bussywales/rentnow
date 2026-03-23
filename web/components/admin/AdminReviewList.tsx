@@ -5,6 +5,7 @@ import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import { formatRelativeTime } from "@/lib/date/relative-time";
 import { formatLocationLine } from "@/lib/admin/admin-review";
+import { resolveAdminOwnerIdentityDisplay } from "@/lib/admin/admin-owner-identity";
 
 type Props = {
   listings: AdminReviewListItem[];
@@ -53,6 +54,12 @@ export function AdminReviewList({
         const missingCover = item.hasCover === false;
         const needsPhotos = item.photoCount === 0;
         const needsLocation = item.locationQuality && item.locationQuality !== "strong";
+        const ownerIdentity = resolveAdminOwnerIdentityDisplay({
+          ownerName: item.ownerName,
+          ownerEmail: item.ownerEmail,
+          ownerId: item.ownerId,
+          hostName: item.hostName,
+        });
         return (
           <div
             key={item.id}
@@ -121,11 +128,14 @@ export function AdminReviewList({
                   )}
                 </div>
               </div>
-              {!isCompact && (
-                <p className="text-xs text-slate-600">
-                  {ADMIN_REVIEW_COPY.list.columns.host}: {item.hostName}
+              <div className="space-y-0.5">
+                <p className="text-xs font-semibold text-slate-700">
+                  Owner: {ownerIdentity.primaryLabel}
                 </p>
-              )}
+                {ownerIdentity.secondaryLabel ? (
+                  <p className="text-[11px] text-slate-500 break-all">{ownerIdentity.secondaryLabel}</p>
+                ) : null}
+              </div>
               <p className="text-xs text-slate-600">
                 {locationLine || "Location unknown"}
               </p>
@@ -139,7 +149,7 @@ export function AdminReviewList({
               </div>
               {!isCompact && (
                 <p className="text-[11px] text-slate-500 break-all">
-                  ID: {item.id}{" "}
+                  Listing ID: {item.id}{" "}
                   <button
                     type="button"
                     className="underline"

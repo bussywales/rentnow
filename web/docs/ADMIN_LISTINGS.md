@@ -120,6 +120,11 @@ These filters combine with the quality status filter using AND semantics. That m
 Recommended ops pattern:
 
 1. Start with the main search box for title, listing ID, owner, or location.
+2. Owner identity now leads the registry owner view:
+   - primary: profile full name
+   - fallback: email when the admin-safe auth lookup is available
+   - fallback: owner UUID
+   - listing ID remains secondary copyable metadata in each row
 2. Use status, active state, and demo/featured chips to narrow the operational slice further.
 3. Change sort order when the workflow is time-based (`Created`, `Updated`, `Expiry`) or quality-based (`Quality`, `Title`, `Live / approved`).
 4. Apply a quality status filter if you need broad completeness triage.

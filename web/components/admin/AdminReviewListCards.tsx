@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
+import { resolveAdminOwnerIdentityDisplay } from "@/lib/admin/admin-owner-identity";
 
 type Props = {
   items: AdminReviewListItem[];
@@ -15,7 +16,14 @@ export function AdminReviewListCards({ items, selectedId, onSelect }: Props) {
 
   return (
     <div className="grid gap-3">
-      {items.map((item) => (
+      {items.map((item) => {
+        const ownerIdentity = resolveAdminOwnerIdentityDisplay({
+          ownerName: item.ownerName,
+          ownerEmail: item.ownerEmail,
+          ownerId: item.ownerId,
+          hostName: item.hostName,
+        });
+        return (
         <div
           key={item.id}
           className={`grid gap-3 rounded-xl border p-3 md:grid-cols-[32px_minmax(0,1fr)_auto] md:items-start ${
@@ -48,11 +56,15 @@ export function AdminReviewListCards({ items, selectedId, onSelect }: Props) {
                 {item.status || "pending"}
               </span>
             </div>
-            <p className="text-xs text-slate-600">
-              {item.city || "Unknown city"} · Host: {item.hostName}
-            </p>
+            <div className="space-y-0.5">
+              <p className="text-xs font-semibold text-slate-700">Owner: {ownerIdentity.primaryLabel}</p>
+              {ownerIdentity.secondaryLabel ? (
+                <p className="text-[11px] text-slate-500 break-all">{ownerIdentity.secondaryLabel}</p>
+              ) : null}
+              <p className="text-xs text-slate-600">{item.city || "Unknown city"}</p>
+            </div>
             <p className="text-[11px] text-slate-500 break-all">
-              ID: {item.id}{" "}
+              Listing ID: {item.id}{" "}
               <button
                 type="button"
                 className="underline"
@@ -79,7 +91,8 @@ export function AdminReviewListCards({ items, selectedId, onSelect }: Props) {
             </Button>
           </div>
         </div>
-      ))}
+        );
+      })}
       {!items.length && <p className="p-3 text-sm text-slate-600">No listings found.</p>}
     </div>
   );

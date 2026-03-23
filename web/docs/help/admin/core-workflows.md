@@ -37,6 +37,11 @@ updated_at: "2026-03-23"
 
 - Use `/admin/listings` for registry-style triage, not approval decisions.
 - Use the main search bar to find listings by title, listing ID, owner, or location without paging manually.
+- In review and listing rows, use owner identity first:
+  - full name when present
+  - otherwise email when the admin-safe auth lookup is available
+  - otherwise owner UUID
+  - listing ID remains secondary metadata for debug/support handoff
 - Use server-backed sort controls for created, updated, expiry, title, quality, and live/approved triage.
 - Use quality status and missing-item quick filters to isolate weak inventory fast.
 - Use `/admin/listings/[id]` to confirm why the registry is flagging a listing before escalating or intervening.

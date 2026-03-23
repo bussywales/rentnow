@@ -98,6 +98,14 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
     "expected listings row test id"
   );
   assert.ok(
+    tableContents.includes("resolveAdminOwnerIdentityDisplay"),
+    "expected listings table owner column to use owner identity fallback helper"
+  );
+  assert.ok(
+    tableContents.includes("Listing ID: {item.id}"),
+    "expected listing id to remain secondary metadata in the title cell"
+  );
+  assert.ok(
     tableContents.includes("<colgroup>"),
     "expected colgroup for header/body alignment"
   );

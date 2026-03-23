@@ -41,4 +41,24 @@ void test("admin review decision desk renders split panes", () => {
     contents.includes("scroll: false"),
     "expected scroll-safe navigation in review desk"
   );
+  const listPath = path.join(process.cwd(), "components", "admin", "AdminReviewList.tsx");
+  const listContents = fs.readFileSync(listPath, "utf8");
+  assert.ok(
+    listContents.includes("resolveAdminOwnerIdentityDisplay"),
+    "expected review list rows to use the owner identity fallback helper"
+  );
+  assert.ok(
+    listContents.includes("Owner: {ownerIdentity.primaryLabel}"),
+    "expected review list rows to emphasize owner identity"
+  );
+  assert.ok(
+    listContents.includes("Listing ID: {item.id}"),
+    "expected review list rows to keep listing id as secondary metadata"
+  );
+  const cardPath = path.join(process.cwd(), "components", "admin", "AdminReviewListCards.tsx");
+  const cardContents = fs.readFileSync(cardPath, "utf8");
+  assert.ok(
+    cardContents.includes("Owner: {ownerIdentity.primaryLabel}"),
+    "expected mobile review cards to emphasize owner identity"
+  );
 });

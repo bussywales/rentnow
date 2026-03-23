@@ -25,6 +25,7 @@ import AdminListingsFiltersClient from "@/components/admin/AdminListingsFiltersC
 import AdminListingsAppliedFiltersClient from "@/components/admin/AdminListingsAppliedFiltersClient";
 import AdminFeaturedInventoryPanel from "@/components/admin/AdminFeaturedInventoryPanel";
 import AdminSavedViews from "@/components/admin/AdminSavedViews";
+import { fetchAdminOwnerIdentityMap } from "@/lib/admin/admin-owner-identity";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -84,7 +85,6 @@ type RawReviewRow = {
   featured_rank?: number | null;
 };
 
-type OwnerProfile = { id: string; full_name: string | null; role: string | null };
 type PropertyDescriptionRow = { id: string; description: string | null };
 
 type ListingsPageData = {
@@ -159,7 +159,8 @@ async function getListingsData(
     redirect("/forbidden?reason=role");
   }
 
-  const client = hasServiceRoleEnv() ? createServiceRoleClient() : supabase;
+  const adminClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
+  const client = adminClient ?? supabase;
   try {
     const needsDerivedServerView =
       listingQuery.qualityFilter !== "all" ||
@@ -178,23 +179,17 @@ async function getListingsData(
     ) as string[];
     const listingIds = rows.map((row) => row.id);
 
-    const ownerProfilesPromise = ownerIds.length
-      ? supabase.from("profiles").select("id, full_name, role").in("id", ownerIds)
-      : Promise.resolve({ data: [] as OwnerProfile[], error: null });
     const descriptionRowsPromise = listingIds.length
       ? client.from("properties").select("id, description").in("id", listingIds)
       : Promise.resolve({ data: [] as PropertyDescriptionRow[], error: null });
-    const [{ data: ownerProfiles }, { data: descriptionRows }] = await Promise.all([
-      ownerProfilesPromise,
+    const [owners, { data: descriptionRows }] = await Promise.all([
+      fetchAdminOwnerIdentityMap({
+        supabase,
+        ownerIds,
+        adminClient,
+      }),
       descriptionRowsPromise,
     ]);
-
-    const owners = Object.fromEntries(
-      ((ownerProfiles as OwnerProfile[]) || []).map((p) => [
-        p.id,
-        p.full_name || formatRoleLabel(p.role || undefined) || "Host",
-      ])
-    );
     const descriptionsById = new Map<string, string | null>(
       ((descriptionRows as PropertyDescriptionRow[]) || []).map((row) => [row.id, row.description ?? null])
     );
@@ -256,7 +251,9 @@ async function getListingsData(
       return {
         id: row.id,
         title: row.title || "Untitled",
-        hostName: owners[row.owner_id || ""] || "Host",
+        hostName: owners[row.owner_id || ""]?.hostLabel || "Host",
+        ownerName: owners[row.owner_id || ""]?.name ?? null,
+        ownerEmail: owners[row.owner_id || ""]?.email ?? null,
         ownerId: row.owner_id ?? null,
         updatedAt: row.updated_at || row.created_at || null,
         city: row.city ?? null,

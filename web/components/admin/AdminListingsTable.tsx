@@ -6,6 +6,7 @@ import AdminDemoToggleButton from "@/components/admin/AdminDemoToggleButton";
 import AdminFeaturedToggleButton from "@/components/admin/AdminFeaturedToggleButton";
 import { resolveAdminListingQualityStatus } from "@/lib/admin/listing-quality";
 import { isFeaturedListingActive } from "@/lib/properties/featured";
+import { resolveAdminOwnerIdentityDisplay } from "@/lib/admin/admin-owner-identity";
 
 type Props = {
   items: AdminReviewListItem[];
@@ -116,6 +117,12 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                 is_featured: item.is_featured,
                 featured_until: item.featured_until,
               });
+              const ownerIdentity = resolveAdminOwnerIdentityDisplay({
+                ownerName: item.ownerName,
+                ownerEmail: item.ownerEmail,
+                ownerId: item.ownerId,
+                hostName: item.hostName,
+              });
               const qualityScore = item.listingQuality?.score ?? null;
               const qualityStatus =
                 item.listingQualityStatus ??
@@ -159,7 +166,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                     {item.title}
                   </button>
                   <div className="mt-1 text-xs text-slate-500 break-all">
-                    ID: {item.id}{" "}
+                    Listing ID: {item.id}{" "}
                     <button
                       type="button"
                       className="underline"
@@ -225,10 +232,15 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                 <td className="px-3 py-2 text-slate-600 tabular-nums">{formatDate(item.updatedAt)}</td>
                 <td className="px-3 py-2 text-slate-600 tabular-nums">{formatDate(item.expiresAt ?? null)}</td>
                 <td className="px-3 py-2 text-xs text-slate-600">
-                  <div className="font-semibold text-slate-700">{item.hostName || "Host"}</div>
-                  <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                    <span title={item.ownerId || ""}>{truncateId(item.ownerId)}</span>
-                    {item.ownerId && (
+                  <div className="font-semibold text-slate-700 break-all">{ownerIdentity.primaryLabel}</div>
+                  {ownerIdentity.secondaryLabel ? (
+                    <div className="mt-0.5 text-[11px] text-slate-500 break-all">
+                      {ownerIdentity.secondaryLabel}
+                    </div>
+                  ) : null}
+                  {ownerIdentity.primaryKind === "ownerId" && item.ownerId ? (
+                    <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
+                      <span title={item.ownerId}>{truncateId(item.ownerId)}</span>
                       <button
                         type="button"
                         className="rounded px-1 text-slate-500 underline hover:text-slate-700"
@@ -245,8 +257,8 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                       >
                         {copiedId === item.ownerId ? "Copied" : "Copy"}
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  ) : null}
                 </td>
                 <td className="px-3 py-2 text-slate-600">
                   <div className="font-semibold text-slate-700">

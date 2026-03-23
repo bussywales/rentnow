@@ -10,7 +10,6 @@ import { ADMIN_REVIEW_QUEUE_SELECT, normalizeSelect } from "@/lib/admin/admin-re
 import { assertNoForbiddenColumns } from "@/lib/admin/admin-review-schema-allowlist";
 import { hasServerSupabaseEnv, type createServerSupabaseClient } from "@/lib/supabase/server";
 import { getServerAuthUser } from "@/lib/auth/server-session";
-import { formatRoleLabel } from "@/lib/roles";
 import {
   buildStatusOrFilter,
   getAdminReviewQueue,
@@ -20,6 +19,7 @@ import {
   normalizeStatus,
 } from "@/lib/admin/admin-review-queue";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import { fetchAdminOwnerIdentityMap } from "@/lib/admin/admin-owner-identity";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -186,17 +186,11 @@ async function loadReviewListings(
     console.log("[admin/review] rows", listings.length);
 
     const ownerIds = Array.from(new Set(listings.map((p) => p.owner_id).filter(Boolean))) as string[];
-    let owners: Record<string, string> = {};
-    if (ownerIds.length) {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name, role")
-        .in("id", ownerIds);
-      owners = Object.fromEntries(
-        (profiles || [])
-          .map((p) => [p.id, p.full_name || formatRoleLabel(p.role as string | undefined) || "Host"])
-      );
-    }
+    const owners = await fetchAdminOwnerIdentityMap({
+      supabase,
+      ownerIds,
+      adminClient: serviceClient,
+    });
 
     const mappedListings = listings.map((p) => {
       const merged = { ...p, id: p.id } as RawProperty;
@@ -241,7 +235,10 @@ async function loadReviewListings(
       return {
         id: p.id,
         title: merged.title || "Untitled",
-        hostName: owners[merged.owner_id || ""] || "Host",
+        hostName: owners[merged.owner_id || ""]?.hostLabel || "Host",
+        ownerName: owners[merged.owner_id || ""]?.name ?? null,
+        ownerEmail: owners[merged.owner_id || ""]?.email ?? null,
+        ownerId: merged.owner_id ?? null,
         updatedAt: merged.updated_at || merged.created_at || null,
         status: normalizeStatus(merged.status) ?? "pending",
         submitted_at: merged.submitted_at ?? null,

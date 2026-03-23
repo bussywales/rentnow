@@ -18,6 +18,7 @@ import {
   normalizeStatus,
 } from "@/lib/admin/admin-review-queue";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import { fetchAdminOwnerIdentityMap } from "@/lib/admin/admin-owner-identity";
 
 type RawProperty = {
   id: string;
@@ -75,7 +76,10 @@ type ReviewListingLookupResult = {
   meta?: ReviewLoadResult["meta"];
 };
 
-function mapReviewRowsToListings(rows: RawProperty[], owners: Record<string, string>) {
+function mapReviewRowsToListings(
+  rows: RawProperty[],
+  owners: Record<string, { hostLabel: string; name: string | null; email: string | null }>
+) {
   return rows.map((p) => {
     const merged = { ...p, id: p.id } as RawProperty;
     const images: PropertyImage[] = [];
@@ -119,7 +123,10 @@ function mapReviewRowsToListings(rows: RawProperty[], owners: Record<string, str
     return {
       id: p.id,
       title: merged.title || "Untitled",
-      hostName: owners[merged.owner_id || ""] || "Host",
+      hostName: owners[merged.owner_id || ""]?.hostLabel || "Host",
+      ownerName: owners[merged.owner_id || ""]?.name ?? null,
+      ownerEmail: owners[merged.owner_id || ""]?.email ?? null,
+      ownerId: merged.owner_id ?? null,
       updatedAt: merged.updated_at || merged.created_at || null,
       status: normalizeStatus(merged.status) ?? "pending",
       submitted_at: merged.submitted_at ?? null,
@@ -145,14 +152,14 @@ function mapReviewRowsToListings(rows: RawProperty[], owners: Record<string, str
 
 async function fetchOwnerLabels(
   supabase: SupabaseServerClient,
+  adminClient: ReturnType<typeof createServiceRoleClient> | null,
   ownerIds: string[]
-): Promise<Record<string, string>> {
-  if (!ownerIds.length) return {};
-  const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", ownerIds);
-  return Object.fromEntries(
-    (profiles as { id: string; full_name?: string | null }[] | null | undefined)?.map((p) => [p.id, p.full_name || "Host"]) ??
-      []
-  );
+): Promise<Record<string, { hostLabel: string; name: string | null; email: string | null }>> {
+  return fetchAdminOwnerIdentityMap({
+    supabase,
+    adminClient,
+    ownerIds,
+  });
 }
 
 export async function loadReviewListings(
@@ -198,7 +205,7 @@ export async function loadReviewListings(
     });
     const listings = (queueResult.rows ?? queueResult.data ?? []) as RawProperty[];
     const ownerIds = Array.from(new Set(listings.map((p) => p.owner_id).filter(Boolean))) as string[];
-    const owners = await fetchOwnerLabels(supabase, ownerIds);
+    const owners = await fetchOwnerLabels(supabase, serviceClient, ownerIds);
     const mappedListings = mapReviewRowsToListings(listings, owners);
     return {
       listings: mappedListings,
@@ -275,7 +282,7 @@ export async function getReviewListingById(
     }
     const row = data as unknown as RawProperty;
     const ownerIds = row?.owner_id ? [row.owner_id] : [];
-    const owners = await fetchOwnerLabels(supabase, ownerIds);
+    const owners = await fetchOwnerLabels(supabase, serviceClient, ownerIds);
     const mapped = mapReviewRowsToListings([row], owners);
     return {
       listing: mapped[0] ?? null,

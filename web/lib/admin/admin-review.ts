@@ -7,6 +7,8 @@ export type AdminReviewListItem = {
   id: string;
   title: string;
   hostName: string;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
   ownerId?: string | null;
   updatedAt: string | null;
   city?: string | null;
@@ -124,7 +126,7 @@ export function filterAndSortListings(
       if (Number.isFinite(updatedMs) && now - updatedMs > sevenDaysMs) return false;
     }
     if (searchLower) {
-      const haystack = `${item.title} ${item.hostName} ${item.city || ""} ${item.state_region || ""} ${item.country_code || ""}`.toLowerCase();
+      const haystack = `${item.title} ${item.hostName} ${item.ownerName || ""} ${item.ownerEmail || ""} ${item.city || ""} ${item.state_region || ""} ${item.country_code || ""}`.toLowerCase();
       if (!haystack.includes(searchLower)) return false;
     }
     if (hasVideo !== null && item.hasVideo !== hasVideo) return false;
