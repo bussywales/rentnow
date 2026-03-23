@@ -9,7 +9,7 @@ import { AdvancedSearchPanel } from "@/components/properties/AdvancedSearchPanel
 import { BrowseIntentClient } from "@/components/properties/BrowseIntentClient";
 import { SavedSearchButton } from "@/components/search/SavedSearchButton";
 import { FilterChipRow } from "@/components/filters/FilterChipRow";
-import { Button } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/ButtonLink";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { DEV_MOCKS, getApiBaseUrl, getEnvPresence } from "@/lib/env";
 import { mockProperties } from "@/lib/mock";
@@ -377,14 +377,12 @@ export default async function PropertiesPage({ searchParams }: Props) {
       <p className="font-semibold">{savedSearchNotice.title}</p>
       <p className="mt-1 text-amber-800">{savedSearchNotice.description}</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <Link href="/dashboard/saved-searches">
-          <Button size="sm" variant="secondary">
-            Back to saved searches
-          </Button>
-        </Link>
-        <Link href="/properties">
-          <Button size="sm">View all homes</Button>
-        </Link>
+        <ButtonLink href="/dashboard/saved-searches" size="sm" variant="secondary">
+          Back to saved searches
+        </ButtonLink>
+        <ButtonLink href="/properties" size="sm">
+          View all homes
+        </ButtonLink>
       </div>
     </div>
   ) : null;
@@ -435,20 +433,18 @@ export default async function PropertiesPage({ searchParams }: Props) {
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {intentRecoveryOptions.map((option) => (
-          <Link
+          <ButtonLink
             key={option.intent}
             href={buildIntentHref("/properties", intentRecoveryBaseParams, option.intent)}
+            size="sm"
+            variant="secondary"
           >
-            <Button size="sm" variant="secondary">
-              {option.label}
-            </Button>
-          </Link>
+            {option.label}
+          </ButtonLink>
         ))}
-        <Link href={intentClearFiltersHref}>
-          <Button size="sm" variant="secondary">
-            Clear filters
-          </Button>
-        </Link>
+        <ButtonLink href={intentClearFiltersHref} size="sm" variant="secondary">
+          Clear filters
+        </ButtonLink>
       </div>
     </div>
   ) : null;
@@ -674,9 +670,9 @@ export default async function PropertiesPage({ searchParams }: Props) {
             title="No matches yet for this search"
             description="No homes match yet — try widening your filters."
             retryAction={
-              <Link href={editHref}>
-                <Button size="sm">Edit saved search</Button>
-              </Link>
+              <ButtonLink href={editHref} size="sm">
+                Edit saved search
+              </ButtonLink>
             }
           />
         </div>
@@ -705,18 +701,16 @@ export default async function PropertiesPage({ searchParams }: Props) {
     const renderEmptyCta = (cta: (typeof emptyCtas)[number]) => {
       if (cta.kind === "primary") {
         return (
-          <Link key={cta.label} href={cta.href}>
-            <Button size="sm">{cta.label}</Button>
-          </Link>
+          <ButtonLink key={cta.label} href={cta.href} size="sm">
+            {cta.label}
+          </ButtonLink>
         );
       }
       if (cta.kind === "secondary") {
         return (
-          <Link key={cta.label} href={cta.href}>
-            <Button size="sm" variant="secondary">
-              {cta.label}
-            </Button>
-          </Link>
+          <ButtonLink key={cta.label} href={cta.href} size="sm" variant="secondary">
+            {cta.label}
+          </ButtonLink>
         );
       }
       return (
@@ -743,11 +737,9 @@ export default async function PropertiesPage({ searchParams }: Props) {
           retryAction={
             <>
               {showRetry && (
-                <Link href={retryHref}>
-                  <Button size="sm" variant="secondary">
-                    Retry
-                  </Button>
-                </Link>
+                <ButtonLink href={retryHref} size="sm" variant="secondary">
+                  Retry
+                </ButtonLink>
               )}
               {emptyCtas.map((cta) => renderEmptyCta(cta))}
               {showListCta && (
@@ -811,9 +803,9 @@ export default async function PropertiesPage({ searchParams }: Props) {
         <div className="flex items-center gap-2">
           {role ? <HelpDrawerTrigger label="Need help?" testId="properties-help-trigger" /> : null}
           {showListCta && (
-            <Link href="/dashboard/properties/new">
-              <Button variant="secondary">List a property</Button>
-            </Link>
+            <ButtonLink href="/dashboard/properties/new" variant="secondary">
+              List a property
+            </ButtonLink>
           )}
         </div>
       </div>
@@ -867,14 +859,12 @@ export default async function PropertiesPage({ searchParams }: Props) {
             Filters applied from your saved search. {getIntentSummaryCopy(resolvedIntent)}.
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Link href="/dashboard/saved-searches">
-              <Button size="sm" variant="secondary">
-                Edit saved search
-              </Button>
-            </Link>
-            <Link href="/properties">
-              <Button size="sm">Clear filters</Button>
-            </Link>
+            <ButtonLink href="/dashboard/saved-searches" size="sm" variant="secondary">
+              Edit saved search
+            </ButtonLink>
+            <ButtonLink href="/properties" size="sm">
+              Clear filters
+            </ButtonLink>
           </div>
         </div>
       )}

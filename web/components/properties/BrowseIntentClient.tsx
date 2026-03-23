@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/ButtonLink";
 import {
   dismissBrowseContinueForSession,
   getRecentBrowseIntent,
@@ -54,9 +53,9 @@ export function BrowseIntentClient({ persistFilters, showContinueBanner }: Props
         Jump back to your most recent browse filters.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Link href={continueHref}>
-          <Button size="sm">Continue browsing</Button>
-        </Link>
+        <ButtonLink href={continueHref} size="sm">
+          Continue browsing
+        </ButtonLink>
         <button
           type="button"
           className="text-sm font-semibold text-slate-600 underline-offset-4 hover:underline"
