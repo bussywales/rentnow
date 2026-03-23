@@ -42,11 +42,13 @@ type Props = {
 
 let hasMountedSnapshot = false;
 let mountNotificationQueued = false;
+let rafHandle: number | null = null;
 const mountListeners = new Set<() => void>();
 
 function flushMountedSnapshot() {
   hasMountedSnapshot = true;
   mountNotificationQueued = false;
+  rafHandle = null;
   for (const listener of mountListeners) {
     listener();
   }
@@ -55,11 +57,17 @@ function flushMountedSnapshot() {
 function queueMountedSnapshot() {
   if (hasMountedSnapshot || mountNotificationQueued) return;
   mountNotificationQueued = true;
-  if (typeof queueMicrotask === "function") {
-    queueMicrotask(flushMountedSnapshot);
+
+  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+    rafHandle = window.requestAnimationFrame(() => {
+      flushMountedSnapshot();
+    });
     return;
   }
-  Promise.resolve().then(flushMountedSnapshot);
+
+  setTimeout(() => {
+    flushMountedSnapshot();
+  }, 0);
 }
 
 function subscribeToMountState(listener: () => void) {
@@ -67,6 +75,11 @@ function subscribeToMountState(listener: () => void) {
   queueMountedSnapshot();
   return () => {
     mountListeners.delete(listener);
+    if (!mountListeners.size && rafHandle !== null && typeof window !== "undefined") {
+      window.cancelAnimationFrame(rafHandle);
+      rafHandle = null;
+      mountNotificationQueued = false;
+    }
   };
 }
 
