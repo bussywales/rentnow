@@ -94,6 +94,18 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
   const tablePath = path.join(root, "components", "admin", "AdminListingsTable.tsx");
   const tableContents = fs.readFileSync(tablePath, "utf8");
   assert.ok(
+    tableContents.includes('data-testid="admin-listings-select-all"'),
+    "expected select-all checkbox for bulk cleanup"
+  );
+  assert.ok(
+    tableContents.includes('data-testid={`admin-listings-select-${item.id}`}'),
+    "expected row selection checkbox test id"
+  );
+  assert.ok(
+    tableContents.includes("<AdminListingsBulkActions"),
+    "expected bulk cleanup action bar wiring in listings table"
+  );
+  assert.ok(
     tableContents.includes('data-testid="admin-listings-row"'),
     "expected listings row test id"
   );
@@ -165,6 +177,49 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
   assert.ok(
     tableContents.includes("onOptimisticUpdate"),
     "expected optimistic demo updates in listings table actions"
+  );
+
+  const bulkActionsPath = path.join(root, "components", "admin", "AdminListingsBulkActions.tsx");
+  const bulkActionsContents = fs.readFileSync(bulkActionsPath, "utf8");
+  assert.ok(
+    bulkActionsContents.includes('data-testid="admin-listings-bulk-bar"'),
+    "expected bulk cleanup action bar test id"
+  );
+  assert.ok(
+    bulkActionsContents.includes("Bulk deactivate"),
+    "expected bulk deactivate label"
+  );
+  assert.ok(
+    bulkActionsContents.includes("Bulk permanent delete"),
+    "expected bulk permanent delete label"
+  );
+  assert.ok(
+    bulkActionsContents.includes('data-testid="admin-listings-bulk-modal"'),
+    "expected bulk cleanup modal test id"
+  );
+  assert.ok(
+    bulkActionsContents.includes('data-testid="admin-listings-bulk-preflight"'),
+    "expected bulk preflight summary test id"
+  );
+  assert.ok(
+    bulkActionsContents.includes('data-testid="admin-listings-bulk-preflight-row"'),
+    "expected bulk preflight row test id"
+  );
+  assert.ok(
+    bulkActionsContents.includes('data-testid="admin-listings-bulk-confirmation"'),
+    "expected destructive typed confirmation input for bulk purge"
+  );
+  assert.ok(
+    bulkActionsContents.includes("Deactivate first"),
+    "expected explicit blocked-state copy for not-yet-removed listings"
+  );
+  assert.ok(
+    bulkActionsContents.includes("Protected history"),
+    "expected explicit blocked-state copy for protected-history rows"
+  );
+  assert.ok(
+    bulkActionsContents.includes("Delete ${preflight.eligibleCount} listings permanently"),
+    "expected action summary copy in bulk delete preflight"
   );
 
   const demoTogglePath = path.join(root, "components", "admin", "AdminDemoToggleButton.tsx");

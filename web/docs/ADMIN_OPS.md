@@ -43,6 +43,14 @@ PropatyHub admin operations are split into clear workspaces with URL-driven stat
   - Sort by updated/created (asc/desc).
   - Page + page size controls.
 - Row click opens the read-only inspector at `/admin/listings/[id]`.
+- Bulk cleanup is selected-rows only in v1:
+  - `Bulk deactivate`
+  - `Bulk permanent delete`
+- Bulk permanent delete stays guarded:
+  - only allowed after marketplace removal
+  - blocked when protected history exists
+  - requires typed confirmation in the form `DELETE N LISTINGS`
+  - writes a batch audit summary to `admin_actions_log`
 
 ## Property Requests Registry (`/admin/requests`)
 - Primary entry point: `Requests` shortcut in the `/admin` control panel.

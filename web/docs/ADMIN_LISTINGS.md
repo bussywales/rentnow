@@ -115,6 +115,72 @@ The registry also includes a dedicated missing-item quick filter:
 
 These filters combine with the quality status filter using AND semantics. That means you can narrow to `Needs work` and then further isolate `Missing cover image` without losing score-based triage order.
 
+## Bulk cleanup workflow
+
+The registry now supports selected-rows-only bulk cleanup for admin ops.
+
+### Bulk deactivate
+
+- Select rows with the registry checkboxes.
+- Use `Bulk deactivate` from the selected-row action bar.
+- A preflight summary shows:
+  - selected count
+  - eligible count
+  - blocked count
+  - what will actually happen
+- Bulk deactivate reuses the same safe lifecycle model as single-listing removal:
+  - sets listings to `removed`
+  - removes them from marketplace discovery
+  - revokes active share links
+  - preserves support and ops history
+
+### Bulk permanent delete
+
+- Only selected rows are supported in v1.
+- Use `Bulk permanent delete` only for safe-only junk such as demo, tutorial, duplicate, or test listings.
+- The preflight summary distinguishes:
+  - eligible for permanent delete
+  - blocked from delete
+  - recommended deactivate first
+- Permanent delete requires:
+  - an admin reason
+  - typed confirmation in the form `DELETE N LISTINGS`
+
+### What blocks permanent delete
+
+Bulk permanent delete reuses the same protected-history rules as the single-listing inspector.
+
+Protected history blocks purge, including:
+
+- shortlet bookings and payments
+- message threads
+- listing leads
+- viewing requests
+- commission agreements
+- featured or listing payment history
+- property request response history
+
+Cleanup-only rows may still be removed when purge is allowed, including:
+
+- listing media
+- share links
+- saved references
+- analytics/check-in telemetry
+- shortlet settings
+
+### Auditability
+
+Bulk cleanup writes a batch summary audit entry to `admin_actions_log` with:
+
+- acting admin
+- action type
+- reason
+- selected count
+- affected count
+- blocked count
+- affected listing ids
+- blocked listing references
+
 ## How to triage with the registry
 
 Recommended ops pattern:

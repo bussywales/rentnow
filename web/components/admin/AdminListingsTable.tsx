@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import AdminDemoToggleButton from "@/components/admin/AdminDemoToggleButton";
 import AdminFeaturedToggleButton from "@/components/admin/AdminFeaturedToggleButton";
+import AdminListingsBulkActions from "@/components/admin/AdminListingsBulkActions";
 import { resolveAdminListingQualityStatus } from "@/lib/admin/listing-quality";
 import { isFeaturedListingActive } from "@/lib/properties/featured";
 import { resolveAdminOwnerIdentityDisplay } from "@/lib/admin/admin-owner-identity";
@@ -58,14 +59,53 @@ function qualityTone(status: "Strong" | "Fair" | "Needs work") {
 export function AdminListingsTable({ items, onSelect }: Props) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [rows, setRows] = useState<AdminReviewListItem[]>(items);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     setRows(items);
   }, [items]);
 
+  useEffect(() => {
+    const nextIds = new Set(items.map((item) => item.id));
+    setSelectedIds((prev) => prev.filter((id) => nextIds.has(id)));
+  }, [items]);
+
+  const allVisibleSelected = rows.length > 0 && rows.every((row) => selectedIds.includes(row.id));
+  const selectedItems = rows.filter((row) => selectedIds.includes(row.id));
+
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <AdminListingsBulkActions
+        selectedItems={selectedItems}
+        onClearSelection={() => setSelectedIds([])}
+        onActionApplied={({ action, affectedIds }) => {
+          if (action === "deactivate") {
+            setRows((prev) =>
+              prev.map((row) =>
+                affectedIds.includes(row.id)
+                  ? {
+                      ...row,
+                      status: "removed",
+                      is_active: false,
+                      is_approved: false,
+                      is_featured: false,
+                      featured_until: null,
+                      featured_rank: null,
+                    }
+                  : row
+              )
+            );
+          } else {
+            setRows((prev) => prev.filter((row) => !affectedIds.includes(row.id)));
+          }
+          setSelectedIds((prev) => prev.filter((id) => !affectedIds.includes(id)));
+        }}
+        onToast={(message) => {
+          setToast(message);
+          setTimeout(() => setToast(null), 2500);
+        }}
+      />
       {toast ? (
         <div className="border-b border-slate-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
           {toast}
@@ -74,6 +114,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1600px] table-fixed text-left text-sm">
           <colgroup>
+            <col className="w-[44px]" />
             <col className="w-2" />
             <col className="w-[230px]" />
             <col className="w-[160px]" />
@@ -91,6 +132,21 @@ export function AdminListingsTable({ items, onSelect }: Props) {
           </colgroup>
           <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
             <tr>
+              <th className="px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  aria-label="Select all visible listings"
+                  data-testid="admin-listings-select-all"
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      setSelectedIds(rows.map((row) => row.id));
+                    } else {
+                      setSelectedIds([]);
+                    }
+                  }}
+                />
+              </th>
               <th
                 aria-hidden="true"
                 data-testid="admin-listings-header-spacer"
@@ -144,6 +200,22 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                 role="button"
                 tabIndex={0}
               >
+                <td className="px-3 py-2" onClick={(event) => event.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(item.id)}
+                    aria-label={`Select listing ${item.title}`}
+                    data-testid={`admin-listings-select-${item.id}`}
+                    onChange={(event) => {
+                      setSelectedIds((prev) =>
+                        event.target.checked
+                          ? Array.from(new Set([...prev, item.id]))
+                          : prev.filter((id) => id !== item.id)
+                      );
+                    }}
+                    onClick={(event) => event.stopPropagation()}
+                  />
+                </td>
                 <td
                   className="px-0"
                   data-testid="admin-listings-row-spacer"
@@ -399,7 +471,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
             })}
             {!rows.length && (
               <tr>
-                <td colSpan={14} className="px-3 py-6 text-center text-sm text-slate-600">
+                <td colSpan={15} className="px-3 py-6 text-center text-sm text-slate-600">
                   No listings found.
                 </td>
               </tr>

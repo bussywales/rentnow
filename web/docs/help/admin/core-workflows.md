@@ -44,6 +44,19 @@ updated_at: "2026-03-23"
   - listing ID remains secondary metadata for debug/support handoff
 - Use server-backed sort controls for created, updated, expiry, title, quality, and live/approved triage.
 - Use quality status and missing-item quick filters to isolate weak inventory fast.
+- Use row selection checkboxes when cleaning up large sets of tutorial, demo, or duplicate listings.
+- `Bulk deactivate`
+  - safe default cleanup path
+  - removes selected listings from the marketplace
+  - keeps support and ops history
+- `Bulk permanent delete`
+  - only for safe-only listings that are already removed
+  - blocked when protected history exists
+  - requires typed confirmation in the form `DELETE N LISTINGS`
+- Always read the bulk preflight summary before confirming:
+  - eligible
+  - blocked
+  - recommended deactivate first
 - Use `/admin/listings/[id]` to confirm why the registry is flagging a listing before escalating or intervening.
 - Use `/admin/review` for actual approve, reject, or request-changes decisions.
 
