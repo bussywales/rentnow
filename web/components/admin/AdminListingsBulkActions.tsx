@@ -26,6 +26,11 @@ type BulkResponse = {
   error?: string;
 };
 
+type ModalState = {
+  action: AdminBulkListingAction;
+  selectedIds: string[];
+};
+
 function labelForEligibility(value: AdminBulkListingEligibility) {
   if (value === "already_removed") return "Already removed";
   if (value === "requires_removed_status") return "Deactivate first";
@@ -46,6 +51,27 @@ function summarizeBlockedReasons(summary: AdminBulkListingPreflightSummary) {
   return Array.from(counts.entries()).map(([label, count]) => ({ label, count }));
 }
 
+function preflightSnapshotKey(summary: AdminBulkListingPreflightSummary | null) {
+  if (!summary) return null;
+  return JSON.stringify({
+    action: summary.action,
+    selectedCount: summary.selectedCount,
+    foundCount: summary.foundCount,
+    eligibleCount: summary.eligibleCount,
+    blockedCount: summary.blockedCount,
+    alreadyRemovedCount: summary.alreadyRemovedCount,
+    recommendedDeactivateCount: summary.recommendedDeactivateCount,
+    missingCount: summary.missingCount,
+    requiredConfirmationText: summary.requiredConfirmationText,
+    items: summary.items.map((item) => ({
+      id: item.id,
+      status: item.status,
+      eligibility: item.eligibility,
+      reason: item.reason,
+    })),
+  });
+}
+
 export default function AdminListingsBulkActions({
   selectedItems,
   onClearSelection,
@@ -53,47 +79,59 @@ export default function AdminListingsBulkActions({
   onToast,
 }: Props) {
   const router = useRouter();
-  const [mode, setMode] = useState<AdminBulkListingAction | null>(null);
+  const [modalState, setModalState] = useState<ModalState | null>(null);
   const [preflight, setPreflight] = useState<AdminBulkListingPreflightSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [pending, setPending] = useState(false);
   const [reason, setReason] = useState("");
   const [confirmationText, setConfirmationText] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [snapshotResetNotice, setSnapshotResetNotice] = useState<string | null>(null);
 
   const selectedIds = useMemo(() => selectedItems.map((item) => item.id), [selectedItems]);
-  const selectedKey = useMemo(() => selectedIds.join(","), [selectedIds]);
   const selectedCount = selectedIds.length;
+  const mode = modalState?.action ?? null;
   const blockedSummaries = useMemo(
     () => (preflight ? summarizeBlockedReasons(preflight) : []),
     [preflight]
   );
+  const requiredConfirmationText = preflight?.requiredConfirmationText ?? "DELETE 0 LISTINGS";
+  const confirmationMatches =
+    mode !== "purge" || (!!preflight?.requiredConfirmationText && confirmationText === preflight.requiredConfirmationText);
+  const confirmDisabled =
+    pending ||
+    loading ||
+    !preflight ||
+    !preflight.eligibleCount ||
+    !reason.trim() ||
+    !confirmationMatches;
 
   useEffect(() => {
     if (selectedCount === 0) {
-      setMode(null);
+      setModalState(null);
       setPreflight(null);
       setReason("");
       setConfirmationText("");
       setError(null);
+      setSnapshotResetNotice(null);
     }
   }, [selectedCount]);
 
   useEffect(() => {
-    const selectedIdsForRequest = selectedKey ? selectedKey.split(",") : [];
-    if (!mode || selectedIdsForRequest.length === 0) return;
+    if (!modalState || modalState.selectedIds.length === 0) return;
     let cancelled = false;
     setLoading(true);
     setPreflight(null);
     setError(null);
+    setSnapshotResetNotice(null);
 
     void fetch("/api/admin/listings/bulk", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        action: mode,
+        action: modalState.action,
         mode: "preflight",
-        ids: selectedIdsForRequest,
+        ids: modalState.selectedIds,
       }),
     })
       .then(async (response) => {
@@ -117,28 +155,47 @@ export default function AdminListingsBulkActions({
     return () => {
       cancelled = true;
     };
-  }, [mode, selectedKey]);
+  }, [modalState]);
 
   const closeModal = () => {
     if (pending) return;
-    setMode(null);
+    setModalState(null);
     setPreflight(null);
     setReason("");
     setConfirmationText("");
     setError(null);
+    setSnapshotResetNotice(null);
   };
 
   const openModal = (nextMode: AdminBulkListingAction) => {
-    setMode(nextMode);
+    setModalState({
+      action: nextMode,
+      selectedIds,
+    });
+    setPreflight(null);
     setReason("");
     setConfirmationText("");
     setError(null);
+    setSnapshotResetNotice(null);
+  };
+
+  const invalidateSnapshot = (nextPreflight: AdminBulkListingPreflightSummary, nextError: string) => {
+    const changed = preflightSnapshotKey(preflight) !== preflightSnapshotKey(nextPreflight);
+    setPreflight(nextPreflight);
+    setError(nextError);
+    if (changed) {
+      setConfirmationText("");
+      setSnapshotResetNotice("Eligibility changed. Review the updated summary and confirm again.");
+    } else {
+      setSnapshotResetNotice(null);
+    }
   };
 
   const submit = async () => {
-    if (!mode) return;
+    if (!mode || !modalState) return;
     setPending(true);
     setError(null);
+    setSnapshotResetNotice(null);
     try {
       const response = await fetch("/api/admin/listings/bulk", {
         method: "POST",
@@ -146,7 +203,7 @@ export default function AdminListingsBulkActions({
         body: JSON.stringify({
           action: mode,
           mode: "execute",
-          ids: selectedIds,
+          ids: modalState.selectedIds,
           reason,
           confirmationText: mode === "purge" ? confirmationText : undefined,
         }),
@@ -154,9 +211,11 @@ export default function AdminListingsBulkActions({
       const payload = (await response.json().catch(() => ({}))) as BulkResponse;
       if (!response.ok) {
         if (payload.preflight) {
-          setPreflight(payload.preflight);
+          invalidateSnapshot(payload.preflight, payload.error || "Unable to execute bulk cleanup.");
+        } else {
+          setError(payload.error || "Unable to execute bulk cleanup.");
         }
-        throw new Error(payload.error || "Unable to execute bulk cleanup.");
+        return;
       }
 
       const affectedIds = payload.affectedIds ?? [];
@@ -250,6 +309,14 @@ export default function AdminListingsBulkActions({
 
             {loading ? <p className="mt-4 text-sm text-slate-600">Loading preflight summary…</p> : null}
             {error ? <p className="mt-4 text-sm text-rose-700">{error}</p> : null}
+            {snapshotResetNotice ? (
+              <p
+                className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+                data-testid="admin-listings-bulk-snapshot-reset"
+              >
+                {snapshotResetNotice}
+              </p>
+            ) : null}
 
             {preflight ? (
               <div className="mt-4 space-y-4" data-testid="admin-listings-bulk-preflight">
@@ -353,12 +420,12 @@ export default function AdminListingsBulkActions({
 
                 {mode === "purge" ? (
                   <label className="block text-sm font-medium text-slate-700">
-                    Type {preflight.requiredConfirmationText || "DELETE 0 LISTINGS"} to confirm
+                    Type {requiredConfirmationText} to confirm
                     <input
                       value={confirmationText}
                       onChange={(event) => setConfirmationText(event.target.value)}
                       className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
-                      placeholder={preflight.requiredConfirmationText || "DELETE 0 LISTINGS"}
+                      placeholder={requiredConfirmationText}
                       data-testid="admin-listings-bulk-confirmation"
                     />
                   </label>
@@ -377,7 +444,7 @@ export default function AdminListingsBulkActions({
                     type="button"
                     className="rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={() => void submit()}
-                    disabled={pending || loading || !preflight.eligibleCount}
+                    disabled={confirmDisabled}
                     data-testid="admin-listings-bulk-confirm"
                   >
                     {pending

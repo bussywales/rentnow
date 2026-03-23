@@ -142,9 +142,17 @@ The registry now supports selected-rows-only bulk cleanup for admin ops.
   - eligible for permanent delete
   - blocked from delete
   - recommended deactivate first
+- The destructive modal uses one frozen preflight snapshot per open:
+  - selected count
+  - eligible count
+  - blocked count
+  - action text
+  - typed confirmation phrase
+  all come from the same snapshot
 - Permanent delete requires:
   - an admin reason
   - typed confirmation in the form `DELETE N LISTINGS`
+- If execution-time rechecks change eligibility, the modal resets confirmation, shows the updated summary, and requires re-confirmation before delete can proceed.
 
 ### What blocks permanent delete
 

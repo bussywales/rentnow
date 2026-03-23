@@ -51,6 +51,8 @@ Bulk permanent delete now requires:
 
 The required count is derived from the eligible delete total in the server-side preflight summary.
 
+The permanent-delete modal now keeps one frozen preflight snapshot per open. If the execution-time safety recheck returns changed eligibility, the modal clears the old confirmation, shows the updated counts, and requires confirmation again against the new eligible total.
+
 ## Auditability
 
 Bulk cleanup writes a batch summary audit entry with:

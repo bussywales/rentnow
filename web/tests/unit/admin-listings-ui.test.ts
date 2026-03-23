@@ -210,6 +210,10 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
     "expected destructive typed confirmation input for bulk purge"
   );
   assert.ok(
+    bulkActionsContents.includes('data-testid="admin-listings-bulk-snapshot-reset"'),
+    "expected explicit stale snapshot reset notice"
+  );
+  assert.ok(
     bulkActionsContents.includes("Deactivate first"),
     "expected explicit blocked-state copy for not-yet-removed listings"
   );
@@ -220,6 +224,26 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
   assert.ok(
     bulkActionsContents.includes("Delete ${preflight.eligibleCount} listings permanently"),
     "expected action summary copy in bulk delete preflight"
+  );
+  assert.ok(
+    bulkActionsContents.includes("Eligibility changed. Review the updated summary and confirm again."),
+    "expected explicit stale preflight reset messaging"
+  );
+  assert.ok(
+    bulkActionsContents.includes("const requiredConfirmationText = preflight?.requiredConfirmationText ?? \"DELETE 0 LISTINGS\";"),
+    "expected confirmation copy to bind to the current snapshot"
+  );
+  assert.ok(
+    bulkActionsContents.includes("const confirmationMatches ="),
+    "expected destructive confirmation validity to be derived from the current snapshot"
+  );
+  assert.ok(
+    bulkActionsContents.includes("const confirmDisabled ="),
+    "expected confirm button disabled state to depend on loading, eligibility, reason, and confirmation match"
+  );
+  assert.ok(
+    bulkActionsContents.includes("ids: modalState.selectedIds"),
+    "expected execution request to use the frozen modal snapshot ids"
   );
 
   const demoTogglePath = path.join(root, "components", "admin", "AdminDemoToggleButton.tsx");

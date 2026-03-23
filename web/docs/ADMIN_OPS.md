@@ -50,6 +50,8 @@ PropatyHub admin operations are split into clear workspaces with URL-driven stat
   - only allowed after marketplace removal
   - blocked when protected history exists
   - requires typed confirmation in the form `DELETE N LISTINGS`
+  - keeps one frozen preflight snapshot per modal open
+  - resets confirmation and requires re-confirmation if execution-time eligibility changes
   - writes a batch audit summary to `admin_actions_log`
 
 ## Property Requests Registry (`/admin/requests`)

@@ -18,6 +18,7 @@ const PURGE_CONFIRMATION_ID = "66666666-6666-4666-8666-666666666666";
 const PURGE_ELIGIBLE_ID = "77777777-7777-4777-8777-777777777777";
 const PURGE_BLOCKED_ID = "88888888-8888-4888-8888-888888888888";
 const PURGE_LIVE_ID = "99999999-9999-4999-8999-999999999999";
+const PURGE_CHANGED_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 const makeRequest = (payload: Record<string, unknown>) =>
   new NextRequest("http://localhost/api/admin/listings/bulk", {
@@ -328,4 +329,71 @@ void test("bulk purge deletes only eligible rows and leaves blocked rows untouch
     capture.auditEntries.some((entry) => entry.action_type === "bulk_purge_listing"),
     "expected bulk purge audit entry"
   );
+});
+
+void test("bulk purge re-checks eligibility at execution time and invalidates stale confirmation snapshots", async () => {
+  const capture: Capture = { propertyUpdates: [], deletedIds: [], auditEntries: [] };
+  const supabase = buildSupabaseStub({
+    listings: [
+      { id: PURGE_CHANGED_ID, title: "Changed after preview", status: "removed", is_active: false, is_approved: false, is_featured: false },
+    ],
+    capture,
+  }) as ReturnType<AdminBulkListingsRouteDeps["createServerSupabaseClient"]>;
+
+  let dependencyCalls = 0;
+  const deps: AdminBulkListingsRouteDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => false,
+    createServerSupabaseClient: async () => supabase,
+    createServiceRoleClient: () => ({} as ReturnType<AdminBulkListingsRouteDeps["createServiceRoleClient"]>),
+    requireRole: async () =>
+      ({
+        ok: true,
+        supabase,
+        user: { id: "admin-1" } as User,
+        role: "admin",
+      }) as Awaited<ReturnType<AdminBulkListingsRouteDeps["requireRole"]>>,
+    logFailure: () => undefined,
+    getListingRemovalDependencySummary: async () => {
+      dependencyCalls += 1;
+      if (dependencyCalls === 1) return emptySummary;
+      return {
+        ...emptySummary,
+        protected: [{ key: "listing_leads", label: "Listing leads", count: 1 }],
+        protectedCount: 1,
+        canPurge: false,
+      };
+    },
+  };
+
+  const preflightResponse = await postAdminListingsBulkLifecycleResponse(
+    makeRequest({
+      action: "purge",
+      mode: "preflight",
+      ids: [PURGE_CHANGED_ID],
+    }),
+    deps
+  );
+  assert.equal(preflightResponse.status, 200);
+  const preflightJson = await preflightResponse.json();
+  assert.equal(preflightJson.preflight.eligibleCount, 1);
+  assert.equal(preflightJson.preflight.requiredConfirmationText, "DELETE 1 LISTINGS");
+
+  const executeResponse = await postAdminListingsBulkLifecycleResponse(
+    makeRequest({
+      action: "purge",
+      mode: "execute",
+      ids: [PURGE_CHANGED_ID],
+      reason: "Retry purge after preview.",
+      confirmationText: "DELETE 1 LISTINGS",
+    }),
+    deps
+  );
+
+  assert.equal(executeResponse.status, 422);
+  const executeJson = await executeResponse.json();
+  assert.match(executeJson.error, /DELETE 0 LISTINGS/);
+  assert.equal(executeJson.preflight.eligibleCount, 0);
+  assert.equal(executeJson.preflight.blockedCount, 1);
+  assert.deepEqual(capture.deletedIds, []);
 });
