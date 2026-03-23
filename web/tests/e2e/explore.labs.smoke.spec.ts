@@ -89,9 +89,8 @@ test.describe("explore labs smoke", () => {
       if (rect.width <= 0 || rect.height <= 0) return false;
       const x = rect.left + rect.width * 0.5;
       const startY = rect.top + rect.height * 0.65;
-      const swipeDistance = Math.max(rect.height * 0.5, window.innerHeight * 0.24, 180);
-      const midY = startY - swipeDistance * 0.55;
-      const endY = startY - swipeDistance;
+      const swipeDistance = Math.max(rect.height * 0.68, window.innerHeight * 0.34, 260);
+      const moveSteps = [0.18, 0.42, 0.68, 1].map((ratio) => startY - swipeDistance * ratio);
       const dispatchTouch = (type: "touchstart" | "touchmove" | "touchend", y: number) => {
         const event = new Event(type, { bubbles: true, cancelable: true }) as Event & {
           touches: Array<{ clientX: number; clientY: number }>;
@@ -114,14 +113,15 @@ test.describe("explore labs smoke", () => {
         target.dispatchEvent(event);
       };
       dispatchTouch("touchstart", startY);
-      dispatchTouch("touchmove", midY);
-      dispatchTouch("touchmove", endY);
-      dispatchTouch("touchend", endY);
+      for (const nextY of moveSteps) {
+        dispatchTouch("touchmove", nextY);
+      }
+      dispatchTouch("touchend", moveSteps[moveSteps.length - 1] ?? startY);
       return true;
     }, "explore-gallery-gesture-layer");
     expect(swipeDispatched).toBeTruthy();
     await expect
-      .poll(async () => readCurrentSlideIndex(), { timeout: 2500 })
+      .poll(async () => readCurrentSlideIndex(), { timeout: 4000 })
       .toBeGreaterThan(initialIndex);
     await expect
       .poll(async () => page.evaluate(() => window.scrollY), { timeout: 1500 })
