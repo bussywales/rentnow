@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { getUserRole, requireUser } from "@/lib/authz";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
@@ -7,18 +8,74 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { haversineDistanceMeters, bucketDistance, sanitizeAccuracyM } from "@/lib/properties/checkins";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
+const routeLabel = "/api/properties/[id]/check-in";
+
 const bodySchema = z.object({
   lat: z.number(),
   lng: z.number(),
   accuracy_m: z.number().optional(),
 });
 
-export async function POST(
+export type PropertyCheckinDeps = {
+  hasServiceRoleEnv: typeof hasServiceRoleEnv;
+  hasServerSupabaseEnv: typeof hasServerSupabaseEnv;
+  createServerSupabaseClient: typeof createServerSupabaseClient;
+  createServiceRoleClient: typeof createServiceRoleClient;
+  requireUser: typeof requireUser;
+  getUserRole: typeof getUserRole;
+  hasActiveDelegation: typeof hasActiveDelegation;
+};
+
+const defaultDeps: PropertyCheckinDeps = {
+  hasServiceRoleEnv,
+  hasServerSupabaseEnv,
+  createServerSupabaseClient,
+  createServiceRoleClient,
+  requireUser,
+  getUserRole,
+  hasActiveDelegation,
+};
+
+const getAnonEnv = () => {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey =
+    process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return null;
+  return { url, anonKey };
+};
+
+function getBearerToken(request: Request) {
+  const authHeader = request.headers.get("authorization");
+  return authHeader?.startsWith("Bearer ")
+    ? authHeader.slice("Bearer ".length)
+    : null;
+}
+
+async function createRequestSupabaseClient(
+  accessToken: string | null,
+  deps: PropertyCheckinDeps
+) {
+  const env = accessToken ? getAnonEnv() : null;
+  if (accessToken && env) {
+    return createClient(env.url, env.anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    });
+  }
+  return deps.createServerSupabaseClient();
+}
+
+function forbidden(error: string, code: string) {
+  return NextResponse.json({ error, code }, { status: 403 });
+}
+
+export async function postPropertyCheckinResponse(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
+  deps: PropertyCheckinDeps = defaultDeps
 ) {
   const startTime = Date.now();
-  if (!hasServiceRoleEnv() || !hasServerSupabaseEnv()) {
+  if (!deps.hasServiceRoleEnv() || !deps.hasServerSupabaseEnv()) {
     return NextResponse.json(
       { error: "Service role env vars missing", code: "not_configured" },
       { status: 503 }
@@ -26,20 +83,25 @@ export async function POST(
   }
 
   const { id } = await context.params;
-  const supabase = await createServerSupabaseClient();
-  const auth = await requireUser({
+  const accessToken = getBearerToken(request);
+  const supabase = await createRequestSupabaseClient(accessToken, deps);
+  const auth = await deps.requireUser({
     request,
-    route: "/api/properties/[id]/check-in",
+    route: routeLabel,
     supabase,
+    accessToken,
     startTime,
   });
   if (!auth.ok) return auth.response;
 
-  const service = createServiceRoleClient() as unknown as UntypedAdminClient;
-  const role = await getUserRole(supabase, auth.user.id);
+  const service = deps.createServiceRoleClient() as unknown as UntypedAdminClient;
+  const role = await deps.getUserRole(auth.supabase, auth.user.id);
 
-  if (!["admin", "landlord", "agent"].includes(role ?? "")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!role || !["admin", "landlord", "agent"].includes(role)) {
+    return forbidden(
+      "Property check-in is available to admins, landlords, and delegated agents.",
+      "role_not_allowed"
+    );
   }
 
   const { data: property, error: propError } = await service
@@ -47,7 +109,12 @@ export async function POST(
     .select("id, owner_id, latitude, longitude")
     .eq("id", id)
     .maybeSingle();
-  const propertyRow = property as { owner_id?: string; latitude?: number | null; longitude?: number | null } | null;
+  const propertyRow = property as {
+    owner_id?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+  } | null;
+
   if (propError) return NextResponse.json({ error: propError.message }, { status: 400 });
   if (!propertyRow) return NextResponse.json({ error: "Property not found" }, { status: 404 });
   if (!propertyRow.owner_id) {
@@ -63,11 +130,19 @@ export async function POST(
   if (role !== "admin") {
     const ownerId = propertyRow.owner_id;
     if (role === "landlord" && ownerId !== auth.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return forbidden(
+        "You’re signed in, but only the listing owner or a delegated manager can check in here.",
+        "listing_relation_required"
+      );
     }
     if (role === "agent") {
-      const allowed = await hasActiveDelegation(supabase, auth.user.id, ownerId);
-      if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      const allowed = await deps.hasActiveDelegation(auth.supabase, auth.user.id, ownerId);
+      if (!allowed) {
+        return forbidden(
+          "You’re signed in, but only the listing owner or a delegated manager can check in here.",
+          "listing_relation_required"
+        );
+      }
     }
   }
 
@@ -102,4 +177,11 @@ export async function POST(
 
   const checkedInAt = new Date().toISOString();
   return NextResponse.json({ ok: true, bucket, checkedInAt });
+}
+
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  return postPropertyCheckinResponse(request, context);
 }

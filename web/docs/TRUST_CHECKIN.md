@@ -17,6 +17,8 @@
   - Body: `{ lat, lng, accuracy_m? }`
   - Server computes distance to property pin and stores bucket; returns `{ ok, bucket, checkedInAt }`.
   - Returns `pin_required` if property has no latitude/longitude.
+  - Returns `401` only when the user is actually unauthenticated.
+  - Returns `403 role_not_allowed` for unsupported roles and `403 listing_relation_required` when the signed-in user is not the owner or delegated manager.
 - `POST /api/properties/[id]/check-in/clear`
   - Auth: admin only; records a cleared entry.
 
@@ -32,6 +34,7 @@
   - Uses browser geolocation and calls `/api/properties/:id/check-in`.
   - Disabled if no pinned area.
   - Helper text: “Records a privacy-safe signal. We don’t store GPS coordinates.”
+  - State messaging distinguishes unauthenticated, not-authorized, and missing-listing-relation cases instead of collapsing them into a login prompt.
 - Admin settings UI (/admin/settings) includes toggle:
   - Title: “Tenant check-in badge”
   - Description: “Show a small ‘checked in recently’ indicator to tenants. No GPS coordinates are shown.”

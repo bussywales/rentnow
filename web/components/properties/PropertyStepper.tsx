@@ -103,6 +103,7 @@ import {
 } from "@/lib/shortlet/listing-setup";
 import { shouldBypassNextImageOptimizer } from "@/lib/images/optimizer-bypass";
 import { resolvePropertyImageUrl, resolveSupabasePublicUrlFromPath } from "@/lib/properties/image-url";
+import { resolvePropertyCheckinErrorMessage } from "@/components/properties/property-checkin-errors";
 
 type FormState = Partial<Property> & {
   amenitiesText?: string;
@@ -2263,10 +2264,8 @@ export function PropertyStepper({
           if (!res.ok) {
             if (data?.code === "pin_required") {
               setCheckinMessage("Add a pinned area first to enable check-in.");
-            } else if (res.status === 401 || res.status === 403) {
-              setCheckinMessage("Please log in to check in.");
             } else {
-              setCheckinMessage("Couldn’t record check-in. Try again.");
+              setCheckinMessage(resolvePropertyCheckinErrorMessage(res.status, data));
             }
             return;
           }
