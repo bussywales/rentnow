@@ -17,6 +17,7 @@ import {
   serializeAdminListingsQuery,
   hasActiveAdminListingsFilters,
 } from "@/lib/admin/admin-listings";
+import { applyAdminListingsQualityView } from "@/lib/admin/admin-listings-quality-view";
 import { type FeaturedInventorySummary } from "@/lib/admin/featured-inventory";
 import { getFeaturedInventorySummary } from "@/lib/admin/featured-inventory.server";
 import AdminListingsPanelClient from "@/components/admin/AdminListingsPanelClient";
@@ -160,9 +161,15 @@ async function getListingsData(
 
   const client = hasServiceRoleEnv() ? createServiceRoleClient() : supabase;
   try {
+    const needsDerivedServerView =
+      listingQuery.qualityFilter !== "all" ||
+      listingQuery.missingItemFilter !== "all" ||
+      listingQuery.sort === "score_desc" ||
+      listingQuery.sort === "score_asc";
     const result = await getAdminAllListings<RawReviewRow>({
       client,
       query: listingQuery,
+      paginate: !needsDerivedServerView,
     });
 
     const rows = result.rows ?? [];
@@ -289,6 +296,21 @@ async function getListingsData(
       };
     });
 
+    const qualityViewedListings = applyAdminListingsQualityView(listings, {
+      filter: listingQuery.qualityFilter,
+      missingItemFilter: listingQuery.missingItemFilter,
+      sort:
+        listingQuery.sort === "score_desc" || listingQuery.sort === "score_asc"
+          ? listingQuery.sort
+          : "default",
+    });
+    const listingTotalCount = needsDerivedServerView ? qualityViewedListings.length : result.count;
+    const listingStartIndex = needsDerivedServerView ? (listingQuery.page - 1) * listingQuery.pageSize : 0;
+    const listingEndIndex = needsDerivedServerView
+      ? listingStartIndex + listingQuery.pageSize
+      : qualityViewedListings.length;
+    const pageListings = qualityViewedListings.slice(listingStartIndex, listingEndIndex);
+
     let ownerSummary: ListingsPageData["ownerSummary"] = null;
     if (listingQuery.qMode === "owner" && listingQuery.q && isUuid(listingQuery.q)) {
       const { data: ownerProfile } = await supabase
@@ -314,12 +336,12 @@ async function getListingsData(
     }
 
     return {
-      listings,
+      listings: pageListings,
       listingQuery,
-      listingCount: rows.length,
-      listingPage: result.page,
-      listingPageSize: result.pageSize,
-      listingTotalCount: result.count,
+      listingCount: pageListings.length,
+      listingPage: listingQuery.page,
+      listingPageSize: listingQuery.pageSize,
+      listingTotalCount,
       contractDegraded: result.contractDegraded,
       error: null,
       requestId,
@@ -387,7 +409,7 @@ export default async function AdminListingsPage({ searchParams }: Props) {
             <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Admin</p>
             <h1 className="text-2xl font-semibold text-slate-900">Listings registry</h1>
             <p className="text-sm text-slate-600">
-              All listings, searchable and filterable. Open the inspector for admin controls.
+              Search title, listing ID, owner, or location. Sort and filter the full registry, then open the inspector for admin controls.
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-sm">
@@ -471,7 +493,7 @@ export default async function AdminListingsPage({ searchParams }: Props) {
 
       <div className="text-sm text-slate-600">
         Showing {listingStart}-{listingEnd} of {listingTotalCount} listings
-        {hasActiveFilters ? " (filtered)" : ""}.
+        {hasActiveFilters ? " (custom view)" : ""}.
       </div>
       {listingQuery.demo === "true" ? (
         <p className="text-sm text-slate-600" data-testid="admin-demo-filter-helper">
@@ -489,7 +511,7 @@ export default async function AdminListingsPage({ searchParams }: Props) {
           <div className="text-base font-semibold text-slate-900">
             No listings match your filters.
           </div>
-          <p className="mt-1">Try clearing filters or adjusting your criteria.</p>
+          <p className="mt-1">Try clearing filters or broadening your search.</p>
           <div className="mt-3">
             <Link
               href="/admin/listings"

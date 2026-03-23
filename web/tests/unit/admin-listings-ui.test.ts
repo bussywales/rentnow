@@ -15,6 +15,81 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
     filtersContents.includes('data-testid="admin-listings-filter-chip"'),
     "expected applied filter chip test id"
   );
+  assert.ok(
+    filtersContents.includes("Sort: quality highest"),
+    "expected applied filters to expose derived sort chips"
+  );
+  assert.ok(
+    filtersContents.includes("Gap: missing cover image"),
+    "expected applied filters to expose quick gap filter chips"
+  );
+  assert.ok(
+    filtersContents.includes("Quality: needs work"),
+    "expected applied filters to expose quality state chips"
+  );
+
+  const toolbarPath = path.join(root, "components", "admin", "AdminListingsFiltersClient.tsx");
+  const toolbarContents = fs.readFileSync(toolbarPath, "utf8");
+  assert.ok(
+    toolbarContents.includes('data-testid="admin-listings-search"'),
+    "expected unified search input test id"
+  );
+  assert.ok(
+    toolbarContents.includes("Search title, listing ID, owner, or location"),
+    "expected broader registry search placeholder"
+  );
+  assert.ok(
+    toolbarContents.includes('data-testid="admin-listings-sort"'),
+    "expected server-side sort control test id"
+  );
+  assert.ok(
+    toolbarContents.includes("Default order (updated newest)"),
+    "expected clearer default sort label"
+  );
+  assert.ok(
+    toolbarContents.includes("Created: newest first"),
+    "expected created newest sort option"
+  );
+  assert.ok(
+    toolbarContents.includes("Created: oldest first"),
+    "expected created oldest sort option"
+  );
+  assert.ok(
+    toolbarContents.includes("Updated: oldest first"),
+    "expected updated oldest sort option"
+  );
+  assert.ok(
+    toolbarContents.includes("Expiry: soonest first"),
+    "expected expiry sort option"
+  );
+  assert.ok(
+    toolbarContents.includes("Quality: highest first"),
+    "expected quality highest sort option"
+  );
+  assert.ok(
+    toolbarContents.includes("Quality: lowest first"),
+    "expected quality lowest sort option"
+  );
+  assert.ok(
+    toolbarContents.includes("Title: A-Z"),
+    "expected title sort option"
+  );
+  assert.ok(
+    toolbarContents.includes("Live / approved: newest first"),
+    "expected approved/live sort option"
+  );
+  assert.ok(
+    toolbarContents.includes('data-testid="admin-listings-quality-filter"'),
+    "expected quality filter in the main server-backed controls"
+  );
+  assert.ok(
+    toolbarContents.includes('data-testid="admin-listings-missing-item-filter"'),
+    "expected quick gap filter in the main server-backed controls"
+  );
+  assert.ok(
+    toolbarContents.includes("Searches the full registry server-side across title, listing ID, owner, and location text."),
+    "expected explicit server-side search guidance"
+  );
 
   const tablePath = path.join(root, "components", "admin", "AdminListingsTable.tsx");
   const tableContents = fs.readFileSync(tablePath, "utf8");
@@ -70,42 +145,6 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
   assert.ok(
     tableContents.includes('data-testid="admin-listings-row-quality"'),
     "expected row quality cell test id"
-  );
-  assert.ok(
-    tableContents.includes('data-testid="admin-listings-quality-filter"'),
-    "expected quality filter control test id"
-  );
-  assert.ok(
-    tableContents.includes('data-testid="admin-listings-quality-sort"'),
-    "expected quality sort control test id"
-  );
-  assert.ok(
-    tableContents.includes('data-testid="admin-listings-missing-item-filter"'),
-    "expected missing-item filter control test id"
-  );
-  assert.ok(
-    tableContents.includes("Missing cover image"),
-    "expected missing cover image filter label"
-  );
-  assert.ok(
-    tableContents.includes("Missing minimum images"),
-    "expected missing minimum images filter label"
-  );
-  assert.ok(
-    tableContents.includes("Missing description"),
-    "expected missing description filter label"
-  );
-  assert.ok(
-    tableContents.includes("Missing price"),
-    "expected missing price filter label"
-  );
-  assert.ok(
-    tableContents.includes("Missing location"),
-    "expected missing location filter label"
-  );
-  assert.ok(
-    tableContents.includes("Showing {visibleRows.length} of {rows.length} rows."),
-    "expected visible rows summary text for filter/sort feedback"
   );
   assert.ok(
     tableContents.includes('className="w-[220px] px-3 py-2 text-right whitespace-nowrap"'),

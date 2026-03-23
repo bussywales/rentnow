@@ -9,7 +9,7 @@ describe("admin listings query parsing", () => {
   it("defaults are applied when params missing", () => {
     const parsed = parseAdminListingsQuery({});
     assert.equal(parsed.q, null);
-    assert.equal(parsed.qMode, "title");
+    assert.equal(parsed.qMode, "all");
     assert.deepEqual(parsed.statuses, []);
     assert.equal(parsed.active, "all");
     assert.equal(parsed.demo, "all");
@@ -17,6 +17,8 @@ describe("admin listings query parsing", () => {
     assert.equal(parsed.page, 1);
     assert.ok(parsed.pageSize >= 10);
     assert.equal(parsed.sort, "updated_desc");
+    assert.equal(parsed.qualityFilter, "all");
+    assert.equal(parsed.missingItemFilter, "all");
     assert.equal(parsed.missingCover, false);
     assert.equal(parsed.missingPhotos, false);
     assert.equal(parsed.missingLocation, false);
@@ -32,14 +34,16 @@ describe("admin listings query parsing", () => {
   it("parses provided query params", () => {
     const parsed = parseAdminListingsQuery({
       q: "Lagos",
-      qMode: "title",
+      qMode: "all",
       status: "live,pending",
       active: "true",
       demo: "true",
       featured: "1",
       page: "2",
       pageSize: "25",
-      sort: "updated_asc",
+      sort: "approved_desc",
+      quality: "fair",
+      missingItem: "missing_location",
       missingCover: "true",
       missingPhotos: "1",
       missingLocation: "yes",
@@ -52,7 +56,7 @@ describe("admin listings query parsing", () => {
       bathroomsMax: "3",
     });
     assert.equal(parsed.q, "Lagos");
-    assert.equal(parsed.qMode, "title");
+    assert.equal(parsed.qMode, "all");
     assert.ok(parsed.statuses.includes("live"));
     assert.ok(parsed.statuses.includes("pending"));
     assert.equal(parsed.active, "true");
@@ -60,7 +64,9 @@ describe("admin listings query parsing", () => {
     assert.equal(parsed.featured, "active");
     assert.equal(parsed.page, 2);
     assert.equal(parsed.pageSize, 25);
-    assert.equal(parsed.sort, "updated_asc");
+    assert.equal(parsed.sort, "approved_desc");
+    assert.equal(parsed.qualityFilter, "fair");
+    assert.equal(parsed.missingItemFilter, "missing_location");
     assert.equal(parsed.missingCover, true);
     assert.equal(parsed.missingPhotos, true);
     assert.equal(parsed.missingLocation, true);
@@ -121,20 +127,31 @@ describe("admin listings query parsing", () => {
     assert.deepEqual(mixed.statuses, ["draft"]);
   });
 
-  it("detects uuid and defaults to id mode when qMode missing", () => {
+  it("keeps unified search mode when qMode missing", () => {
     const parsed = parseAdminListingsQuery({
       q: "dad2bb26-fe36-4096-b81a-f86d230f9b3d",
     });
     assert.equal(parsed.q, "dad2bb26-fe36-4096-b81a-f86d230f9b3d");
-    assert.equal(parsed.qMode, "id");
+    assert.equal(parsed.qMode, "all");
   });
 
-  it("detects uuid even when qMode is title", () => {
+  it("accepts legacy qMode values when explicitly provided", () => {
     const parsed = parseAdminListingsQuery({
       q: "dad2bb26-fe36-4096-b81a-f86d230f9b3d",
       qMode: "title",
     });
-    assert.equal(parsed.qMode, "id");
+    assert.equal(parsed.qMode, "title");
+  });
+
+  it("parses new sort aliases and derived filters", () => {
+    const parsed = parseAdminListingsQuery({
+      sort: "live_desc",
+      quality: "needs_work",
+      missingItem: "missing_price",
+    });
+    assert.equal(parsed.sort, "approved_desc");
+    assert.equal(parsed.qualityFilter, "needs_work");
+    assert.equal(parsed.missingItemFilter, "missing_price");
   });
 
   it("invalid status and active fall back safely", () => {
@@ -151,11 +168,13 @@ describe("admin listings query parsing", () => {
   it("round-trips serialize -> parse for full filters", () => {
     const original = parseAdminListingsQuery({
       q: "Lagos",
-      qMode: "title",
+      qMode: "all",
       status: ["pending", "live"],
       active: "false",
       demo: "false",
       featured: "1",
+      quality: "strong",
+      missingItem: "missing_cover",
       missingCover: "true",
       missingPhotos: "true",
       missingLocation: "true",
@@ -181,6 +200,8 @@ describe("admin listings query parsing", () => {
     assert.equal(roundTrip.active, original.active);
     assert.equal(roundTrip.demo, original.demo);
     assert.equal(roundTrip.featured, original.featured);
+    assert.equal(roundTrip.qualityFilter, original.qualityFilter);
+    assert.equal(roundTrip.missingItemFilter, original.missingItemFilter);
     assert.equal(roundTrip.missingCover, original.missingCover);
     assert.equal(roundTrip.missingPhotos, original.missingPhotos);
     assert.equal(roundTrip.missingLocation, original.missingLocation);

@@ -40,20 +40,22 @@ export default function AdminListingsFiltersClient({
       const next = prev.statuses.includes(value)
         ? prev.statuses.filter((status) => status !== value)
         : [...prev.statuses, value];
-      const deduped = Array.from(new Set(next)).sort();
-      return { ...prev, statuses: deduped };
+      return { ...prev, statuses: Array.from(new Set(next)).sort() };
     });
   };
 
-  const handleApply = () => {
-    const nextQuery: AdminListingsQuery = {
-      ...draft,
-      statuses: Array.from(new Set(draft.statuses)).sort(),
+  const pushDraft = (nextDraft: AdminListingsQuery) => {
+    const params = serializeAdminListingsQuery({
+      ...nextDraft,
+      statuses: Array.from(new Set(nextDraft.statuses)).sort(),
       page: 1,
-    };
-    const params = serializeAdminListingsQuery(nextQuery);
+    });
     const qs = params.toString();
     router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false });
+  };
+
+  const handleApply = () => {
+    pushDraft(draft);
   };
 
   const handleClear = () => {
@@ -61,8 +63,10 @@ export default function AdminListingsFiltersClient({
   };
 
   const hasDraftFilters = useMemo(() => {
-    return JSON.stringify({ ...draft, page: 1, pageSize: DEFAULT_ADMIN_LISTINGS_QUERY.pageSize }) !==
-      JSON.stringify({ ...DEFAULT_ADMIN_LISTINGS_QUERY, page: 1, pageSize: DEFAULT_ADMIN_LISTINGS_QUERY.pageSize });
+    return (
+      JSON.stringify({ ...draft, page: 1 }) !==
+      JSON.stringify({ ...DEFAULT_ADMIN_LISTINGS_QUERY, page: 1 })
+    );
   }, [draft]);
 
   const advancedFiltersCount = useMemo(() => {
@@ -86,18 +90,149 @@ export default function AdminListingsFiltersClient({
   };
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-      <div className="grid gap-4 lg:grid-cols-[2fr,2fr,1fr,1fr,1.2fr,auto]">
-        <div className="flex flex-col">
-          <label className="text-xs text-slate-600">Search</label>
+    <form
+      className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"
+      onSubmit={(event) => {
+        event.preventDefault();
+        handleApply();
+      }}
+    >
+      <div className="grid gap-4 lg:grid-cols-[2.4fr,1.2fr,1fr,1.2fr,1fr,auto]">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-slate-600" htmlFor="admin-listings-search">
+            Search
+          </label>
           <input
+            id="admin-listings-search"
+            data-testid="admin-listings-search"
             type="text"
             value={draft.q ?? ""}
-            onChange={(event) => setDraft((prev) => ({ ...prev, q: event.target.value }))}
-            placeholder="Search title or paste ID"
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                q: event.target.value,
+                qMode: "all",
+              }))
+            }
+            placeholder="Search title, listing ID, owner, or location"
             className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
           />
+          <p className="text-[11px] text-slate-500">
+            Searches the full registry server-side across title, listing ID, owner, and location text.
+          </p>
         </div>
+        <div className="flex flex-col">
+          <label className="text-xs text-slate-600" htmlFor="admin-listings-sort">
+            Sort
+          </label>
+          <select
+            id="admin-listings-sort"
+            data-testid="admin-listings-sort"
+            value={draft.sort}
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                sort: event.target.value as AdminListingsQuery["sort"],
+              }))
+            }
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+          >
+            <option value="updated_desc">Default order (updated newest)</option>
+            <option value="created_desc">Created: newest first</option>
+            <option value="created_asc">Created: oldest first</option>
+            <option value="updated_asc">Updated: oldest first</option>
+            <option value="expires_asc">Expiry: soonest first</option>
+            <option value="score_desc">Quality: highest first</option>
+            <option value="score_asc">Quality: lowest first</option>
+            <option value="title_asc">Title: A-Z</option>
+            <option value="approved_desc">Live / approved: newest first</option>
+          </select>
+        </div>
+        <div className="flex flex-col">
+          <label className="text-xs text-slate-600" htmlFor="admin-listings-quality-filter">
+            Quality
+          </label>
+          <select
+            id="admin-listings-quality-filter"
+            data-testid="admin-listings-quality-filter"
+            value={draft.qualityFilter}
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                qualityFilter: event.target.value as AdminListingsQuery["qualityFilter"],
+              }))
+            }
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+          >
+            <option value="all">All quality states</option>
+            <option value="strong">Strong</option>
+            <option value="fair">Fair</option>
+            <option value="needs_work">Needs work</option>
+          </select>
+        </div>
+        <div className="flex flex-col">
+          <label className="text-xs text-slate-600" htmlFor="admin-listings-missing-item-filter">
+            Quick gap filter
+          </label>
+          <select
+            id="admin-listings-missing-item-filter"
+            data-testid="admin-listings-missing-item-filter"
+            value={draft.missingItemFilter}
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                missingItemFilter: event.target.value as AdminListingsQuery["missingItemFilter"],
+              }))
+            }
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+          >
+            <option value="all">All listings</option>
+            <option value="missing_cover">Missing cover image</option>
+            <option value="missing_images">Missing minimum images</option>
+            <option value="missing_description">Missing description</option>
+            <option value="missing_price">Missing price</option>
+            <option value="missing_location">Missing location</option>
+          </select>
+        </div>
+        <div className="flex flex-col">
+          <label className="text-xs text-slate-600" htmlFor="admin-listings-active">
+            Active
+          </label>
+          <select
+            id="admin-listings-active"
+            value={draft.active}
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                active: event.target.value as AdminListingsQuery["active"],
+              }))
+            }
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+          >
+            <option value="all">All</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        </div>
+        <div className="flex items-end gap-2">
+          <button
+            type="submit"
+            className="rounded bg-slate-900 px-4 py-2 text-sm text-white shadow-sm"
+          >
+            Apply
+          </button>
+          <button
+            type="button"
+            onClick={handleClear}
+            className="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700"
+            disabled={!hasDraftFilters}
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[2fr,1.2fr,1.2fr]">
         <fieldset className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
           <legend className="text-xs text-slate-600">Status (multi)</legend>
           <div className="flex flex-wrap gap-2 text-xs text-slate-700">
@@ -113,41 +248,6 @@ export default function AdminListingsFiltersClient({
             ))}
           </div>
         </fieldset>
-        <div className="flex flex-col">
-          <label className="text-xs text-slate-600">Active</label>
-          <select
-            value={draft.active}
-            onChange={(event) =>
-              setDraft((prev) => ({
-                ...prev,
-                active: event.target.value as AdminListingsQuery["active"],
-              }))
-            }
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-          >
-            <option value="all">All</option>
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
-          </select>
-        </div>
-        <div className="flex flex-col">
-          <label className="text-xs text-slate-600">Sort</label>
-          <select
-            value={draft.sort}
-            onChange={(event) =>
-              setDraft((prev) => ({
-                ...prev,
-                sort: event.target.value as AdminListingsQuery["sort"],
-              }))
-            }
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-          >
-            <option value="updated_desc">Updated (newest)</option>
-            <option value="updated_asc">Updated (oldest)</option>
-            <option value="created_desc">Created (newest)</option>
-            <option value="created_asc">Created (oldest)</option>
-          </select>
-        </div>
         <fieldset
           className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3"
           data-testid="admin-featured-filters"
@@ -236,48 +336,15 @@ export default function AdminListingsFiltersClient({
             </button>
           </div>
         </fieldset>
-        <div className="flex items-end gap-2">
-          <button
-            type="button"
-            onClick={handleApply}
-            className="rounded bg-slate-900 px-4 py-2 text-sm text-white shadow-sm"
-          >
-            Apply filters
-          </button>
-          <button
-            type="button"
-            onClick={handleClear}
-            className="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700"
-            disabled={!hasDraftFilters}
-          >
-            Clear
-          </button>
-        </div>
       </div>
+
       <details className="mt-4 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
         <summary className="cursor-pointer text-sm font-medium text-slate-700">
           Advanced filters ({advancedFiltersCount})
         </summary>
         <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <div className="flex flex-col">
-            <label className="text-xs text-slate-600">Search mode</label>
-            <select
-              value={draft.qMode}
-              onChange={(event) =>
-                setDraft((prev) => ({
-                  ...prev,
-                  qMode: event.target.value as AdminListingsQuery["qMode"],
-                }))
-              }
-              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-            >
-              <option value="title">Title / location</option>
-              <option value="id">Listing ID</option>
-              <option value="owner">Owner ID</option>
-            </select>
-          </div>
           <div className="flex flex-col rounded-xl border border-slate-100 bg-white p-3">
-            <label className="text-xs text-slate-600">Ops filters</label>
+            <label className="text-xs text-slate-600">Field gap filters</label>
             <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-700">
               <label className="flex items-center gap-1">
                 <input
@@ -437,6 +504,6 @@ export default function AdminListingsFiltersClient({
           </div>
         </div>
       </details>
-    </div>
+    </form>
   );
 }

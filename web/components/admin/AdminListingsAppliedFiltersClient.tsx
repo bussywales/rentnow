@@ -53,6 +53,24 @@ export default function AdminListingsAppliedFiltersClient({
       );
     }
 
+    if (query.sort !== DEFAULT_ADMIN_LISTINGS_QUERY.sort) {
+      const sortLabelMap: Record<AdminListingsQuery["sort"], string> = {
+        updated_desc: "Sort: default order",
+        updated_asc: "Sort: updated oldest",
+        created_desc: "Sort: created newest",
+        created_asc: "Sort: created oldest",
+        expires_asc: "Sort: expiry soonest",
+        score_desc: "Sort: quality highest",
+        score_asc: "Sort: quality lowest",
+        title_asc: "Sort: title A-Z",
+        approved_desc: "Sort: live newest",
+      };
+      pushChip("sort", sortLabelMap[query.sort], {
+        ...query,
+        sort: DEFAULT_ADMIN_LISTINGS_QUERY.sort,
+      });
+    }
+
     if (query.statuses.length) {
       query.statuses.forEach((status) => {
         const remaining = query.statuses.filter((s) => s !== status);
@@ -87,6 +105,36 @@ export default function AdminListingsAppliedFiltersClient({
             ? "Featured expiring soon"
             : "Featured expired";
       pushChip("featured", label, { ...query, featured: DEFAULT_ADMIN_LISTINGS_QUERY.featured });
+    }
+
+    if (query.qualityFilter !== DEFAULT_ADMIN_LISTINGS_QUERY.qualityFilter) {
+      const label =
+        query.qualityFilter === "needs_work"
+          ? "Quality: needs work"
+          : `Quality: ${query.qualityFilter}`;
+      pushChip("quality", label, {
+        ...query,
+        qualityFilter: DEFAULT_ADMIN_LISTINGS_QUERY.qualityFilter,
+      });
+    }
+
+    if (query.missingItemFilter !== DEFAULT_ADMIN_LISTINGS_QUERY.missingItemFilter) {
+      const missingItemLabelMap: Record<
+        Exclude<AdminListingsQuery["missingItemFilter"], "all">,
+        string
+      > = {
+        missing_cover: "Gap: missing cover image",
+        missing_images: "Gap: missing minimum images",
+        missing_description: "Gap: missing description",
+        missing_price: "Gap: missing price",
+        missing_location: "Gap: missing location",
+      };
+      const missingItemKey =
+        query.missingItemFilter as Exclude<AdminListingsQuery["missingItemFilter"], "all">;
+      pushChip("missingItem", missingItemLabelMap[missingItemKey], {
+        ...query,
+        missingItemFilter: DEFAULT_ADMIN_LISTINGS_QUERY.missingItemFilter,
+      });
     }
 
     if (query.missingCover) {

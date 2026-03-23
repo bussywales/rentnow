@@ -2,7 +2,7 @@
 title: "Admin core workflows"
 description: "Product updates, featured operations, property requests oversight, and system guardrails."
 order: 20
-updated_at: "2026-03-21"
+updated_at: "2026-03-23"
 ---
 
 ## Product updates (docs-first)
@@ -36,7 +36,9 @@ updated_at: "2026-03-21"
 ## Listings quality operations
 
 - Use `/admin/listings` for registry-style triage, not approval decisions.
-- Use quality status, quality score sorting, and missing-item quick filters to isolate weak inventory fast.
+- Use the main search bar to find listings by title, listing ID, owner, or location without paging manually.
+- Use server-backed sort controls for created, updated, expiry, title, quality, and live/approved triage.
+- Use quality status and missing-item quick filters to isolate weak inventory fast.
 - Use `/admin/listings/[id]` to confirm why the registry is flagging a listing before escalating or intervening.
 - Use `/admin/review` for actual approve, reject, or request-changes decisions.
 

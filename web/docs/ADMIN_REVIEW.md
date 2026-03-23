@@ -113,7 +113,7 @@
   - `/admin/listings/[id]` is the **Listing Inspector** (read-only details panel).
 - Review queue vs Listings:
   - **Review Desk** (`/admin/review`): only reviewable listings (pending + changes requested). Filters: Pending / Changes requested / All reviewable. URL-driven selection `?id=<uuid>`.
-  - **Listings registry** (`/admin/listings`): all listings (same view/contract) with search + filters (q/qMode, status multi-select, active toggle, sort).
+  - **Listings registry** (`/admin/listings`): all listings (same view/contract) with unified search, status/quality filters, and server-backed sort controls.
   - **Listing Inspector** (`/admin/listings/[id]`): read-only detail view (no approve/reject).
   - See `docs/ADMIN_LISTINGS.md` for registry query parameters and inspector usage.
   - **Listings search modes**: ID (exact), Owner ID (exact), Title/Location (partial match across title, location_label, city/state).

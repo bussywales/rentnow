@@ -35,14 +35,100 @@ export {
 
 type AdminListingsClient = SupabaseClient;
 
+function escapeForOrIlike(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/,/g, "\\,").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
+async function resolveOwnerSearchIds({
+  client,
+  q,
+}: {
+  client: AdminListingsClient;
+  q: string;
+}): Promise<string[]> {
+  const trimmed = q.trim();
+  if (!trimmed) return [];
+  try {
+    const pattern = `%${escapeForOrIlike(trimmed)}%`;
+    const result = await client
+      .from("profiles")
+      .select("id")
+      .ilike("full_name", pattern)
+      .limit(50);
+    if (result.error || !Array.isArray(result.data)) {
+      return [];
+    }
+    return result.data
+      .map((row) => (typeof row.id === "string" ? row.id : null))
+      .filter((id): id is string => !!id);
+  } catch {
+    return [];
+  }
+}
+
+export function buildAdminListingsSearchFilter({
+  q,
+  qMode,
+  ownerSearchIds = [],
+}: {
+  q: string | null;
+  qMode: AdminListingsQuery["qMode"];
+  ownerSearchIds?: string[];
+}) {
+  const trimmed = q?.trim() ?? "";
+  if (!trimmed) return null;
+  const normalizedOwnerIds = Array.from(new Set(ownerSearchIds)).filter(Boolean);
+  const escaped = escapeForOrIlike(trimmed);
+  const pattern = `%${escaped}%`;
+  const locationConditions = [
+    `title.ilike.${pattern}`,
+    `location_label.ilike.${pattern}`,
+    `city.ilike.${pattern}`,
+    `state_region.ilike.${pattern}`,
+    `admin_area_1.ilike.${pattern}`,
+    `admin_area_2.ilike.${pattern}`,
+    `country_code.ilike.${pattern}`,
+    `postal_code.ilike.${pattern}`,
+  ];
+
+  if (qMode === "id") {
+    return `id.eq.${trimmed}`;
+  }
+
+  if (qMode === "owner") {
+    if (isUuid(trimmed)) {
+      return `owner_id.eq.${trimmed}`;
+    }
+    if (normalizedOwnerIds.length) {
+      return `owner_id.in.(${normalizedOwnerIds.join(",")})`;
+    }
+    return "__no_owner_match__";
+  }
+
+  if (qMode === "title") {
+    return locationConditions.join(",");
+  }
+
+  const conditions = [...locationConditions];
+  if (isUuid(trimmed)) {
+    conditions.unshift(`id.eq.${trimmed}`, `owner_id.eq.${trimmed}`);
+  }
+  if (normalizedOwnerIds.length) {
+    conditions.push(`owner_id.in.(${normalizedOwnerIds.join(",")})`);
+  }
+  return conditions.join(",");
+}
+
 export async function getAdminAllListings<Row>({
   client,
   query,
   select = ADMIN_REVIEW_QUEUE_SELECT,
+  paginate = true,
 }: {
   client: AdminListingsClient;
   query: AdminListingsQuery;
   select?: string;
+  paginate?: boolean;
 }): Promise<AdminListingsResult<Row>> {
   const selectNormalizedFull = normalizeSelect(select);
   const selectNormalizedMin = normalizeSelect(ADMIN_REVIEW_VIEW_SELECT_MIN);
@@ -65,6 +151,13 @@ export async function getAdminAllListings<Row>({
   }) => {
     const from = client.from(ADMIN_REVIEW_VIEW_TABLE).select(selectToUse, { count: "exact" });
     let queryBuilder = from;
+    const trimmedSearch = query.q?.trim() ?? "";
+    const ownerSearchIds = trimmedSearch
+      ? await resolveOwnerSearchIds({
+          client,
+          q: trimmedSearch,
+        })
+      : [];
 
     if (query.demo !== "all") {
       if (supportsDemoFilter) {
@@ -135,33 +228,46 @@ export async function getAdminAllListings<Row>({
       }
     }
 
-    if (query.q) {
-      const trimmed = query.q.trim();
-      if (query.qMode === "id") {
-        queryBuilder = queryBuilder.eq("id", trimmed);
-      } else if (query.qMode === "owner") {
-        queryBuilder = queryBuilder.eq("owner_id", trimmed);
-      } else if (query.qMode === "title") {
-        const escaped = trimmed.replace(/,/g, "\\,");
-        const pattern = `%${escaped}%`;
-        queryBuilder = queryBuilder.or(
-          `title.ilike.${pattern},location_label.ilike.${pattern},city.ilike.${pattern},state_region.ilike.${pattern}`
-        );
+    if (trimmedSearch) {
+      const searchFilter = buildAdminListingsSearchFilter({
+        q: trimmedSearch,
+        qMode: query.qMode,
+        ownerSearchIds,
+      });
+      if (searchFilter === "__no_owner_match__") {
+        return { rows: [], count: 0 };
+      }
+      if (searchFilter) {
+        queryBuilder = queryBuilder.or(searchFilter);
       }
     }
 
-    const sortMap: Record<AdminListingsQuery["sort"], { field: string; ascending: boolean }> = {
-      updated_desc: { field: "updated_at", ascending: false },
-      updated_asc: { field: "updated_at", ascending: true },
-      created_desc: { field: "created_at", ascending: false },
-      created_asc: { field: "created_at", ascending: true },
+    const sortMap: Record<
+      Exclude<AdminListingsQuery["sort"], "score_desc" | "score_asc">,
+      { field: string; ascending: boolean; nullsFirst?: boolean }
+    > = {
+      updated_desc: { field: "updated_at", ascending: false, nullsFirst: false },
+      updated_asc: { field: "updated_at", ascending: true, nullsFirst: false },
+      created_desc: { field: "created_at", ascending: false, nullsFirst: false },
+      created_asc: { field: "created_at", ascending: true, nullsFirst: false },
+      expires_asc: { field: "expires_at", ascending: true, nullsFirst: false },
+      title_asc: { field: "title", ascending: true, nullsFirst: false },
+      approved_desc: { field: "approved_at", ascending: false, nullsFirst: false },
     };
-    const sortConfig = sortMap[query.sort] ?? sortMap.updated_desc;
-    queryBuilder = queryBuilder.order(sortConfig.field, { ascending: sortConfig.ascending });
+    const sortConfig =
+      query.sort === "score_desc" || query.sort === "score_asc"
+        ? sortMap.updated_desc
+        : sortMap[query.sort] ?? sortMap.updated_desc;
+    queryBuilder = queryBuilder.order(sortConfig.field, {
+      ascending: sortConfig.ascending,
+      nullsFirst: sortConfig.nullsFirst,
+    });
 
-    const fromIndex = (query.page - 1) * query.pageSize;
-    const toIndex = fromIndex + query.pageSize - 1;
-    queryBuilder = queryBuilder.range(fromIndex, toIndex);
+    if (paginate) {
+      const fromIndex = (query.page - 1) * query.pageSize;
+      const toIndex = fromIndex + query.pageSize - 1;
+      queryBuilder = queryBuilder.range(fromIndex, toIndex);
+    }
 
     const result = await queryBuilder;
     if (result.error) throw result.error;

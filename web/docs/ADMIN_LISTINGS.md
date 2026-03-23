@@ -8,15 +8,19 @@
 The registry is backed by `GET /api/admin/listings` and the server-side page uses the same query parsing.
 
 - `q` — search text
-- `qMode` — `id | owner | title`
+- `qMode` — `all | id | owner | title`
+  - `all` is the default registry mode and powers the main search box
+  - `all`: partial match across title and location text, exact match on listing id/owner id for UUID input, plus owner name lookup where profile data is available
   - `id`: exact match on listing id
-  - `owner`: exact match on owner id
-  - `title`: partial match across title, location_label, city/state
+  - `owner`: exact match on owner id for UUID input, or owner-name lookup via `profiles.full_name`
+  - `title`: partial match across title and location text only
 - `status` — multi-select status filter (comma-separated or repeated; normalized + deduped)
 - `active` — `all | true | false`
 - `page` — 1-based page number (default 1)
 - `pageSize` — 25/50/100
-- `sort` — `updated_desc | updated_asc | created_desc | created_asc`
+- `sort` — `updated_desc | updated_asc | created_desc | created_asc | expires_asc | score_desc | score_asc | title_asc | approved_desc`
+- `quality` — `all | strong | fair | needs_work`
+- `missingItem` — `all | missing_cover | missing_images | missing_description | missing_price | missing_location`
 - `missingCover` — `true` to show listings without a cover
 - `missingPhotos` — `true` to show listings with photo_count=0
 - `missingLocation` — `true` to show listings without location label/coords
@@ -29,7 +33,7 @@ The registry is backed by `GET /api/admin/listings` and the server-side page use
 
 Example:
 ```
-/admin/listings?q=lagos&qMode=title&status=pending&status=live&active=all&page=1&pageSize=50&sort=updated_desc
+/admin/listings?q=lagos&status=pending&status=live&quality=needs_work&sort=expires_asc
 ```
 
 Canonical status param:
@@ -85,16 +89,16 @@ Listings with a computed quality score are grouped into:
 - `Fair`
 - `Needs work`
 
-Use the quality status control when you want broad triage by listing completeness instead of filtering on one missing field at a time.
+Use the quality status control when you want broad triage by listing completeness instead of filtering on one missing field at a time. This filter is URL-backed and applied on the server-side admin view, not just the current page.
 
 ### Quality score sorting
 
-The table supports client-side quality sorting:
+The registry supports quality score sorting as a server-backed custom view:
 
 - `Highest score first`
 - `Lowest score first`
 
-Use score sorting after narrowing the registry to surface the weakest or strongest records in the current result set.
+Use score sorting after narrowing the registry to surface the weakest or strongest records in the current result set. Because quality score is derived from enriched listing data, the page computes this view on the server and then paginates the filtered result.
 
 Unknown scores stay last when sorting by score so incomplete telemetry does not jump ahead of scored listings.
 
@@ -115,11 +119,12 @@ These filters combine with the quality status filter using AND semantics. That m
 
 Recommended ops pattern:
 
-1. Start with status, active state, and market/location search to narrow the operational slice.
-2. Apply a quality status filter if you need broad completeness triage.
-3. Apply one missing-item quick filter when the next action is obvious, such as missing price or missing cover image.
-4. Sort by lowest quality score first when you want the weakest listings at the top.
-5. Open `/admin/listings/[id]` for inspection before deciding whether the listing belongs in review follow-up, host guidance, or no action.
+1. Start with the main search box for title, listing ID, owner, or location.
+2. Use status, active state, and demo/featured chips to narrow the operational slice further.
+3. Change sort order when the workflow is time-based (`Created`, `Updated`, `Expiry`) or quality-based (`Quality`, `Title`, `Live / approved`).
+4. Apply a quality status filter if you need broad completeness triage.
+5. Apply one missing-item quick filter when the next action is obvious, such as missing price or missing cover image.
+6. Open `/admin/listings/[id]` for inspection before deciding whether the listing belongs in review follow-up, host guidance, or no action.
 
 ## Listing Inspector
 - Route: `/admin/listings/[id]`
