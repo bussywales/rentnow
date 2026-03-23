@@ -48,7 +48,7 @@ export function SavedPageClient() {
   );
 
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-4 px-4 py-5 md:py-8" data-testid="saved-page">
+    <section className="mx-auto w-full max-w-3xl space-y-4 px-4 py-5 md:py-8" data-testid="saved-page">
       <header className="space-y-1">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Saved</p>
         <h1 className="text-2xl font-semibold text-slate-900">Your favourites</h1>
@@ -95,6 +95,6 @@ export function SavedPageClient() {
           propertySuggestions={suggestions.properties}
         />
       )}
-    </main>
+    </section>
   );
 }

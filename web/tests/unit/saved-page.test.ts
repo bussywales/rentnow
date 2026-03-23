@@ -18,6 +18,7 @@ void test("saved page client includes sectioned list, bulk actions and empty-sta
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /data-testid="saved-page"/);
+  assert.doesNotMatch(source, /<main className=/);
   assert.match(source, /SavedBulkActions/);
   assert.match(source, /SavedSection/);
   assert.match(source, /SavedEmptyState/);
