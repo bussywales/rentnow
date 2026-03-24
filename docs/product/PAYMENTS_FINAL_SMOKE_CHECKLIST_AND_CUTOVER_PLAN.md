@@ -138,13 +138,33 @@ Webhook endpoints currently present in repo:
 2. featured v1 + shortlet route
    - `https://<domain>/api/webhooks/paystack`
 
+### Paystack lane-to-webhook cutover matrix
+
+| Lane | Provider | Webhook / verification path | Canonical / legacy / staged | Launch scope status | Operator note |
+| --- | --- | --- | --- | --- | --- |
+| Paystack subscriptions | Paystack | browser verify: `POST /api/billing/paystack/verify`; webhook backstop: `POST /api/billing/webhook` | staged | Amber | Do not treat this as the clean default recurring-billing lane. Stripe subscriptions remain the cleaner first-wave recurring lane. |
+| Paystack shortlet NGN lanes | Paystack | `POST /api/webhooks/paystack` | staged | Amber | This is the first Paystack lane recommended after Stripe wave 1. If this lane is live, the Paystack dashboard webhook URL should match `/api/webhooks/paystack`. |
+| Paystack NGN PAYG listing fees | Paystack | `POST /api/billing/webhook` | staged | Amber | This lane does not share ingress with shortlets. Do not enable it casually during a shortlet-first Paystack launch window. |
+| Canonical featured activation payments (`payments` + `featured_purchases`) | Paystack | `POST /api/webhooks/paystack` | canonical, staged | Amber | This is the featured lane operators should trust first. It shares ingress with shortlets, not with billing/PAYG. |
+| Legacy PAYG featured lane (`feature_purchases`) | Paystack | `POST /api/billing/webhook` | legacy | Red | Keep out of initial live cutover. Do not confuse it with the canonical featured activation lane. |
+| Flutterwave subscription lane | Flutterwave | not part of Paystack ingress | out-of-scope | Red | Flutterwave remains out of the initial self-serve live scope. |
+
 Critical cutover note:
 
 - Paystack documentation describes configuring a single webhook URL on the dashboard.
 - Repo truth still has two Paystack webhook ingress routes.
 - Before broad Paystack live enablement, operators must make an explicit decision:
-  - either stage Paystack lanes so only the intended ingress-critical route is relied on at launch
+  - either stage Paystack lanes so only one ingress family is relied on at a time
   - or add a unified ingress in a later batch before enabling all Paystack lanes together
+
+Operator-safe rule for staged cutover:
+
+1. If the live Paystack window is shortlet-first or canonical-featured-first, configure the dashboard webhook for:
+   - `https://<domain>/api/webhooks/paystack`
+2. If the live Paystack window is subscription-backstop or PAYG-listing-first, configure the dashboard webhook for:
+   - `https://<domain>/api/billing/webhook`
+3. Do not assume one Paystack dashboard webhook URL safely covers both route families at the same time.
+4. Do not describe canonical featured activation and legacy PAYG featured as equivalent lanes during launch operations.
 
 Callback / return URLs to verify:
 

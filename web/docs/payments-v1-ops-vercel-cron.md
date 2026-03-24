@@ -76,10 +76,16 @@ Then idempotently:
 ## Current cutover reality
 
 - canonical featured activation webhook lane is `/api/webhooks/paystack`
-- billing subscription backstop and older billing charge handling still exist at `/api/billing/webhook`
+- billing subscription backstop, PAYG listing fees, and legacy PAYG featured handling still exist at `/api/billing/webhook`
 - the reconcile job is fallback safety, not the primary source of truth
 
 Operators should treat Paystack webhook ingress as a review point during cutover, not as an assumed single-route setup across all lanes.
+
+Quick operator rule:
+
+- if the active live Paystack lane is shortlet NGN or canonical featured activation, the dashboard webhook URL should point to `/api/webhooks/paystack`
+- if the active live Paystack lane is subscription backstop or PAYG listing fees, the dashboard webhook URL should point to `/api/billing/webhook`
+- do not assume this reconcile job makes both webhook route families interchangeable during cutover
 
 ## Manual triggers
 

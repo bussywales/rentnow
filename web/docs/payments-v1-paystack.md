@@ -81,13 +81,32 @@ This means env is still relevant for webhook signing and fallback, but it is no 
 Current repo reality:
 
 - canonical featured activation and shortlet webhook route: `POST /api/webhooks/paystack`
-- billing subscription backstop and legacy billing events also exist at: `POST /api/billing/webhook`
+- billing subscription backstop, PAYG listing fees, and legacy PAYG featured events still exist at: `POST /api/billing/webhook`
+
+## Lane-to-webhook matrix
+
+| Lane | Webhook / verification path | Canonical / legacy / staged | Scope status | Operator note |
+| --- | --- | --- | --- | --- |
+| Paystack subscriptions | browser verify: `POST /api/billing/paystack/verify`; webhook backstop: `POST /api/billing/webhook` | staged | Amber | Keep staged behind Stripe subscriptions. This is not the clean default recurring lane. |
+| Paystack shortlet NGN | `POST /api/webhooks/paystack` | staged | Amber | This route is the Paystack ingress for Nigeria-local shortlet launch when that lane is enabled. |
+| Canonical featured activation | `POST /api/webhooks/paystack` | canonical, staged | Amber | This is the featured-payment lane operators should trust first in `/admin/payments`. |
+| Paystack NGN PAYG listing fees | `POST /api/billing/webhook` | staged | Amber | Separate ingress from shortlets and canonical featured. Do not assume it is covered when the dashboard points at `/api/webhooks/paystack`. |
+| Legacy PAYG featured listing charges | `POST /api/billing/webhook` | legacy | Red | Keep out of the initial live window and do not treat it as the canonical featured ledger. |
+| Flutterwave | not applicable here | out-of-scope | Red | Flutterwave remains out of the initial self-serve live scope. |
 
 Operator guidance:
 
 - do not assume Paystack ingress is fully simplified to one route across every lane
 - verify which webhook ingress is being used for the intended launch lane before live cutover
 - if using a dedicated webhook signing secret, make sure the matching `PAYSTACK_WEBHOOK_SECRET[_TEST|_LIVE]` env is present
+
+Cutover rule:
+
+1. If you are launching shortlet NGN or canonical featured activation first, use:
+   - `https://<your-domain>/api/webhooks/paystack`
+2. If you are launching subscription backstop or PAYG listing fees first, use:
+   - `https://<your-domain>/api/billing/webhook`
+3. Do not assume one Paystack dashboard webhook URL safely covers both route families at once.
 
 For the canonical featured-activation lane documented here, the expected webhook URL is:
 
