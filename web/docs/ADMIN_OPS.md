@@ -27,25 +27,43 @@ PropatyHub admin operations are split into clear workspaces with URL-driven stat
 
 ## Listings Registry (`/admin/listings`)
 - All listings (not filtered to pending).
-- Search modes:
-  - **Listing ID** (exact)
-  - **Owner ID** (exact)
-  - **Title / Location** (partial match)
-- Filters:
+- Main search covers title, listing ID, owner lookup, and location without paging manually.
+- Sort controls support:
+  - Created newest / oldest
+  - Updated newest / oldest
+  - Expiry soonest
+  - Quality highest / lowest
+  - Title A-Z
+  - Live / approved newest
+- Filters include:
   - Status (multi)
   - Active / Inactive
-  - Missing cover / Missing photos / Missing location
+  - Quality state
+  - Missing-item quick filters
+  - Demo
+  - Featured lifecycle
   - Price min / max (simple outlier guardrails)
+  - Numeric and property-type filters
+- Search, sort, and filter state is URL-backed where relevant so admin views are reload-safe and shareable.
 - Saved views:
   - Save current filters/search as a named view.
   - Apply or delete from the Saved Views dropdown.
-- Pagination + sorting:
-  - Sort by updated/created (asc/desc).
-  - Page + page size controls.
+- Pagination still uses page + page size controls after the current server-side search/sort/filter state is applied.
+- Owner identity is shown more clearly in review and listing rows:
+  - primary: profile full name
+  - fallback: email when the admin-safe auth lookup is available
+  - fallback: owner UUID
+  - listing ID remains secondary copyable metadata
 - Row click opens the read-only inspector at `/admin/listings/[id]`.
 - Bulk cleanup is selected-rows only in v1:
   - `Bulk deactivate`
   - `Bulk permanent delete`
+- Bulk cleanup uses a preflight summary before execution:
+  - selected count
+  - eligible count
+  - blocked count
+  - blocked reasons
+  - whether the row should be deactivated first instead of deleted
 - Bulk permanent delete stays guarded:
   - only allowed after marketplace removal
   - blocked when protected history exists
