@@ -32,7 +32,8 @@ import {
 } from "@/lib/market/market";
 import { MarketPreferenceProvider } from "@/components/layout/MarketPreferenceProvider";
 import { ImageOptimizationModeProvider } from "@/components/layout/ImageOptimizationModeProvider";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getServerAuthUser } from "@/lib/auth/server-session";
 import { normalizeRole } from "@/lib/roles";
 import { normalizeImageOptimizationMode } from "@/lib/media/image-optimization-mode";
 import "./globals.css";
@@ -141,13 +142,11 @@ export default async function RootLayout({
 
   if (hasServerSupabaseEnv()) {
     try {
-      const supabase = await createServerSupabaseClient();
-      const [resolvedSettings, userResult] = await Promise.all([
+      const { supabase, user } = await getServerAuthUser();
+      const [resolvedSettings] = await Promise.all([
         getAppSettingsMap([...ROOT_LAYOUT_SETTING_KEYS], supabase),
-        supabase.auth.getUser(),
       ]);
       settingsMap = resolvedSettings;
-      const user = userResult.data.user;
       if (user) {
         navInitialAuthed = true;
         supportPrefillEmail = user.email ?? null;
