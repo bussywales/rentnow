@@ -32,6 +32,19 @@ import { getPropertyRequestQuickStartEntry } from "@/lib/requests/property-reque
 
 const HOME_MOBILE_WHY_COLLAPSED_KEY = "home:public:why-propatyhub:collapsed:v1";
 
+function getSignedInHeroCta(role: ReturnType<typeof normalizeRole>) {
+  if (role === "tenant") {
+    return { label: "Open your home", href: "/tenant/home" } as const;
+  }
+  if (role === "admin") {
+    return { label: "Open admin", href: "/admin" } as const;
+  }
+  if (role === "landlord" || role === "agent") {
+    return { label: "Go to workspace", href: "/home" } as const;
+  }
+  return null;
+}
+
 export default async function Home() {
   let featured: Property[] = [];
   let popularHomes: Property[] = [];
@@ -45,6 +58,7 @@ export default async function Home() {
   if (supabaseReady) profileId = profile?.id ?? null;
   const listingCta = getListingCta(role);
   const requestQuickStartEntry = getPropertyRequestQuickStartEntry(role);
+  const signedInHeroCta = getSignedInHeroCta(role);
 
   if (supabaseReady) {
     try {
@@ -291,12 +305,23 @@ export default async function Home() {
                   {requestQuickStartEntry.label}
                 </ButtonLink>
               ) : null}
-              <Link
-                href="/auth/register"
-                className="text-sm font-semibold text-cyan-100 underline-offset-4 hover:text-white hover:underline"
-              >
-                Get started
-              </Link>
+              {signedInHeroCta ? (
+                <Link
+                  href={signedInHeroCta.href}
+                  data-testid="desktop-home-cta-signed-in"
+                  className="text-sm font-semibold text-cyan-100 underline-offset-4 hover:text-white hover:underline"
+                >
+                  {signedInHeroCta.label}
+                </Link>
+              ) : (
+                <Link
+                  href="/auth/register"
+                  data-testid="desktop-home-cta-get-started"
+                  className="text-sm font-semibold text-cyan-100 underline-offset-4 hover:text-white hover:underline"
+                >
+                  Get started
+                </Link>
+              )}
             </div>
           </div>
           <div className="glass relative rounded-2xl p-5 text-slate-900">
