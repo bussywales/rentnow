@@ -12,7 +12,7 @@ import { MobileQuickStartBar } from "@/components/home/MobileQuickStartBar";
 import { MobileRecentlyViewedRail } from "@/components/home/MobileRecentlyViewedRail";
 import { MobileRecommendedNextRail } from "@/components/home/MobileRecommendedNextRail";
 import { MobileSavedRail } from "@/components/home/MobileSavedRail";
-import { Button } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/ButtonLink";
 import { getProfile } from "@/lib/auth";
 import { DEV_MOCKS } from "@/lib/env";
 import { normalizeRole } from "@/lib/roles";
@@ -279,11 +279,23 @@ export default async function Home() {
               Rent or buy homes across Africa and beyond. Search by city, budget, or simply describe what you need.
             </p>
             <div className="flex flex-wrap items-center gap-3">
-              <Link href="/auth/register">
-                <Button>Get started</Button>
-              </Link>
-              <Link href="/properties">
-                <Button variant="secondary">Browse properties</Button>
+              <ButtonLink href="/properties" data-testid="desktop-home-cta-browse">
+                Browse homes
+              </ButtonLink>
+              {requestQuickStartEntry ? (
+                <ButtonLink
+                  href={requestQuickStartEntry.href}
+                  variant="secondary"
+                  data-testid="desktop-home-cta-request"
+                >
+                  {requestQuickStartEntry.label}
+                </ButtonLink>
+              ) : null}
+              <Link
+                href="/auth/register"
+                className="text-sm font-semibold text-cyan-100 underline-offset-4 hover:text-white hover:underline"
+              >
+                Get started
               </Link>
             </div>
           </div>

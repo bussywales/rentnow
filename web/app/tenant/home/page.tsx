@@ -47,6 +47,7 @@ import { NextBestActionsPanel } from "@/components/checklists/NextBestActionsPan
 import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
 import { loadTenantChecklist } from "@/lib/checklists/role-checklists.server";
 import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
+import { getPropertyRequestQuickStartEntry } from "@/lib/requests/property-request-entry";
 
 export const dynamic = "force-dynamic";
 
@@ -223,6 +224,7 @@ export default async function TenantHomePage() {
     APP_SETTING_KEYS.featuredListingsEnabled,
     true
   );
+  const requestQuickStartEntry = getPropertyRequestQuickStartEntry(role);
 
   const [
     gettingStartedChecklist,
@@ -367,6 +369,8 @@ export default async function TenantHomePage() {
             <HomeBrowseCtaClient
               fallbackHref={suggestedStartHref}
               fallbackLabel={suggestedStartLabel}
+              requestAction={requestQuickStartEntry}
+              requestActionTestId="tenant-home-cta-request"
             />
           </div>
           <div className="rounded-2xl bg-white/95 p-4 text-slate-900 shadow-[0_18px_40px_rgba(15,23,42,0.3)]">

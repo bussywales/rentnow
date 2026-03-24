@@ -7,7 +7,7 @@ updated_at: "2026-03-16"
 
 ## What to do first
 
-1. Open `/tenant/home` and review your market defaults and recommended hubs.
+1. Open `/tenant/home` and use the first-row entry actions to either `Browse all homes` or `Make a Request`.
 2. Run one focused search on `/properties` using city + price + bedrooms.
 3. Save at least 3 listings into `Favourites` or a named collection.
 4. Create one Property Request in `/requests/new` if you need hosts or agents to send options to you.

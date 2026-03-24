@@ -1,16 +1,23 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/Button";
+import type { PropertyRequestQuickStartEntry } from "@/lib/requests/property-request-entry";
+import { ButtonLink } from "@/components/ui/ButtonLink";
 import { clearLastBrowseIntent, getRecentBrowseIntent } from "@/lib/market/browse-intent";
 
 type Props = {
   fallbackHref: string;
   fallbackLabel: string;
+  requestAction?: PropertyRequestQuickStartEntry | null;
+  requestActionTestId?: string;
 };
 
-export function HomeBrowseCtaClient({ fallbackHref, fallbackLabel }: Props) {
+export function HomeBrowseCtaClient({
+  fallbackHref,
+  fallbackLabel,
+  requestAction = null,
+  requestActionTestId = "home-browse-cta-request",
+}: Props) {
   const [cleared, setCleared] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -28,14 +35,17 @@ export function HomeBrowseCtaClient({ fallbackHref, fallbackLabel }: Props) {
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <Link href="/properties">
-        <Button variant="secondary">Browse all homes</Button>
-      </Link>
+      <ButtonLink href="/properties" variant="secondary">
+        Browse all homes
+      </ButtonLink>
+      {requestAction ? (
+        <ButtonLink href={requestAction.href} variant="secondary" data-testid={requestActionTestId}>
+          {requestAction.label}
+        </ButtonLink>
+      ) : null}
       {continueHref ? (
         <>
-          <Link href={continueHref}>
-            <Button>Continue browsing</Button>
-          </Link>
+          <ButtonLink href={continueHref}>Continue browsing</ButtonLink>
           <button
             type="button"
             onClick={() => {
@@ -48,9 +58,7 @@ export function HomeBrowseCtaClient({ fallbackHref, fallbackLabel }: Props) {
           </button>
         </>
       ) : (
-        <Link href={fallbackHref}>
-          <Button>Start in {fallbackLabel}</Button>
-        </Link>
+        <ButtonLink href={fallbackHref}>Start in {fallbackLabel}</ButtonLink>
       )}
     </div>
   );
