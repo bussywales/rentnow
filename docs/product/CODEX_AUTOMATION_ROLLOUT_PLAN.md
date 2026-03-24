@@ -180,6 +180,10 @@ Expected outputs:
 - grouped root-cause summary
 - flaky-test shortlist
 - low-risk workflow or test diagnostics patch
+- report sections that clearly separate:
+  - current observed health
+  - historical instability patterns
+  - unverified risks when live metadata is unavailable
 
 Review gate:
 
@@ -203,6 +207,7 @@ Must not touch without approval:
 Operational success condition:
 
 - failures become diagnosable from GitHub output without guesswork
+- future reports do not present inferred historical instability as if it were a currently red lane
 
 Current rollout state:
 

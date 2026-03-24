@@ -15,32 +15,56 @@ Use this template for every CI & Release Health Agent v1 run.
   - `review required`
   - `blocked pending approval`
 
-## 2. Health snapshot
+## 2. Evidence confidence
+
+- Live workflow metadata available:
+  - `yes`
+  - `no`
+- Direct release-gate evidence available:
+  - `yes`
+  - `no`
+- Confidence in current-state claims:
+  - `high`
+  - `medium`
+  - `low`
+- Confidence note:
+
+## 3. Current observed health
+
+Use this section only for direct current evidence.
 
 - Overall health:
   - `green`
   - `amber`
   - `red`
+  - `unknown`
 - Release-gate state:
 - Important workflow count:
-- Repeated failures:
-- Immediate blockers:
+- Repeated failures observed in-window:
+- Immediate blockers directly observed:
+- Evidence used:
 
-## 3. Failing runs
+## 4. Historical instability patterns
 
-List only the important runs in the review window.
+Use this section for repo-history evidence only. Do not present these items as currently red unless the current observed health section also proves that.
 
-For each run:
+- Repeated failure families seen in recent history:
+- Relevant stabilization or update-note evidence:
+- Historical lanes worth watching:
+- Why this matters to the next review:
 
-- workflow:
-- job:
-- first failing step:
-- occurred at:
-- repeated or one-off:
+## 5. Unverified risks / unknowns
 
-## 4. Classification
+Use this section when workflow metadata or direct gate evidence was unavailable.
 
-Use one block per important failure.
+- Current unknowns:
+- Likely risks inferred from repo history:
+- What is not yet verified:
+- What evidence is missing:
+
+## 6. Classification
+
+Use one block per important current finding. If there are no directly observed current failures, say so explicitly and do not promote historical instability into a current finding.
 
 ### Finding N
 
@@ -59,8 +83,9 @@ Use one block per important failure.
 - Is shipment blocked:
   - `yes`
   - `no`
+  - `unknown`
 
-## 5. Likely affected area
+## 7. Likely affected area
 
 For each important finding:
 
@@ -75,20 +100,26 @@ For each important finding:
   - payments/ops lane
   - other
 
-## 6. Recommended next action
+## 8. Recommended next action
 
 For each important finding:
 
 - action:
+  - no action
   - monitor only
+  - verify release gate
   - stabilization batch
   - workflow diagnostics batch
   - docs/update-note follow-up
   - operator config fix
   - escalate for product review
 - why:
+- evidence basis:
+  - current observed health
+  - historical instability pattern
+  - unverified risk / inference
 
-## 7. Recently shipped changes worth operator awareness
+## 9. Recently shipped changes worth operator awareness
 
 List only the recent shipped changes that could plausibly explain CI or release-health movement.
 
@@ -96,7 +127,7 @@ List only the recent shipped changes that could plausibly explain CI or release-
 - likely relevance:
 - operator impact:
 
-## 8. Optional patch or stabilisation targets
+## 10. Optional patch or stabilisation targets
 
 List only when obvious.
 
@@ -104,4 +135,3 @@ List only when obvious.
 - suggested batch title:
 - why it is likely safe or unsafe:
 - review requirement:
-

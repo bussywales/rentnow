@@ -97,6 +97,29 @@ Each run should read:
   - [2026-03-21-shortlets-mobile-react418-fix.md](/Users/olubusayoadewale/rentnow/web/docs/updates/2026-03-21-shortlets-mobile-react418-fix.md)
   - [2026-03-19-payments-reconcile-workflow-hardening.md](/Users/olubusayoadewale/rentnow/web/docs/updates/2026-03-19-payments-reconcile-workflow-hardening.md)
 
+## Evidence discipline
+
+Every report must separate findings into three evidence buckets:
+
+- `current observed health`
+  - use only when the report has direct evidence from the current review window
+  - acceptable evidence includes:
+    - live workflow metadata
+    - direct gate execution evidence
+    - explicit in-window run records
+    - direct rerun evidence
+- `historical instability pattern`
+  - use when the report is drawing from repo history rather than direct current run state
+  - acceptable evidence includes:
+    - update notes
+    - recent stabilization commits
+    - repeated failure families already documented in repo history
+- `unverified risk / inference`
+  - use when live workflow metadata is unavailable and the report can only infer likely posture from recent repo history
+  - this bucket must never be phrased as a current red state
+
+If current workflow metadata is unavailable, the report must say so plainly and downgrade claims from `current observed health` to `unverified risk / inference`.
+
 ## Classification model
 
 Every important failure should be classified as one primary type:
@@ -150,6 +173,10 @@ Preferred evidence:
 - route, config, or test file directly tied to the failure
 
 Do not overload the report with low-signal references.
+
+Do not treat historical update-note evidence as proof of current red status.
+
+Do not call something an active blocker unless the report has direct current evidence that the lane is red or blocked.
 
 ## Outputs
 
@@ -224,13 +251,15 @@ V1 should default to report generation, not workflow edits.
 Use one report per run with this structure:
 
 1. `Summary`
-2. `Health snapshot`
-3. `Failing runs`
-4. `Classification`
-5. `Likely affected area`
-6. `Recommended next action`
-7. `Recently shipped changes worth operator awareness`
-8. `Optional patch or stabilisation targets`
+2. `Evidence confidence`
+3. `Current observed health`
+4. `Historical instability patterns`
+5. `Unverified risks / unknowns`
+6. `Classification`
+7. `Likely affected area`
+8. `Recommended next action`
+9. `Recently shipped changes worth operator awareness`
+10. `Optional patch or stabilisation targets`
 
 The exact template lives in [CI_RELEASE_HEALTH_REPORT_TEMPLATE.md](/Users/olubusayoadewale/rentnow/docs/product/CI_RELEASE_HEALTH_REPORT_TEMPLATE.md).
 
@@ -238,24 +267,33 @@ The exact template lives in [CI_RELEASE_HEALTH_REPORT_TEMPLATE.md](/Users/olubus
 
 Daily operator loop:
 
-1. Review the summary and health snapshot first.
+1. Review the summary, evidence confidence, and current observed health first.
 2. Triage `S1` and `S2` findings before lower-severity items.
-3. Separate findings into:
-   - real regression to investigate
-   - flaky failure to monitor or stabilize
-   - infra/config issue to resolve operationally
-   - release blocker that pauses shipment
-4. If a fix is obvious and low-risk, open a narrow stabilization batch.
-5. If a failure is ambiguous, request a focused audit batch instead of guessing.
+3. Separate current observed failures from historical instability and from unverified inference before assigning urgency.
+4. Use historical instability only to shape likely root-cause families, not to claim the lane is currently red.
+5. If a fix is obvious and low-risk, open a narrow stabilization batch.
+6. If a failure is ambiguous, request a focused audit batch instead of guessing.
 
 ## How to turn a report into a safe stabilization batch
 
 Use this decision rule:
 
+- `no action` when:
+  - there is no current observed issue
+  - historical instability does not imply an immediate operator response
+- `monitor only` when:
+  - the report shows a historical instability pattern or low-confidence risk
+  - but there is no direct current blocker
+- `verify release gate` when:
+  - current state is unknown
+  - and the next safe step is to obtain direct evidence rather than infer
 - open a stabilization batch when:
   - the failing surface is concrete
   - the likely root-cause family is narrow
   - a fix can be validated without bundling unrelated work
+- open a workflow diagnostics batch when:
+  - the workflow or metadata path itself is unclear or incomplete
+  - direct current evidence is missing because the reporting lane is weak
 - stop for review when:
   - the failure may reflect product behavior rather than harness instability
   - the proposed fix would change release policy, workflow behavior, or payment meaning
@@ -290,4 +328,3 @@ V1 does not:
 - rewrite release policy
 
 That restraint is deliberate.
-
