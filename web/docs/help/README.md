@@ -11,6 +11,22 @@ Use `web/docs/help/**` as the docs-first source of truth for the in-app Help Cen
 - `web/docs/help/troubleshooting/*`
 - `web/docs/help/success/*`
 
+## Visibility model
+
+- `tenant`, `landlord`, and `agent` help content is public help.
+  - these guides may be linked from the public help centre
+  - they should remain accessible to logged-in and non-logged-in users
+- `admin` help content is internal help.
+  - these guides live under `web/docs/help/admin/*`
+  - they are exposed only through the route-protected `/help/admin/**` surface
+  - do not place admin or ops tutorials under public role folders
+
+Rule for new tutorials:
+
+1. Put admin, ops, moderation, payments-ops, bulk-cleanup, and internal tooling tutorials in `web/docs/help/admin/*`.
+2. Put landlord, agent, and tenant training in the matching public role folder.
+3. If the tutorial should be public, it must not depend on admin-only routes or internal operational actions.
+
 ## Frontmatter
 
 Every help page must include:

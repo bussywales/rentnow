@@ -6,8 +6,8 @@ export default function AdminHelpPage() {
   return (
     <RoleHelpIndex
       role="admin"
-      title="Admin Help Centre"
-      subtitle="Operational guides for updates, featured queues, payments, alerts, and system health."
+      title="Internal Admin & Ops Help"
+      subtitle="Internal operational guides for updates, listings, payments, moderation, alerts, and system health."
     />
   );
 }

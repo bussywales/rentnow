@@ -3,12 +3,12 @@ import { resolveServerRole } from "@/lib/auth/role";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import {
   HELP_ROLE_LABELS,
-  HELP_ROLES,
   getHelpRoleIndexPath,
   getTopHelpDocsForRole,
   resolvePreferredHelpRole,
   type HelpRole,
 } from "@/lib/help/docs";
+import { PUBLIC_HELP_ROLES, getHelpVisibilityModel } from "@/lib/help/visibility";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +40,7 @@ export default async function HelpCentrePage() {
   const viewerRole = await resolveViewerRole();
   const preferredRole = viewerRole ?? "tenant";
   const preferredTasks = await getTopHelpDocsForRole(preferredRole, 4);
+  const visibility = getHelpVisibilityModel(viewerRole);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8" data-testid="help-landing-v2">
@@ -47,11 +48,11 @@ export default async function HelpCentrePage() {
         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Help Centre</p>
         <h1 className="mt-2 text-3xl font-semibold text-slate-900">Role-based help, built for execution</h1>
         <p className="mt-2 text-sm text-slate-600">
-          Pick your role to get practical workflows, troubleshooting playbooks, and success guidance.
+          Public help stays open for tenants, landlords, and agents. Internal admin and ops tutorials are kept behind the admin help route.
         </p>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          {HELP_ROLES.map((role) => (
+          {PUBLIC_HELP_ROLES.map((role) => (
             <Link
               key={role}
               href={getHelpRoleIndexPath(role)}
@@ -64,6 +65,14 @@ export default async function HelpCentrePage() {
               {HELP_ROLE_LABELS[role]}
             </Link>
           ))}
+          {visibility.showInternalAdminHelp ? (
+            <Link
+              href="/help/admin"
+              className="inline-flex items-center rounded-full border border-slate-900 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800"
+            >
+              Admin &amp; Ops
+            </Link>
+          ) : null}
         </div>
       </header>
 
@@ -96,8 +105,8 @@ export default async function HelpCentrePage() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {HELP_ROLES.map((role) => (
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {visibility.publicRoles.map((role) => (
           <Link
             key={role}
             href={getHelpRoleIndexPath(role)}
@@ -108,6 +117,24 @@ export default async function HelpCentrePage() {
           </Link>
         ))}
       </section>
+
+      {visibility.showInternalAdminHelp ? (
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" data-testid="help-internal-admin-section">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Internal help</p>
+          <h2 className="mt-2 text-lg font-semibold text-slate-900">Admin &amp; Ops Help</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Internal tutorials for listings registry operations, moderation, support playbooks, payments ops, and system workflows.
+          </p>
+          <div className="mt-4">
+            <Link
+              href="/help/admin"
+              className="inline-flex rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+            >
+              Open internal admin help
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <section className="grid gap-4 md:grid-cols-2">
         <Link
