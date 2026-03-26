@@ -9,7 +9,7 @@ export default function HelpPublishingGuidePage() {
     <div data-testid="help-admin-publishing-guide">
       <HelpPageShell
         title="Help publishing guide"
-        subtitle="How admins publish new Help articles with MDX, images, and YouTube embeds using git."
+        subtitle="How admins publish new Help articles with markdown, images, and YouTube embeds using git."
         breadcrumbs={[
           { label: "Help Centre", href: "/help" },
           { label: "Admin Help Centre", href: "/help/admin" },
@@ -18,7 +18,9 @@ export default function HelpPublishingGuidePage() {
       >
         <section className="space-y-4">
           <HelpCallout variant="info" title="Publishing model (v1)">
-            Help articles are file-based. Add or edit `.mdx` files in `web/content/help/`, then ship through a normal PR.
+            Help articles are file-based. Add or edit <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">.md</code>{" "}
+            files in <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">web/docs/help/&lt;audience&gt;/</code>,
+            then ship through a normal PR.
           </HelpCallout>
 
           <h2 className="text-lg font-semibold text-slate-900">Required frontmatter</h2>
@@ -44,7 +46,7 @@ updatedAt: 2026-02-10
 
           <HelpStepList
             steps={[
-              "Create a new .mdx file in web/content/help/ with a kebab-case slug.",
+              "Create a new .md file in web/docs/help/<audience>/ with a kebab-case slug.".replace("<audience>", "<audience>"),
               "Place image assets in web/public/help/ and reference them via /help/... paths.",
               "Use YouTube IDs only (not full URLs) in the <YouTube /> component.",
               "Run lint/test/build before opening a PR.",
