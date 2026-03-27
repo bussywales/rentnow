@@ -272,7 +272,7 @@ export async function buildHelpNavForRole(role: HelpRole): Promise<HelpNavSectio
         { label: "Support playbooks", href: "/help/admin/support-playbooks" },
         { label: "Listings operations", href: "/help/admin/listings" },
         { label: "Product updates", href: "/help/admin/product-updates" },
-        { label: "Tutorial editor", href: "/admin/help/tutorials" },
+        { label: "Help Tutorials", href: "/admin/help/tutorials" },
       ],
     });
   }

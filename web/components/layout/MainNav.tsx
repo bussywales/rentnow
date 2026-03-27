@@ -51,6 +51,7 @@ export const MAIN_NAV_LINKS: Array<{
     denyRoles: ["tenant", "admin"],
   },
   { href: "/admin", label: "Admin", requireAuth: true, requireRole: "admin" },
+  { href: "/admin/help/tutorials", label: "Help Tutorials", requireAuth: true, requireRole: "admin" },
   {
     href: "/admin/analytics",
     label: "Analytics",
@@ -68,7 +69,7 @@ const DESKTOP_PRIMARY_LINKS = {
   guest: ["/shortlets", "/properties"],
   tenant: ["/shortlets", "/properties", "/trips", "/tenant/saved"],
   host: ["/host/bookings", "/host/calendar", "/host/listings", "/host/earnings"],
-  admin: ["/admin"],
+  admin: ["/admin", "/admin/help/tutorials"],
 } as const;
 
 export function resolveDesktopTopNavLinks(

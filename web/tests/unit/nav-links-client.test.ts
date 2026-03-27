@@ -8,11 +8,12 @@ import {
 } from "@/components/layout/MainNav";
 import { resolveNavLinks } from "@/components/layout/NavLinksClient";
 
-test("admin desktop nav stays minimal", () => {
+test("admin desktop nav includes help tutorials as a high-visibility tool entry", () => {
   const links = resolveDesktopTopNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "admin" });
   const labels = links.map((link) => link.label);
   assert.ok(labels.includes("Admin"));
-  assert.deepEqual(labels, ["Admin"]);
+  assert.ok(labels.includes("Help Tutorials"));
+  assert.deepEqual(labels, ["Admin", "Help Tutorials"]);
 });
 
 test("host desktop nav keeps bookings, calendar, listings, and earnings", () => {
@@ -48,6 +49,16 @@ test("resolveNavLinks still allows extended admin links for drawer contexts", ()
   const links = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "admin" });
   assert.ok(links.find((link) => link.href === "/admin/support"));
   assert.ok(links.find((link) => link.href === "/admin/legal"));
+});
+
+test("non-admin roles do not see help tutorials in the main nav link set", () => {
+  const tenantLinks = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "tenant" });
+  const hostLinks = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "landlord" });
+  const guestLinks = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: false, role: null });
+
+  assert.equal(tenantLinks.some((link) => link.href === "/admin/help/tutorials"), false);
+  assert.equal(hostLinks.some((link) => link.href === "/admin/help/tutorials"), false);
+  assert.equal(guestLinks.some((link) => link.href === "/admin/help/tutorials"), false);
 });
 
 test("host bookings nav badge appears when awaiting approvals exist", () => {
