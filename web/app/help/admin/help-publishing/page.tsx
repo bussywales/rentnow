@@ -41,8 +41,8 @@ export default function HelpPublishingGuidePage() {
             <Link href="/admin/help/tutorials" className="font-semibold text-slate-900 underline underline-offset-4">
               /admin/help/tutorials
             </Link>{" "}
-            to create or edit tutorials. The editor accepts normal YouTube URLs, previews the embed, and publishes to
-            the correct help route based on audience and visibility.
+            to create or edit tutorials. The editor accepts normal YouTube URLs, shows the same click-to-load preview
+            card used on published help pages, and publishes to the correct help route based on audience and visibility.
           </div>
 
           <h2 className="text-lg font-semibold text-slate-900">Use file-based help when</h2>
@@ -74,6 +74,7 @@ updated_at: 2026-03-26
               "Create a new .md file in web/docs/help/<audience>/ only for static file-backed help pages.",
               "Place image assets in web/public/help/ and reference them via /help/... paths.",
               "Use YouTube IDs only (not full URLs) in the <YouTube /> component.",
+              "Published help videos now render as thumbnail-first cards and only load the live YouTube player after a click.",
               "Run lint/test/build before opening a PR.",
             ]}
           />
