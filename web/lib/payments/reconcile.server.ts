@@ -200,7 +200,7 @@ async function fetchCandidatePayments(input: {
       .select(baseColumns)
       .eq("provider", "paystack")
       .eq("status", "succeeded")
-      .not("receipt_sent_at", "is", "not.null")
+      .is("receipt_sent_at", null)
       .not("reference", "is", null)
       .lte("created_at", thresholdIso)
       .order("created_at", { ascending: true })
@@ -437,7 +437,7 @@ export async function fetchPaymentsOpsSnapshot(input: {
       .select("id")
       .eq("provider", "paystack")
       .eq("status", "succeeded")
-      .not("receipt_sent_at", "is", "not.null"),
+      .is("receipt_sent_at", null),
   ]);
 
   const stuckRows = ((stuckRowsRaw.data as Array<Record<string, unknown>> | null) ?? [])
