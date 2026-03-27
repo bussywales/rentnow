@@ -69,7 +69,7 @@ const DESKTOP_PRIMARY_LINKS = {
   guest: ["/shortlets", "/properties"],
   tenant: ["/shortlets", "/properties", "/trips", "/tenant/saved"],
   host: ["/host/bookings", "/host/calendar", "/host/listings", "/host/earnings"],
-  admin: ["/admin", "/admin/help/tutorials"],
+  admin: ["/admin"],
 } as const;
 
 export function resolveDesktopTopNavLinks(

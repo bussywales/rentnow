@@ -155,6 +155,8 @@ void test("admin mobile drawer retains admin support and legal access via groupe
   const legalGroup = groups.find((group) => group.title === "Legal");
 
   assert.ok(mainGroup?.links.find((link) => link.href === "/admin"));
+  assert.equal(mainGroup?.links.some((link) => link.href === "/admin/help/tutorials"), false);
+  assert.ok(helpGroup?.links.find((link) => link.href === "/admin/help/tutorials"));
   assert.ok(helpGroup?.links.find((link) => link.href === "/admin/support"));
   assert.ok(legalGroup?.links.find((link) => link.href === "/admin/legal"));
   assert.ok(legalGroup?.links.find((link) => link.href === "/legal/disclaimer"));

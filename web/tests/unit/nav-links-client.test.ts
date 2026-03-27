@@ -8,12 +8,12 @@ import {
 } from "@/components/layout/MainNav";
 import { resolveNavLinks } from "@/components/layout/NavLinksClient";
 
-test("admin desktop nav includes help tutorials as a high-visibility tool entry", () => {
+test("admin desktop nav stays focused on the core admin destination", () => {
   const links = resolveDesktopTopNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "admin" });
   const labels = links.map((link) => link.label);
   assert.ok(labels.includes("Admin"));
-  assert.ok(labels.includes("Help Tutorials"));
-  assert.deepEqual(labels, ["Admin", "Help Tutorials"]);
+  assert.equal(labels.includes("Help Tutorials"), false);
+  assert.deepEqual(labels, ["Admin"]);
 });
 
 test("host desktop nav keeps bookings, calendar, listings, and earnings", () => {

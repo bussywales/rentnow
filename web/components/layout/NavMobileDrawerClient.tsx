@@ -138,6 +138,8 @@ export function buildMobileNavLinkGroups(
   const baseLinks = isAuthed ? buildMobileNavLinks(links, { isAuthed, role }) : LOGGED_OUT_LINKS;
   const helpHref = isAuthed ? getRoleHelpHref(role) : "/help";
   const supportHref = role === "admin" || role === "super_admin" ? "/admin/support" : "/support";
+  const tutorialHref =
+    role === "admin" || role === "super_admin" ? "/admin/help/tutorials" : null;
   const adminLegalLink =
     role === "admin" || role === "super_admin"
       ? [{ href: "/admin/legal", label: "Admin legal" }]
@@ -146,6 +148,7 @@ export function buildMobileNavLinkGroups(
   const groupedHrefs = new Set<string>([
     helpHref,
     supportHref,
+    ...(tutorialHref ? [tutorialHref] : []),
     "/about",
     "/help/referrals",
     "/legal",
@@ -174,6 +177,14 @@ export function buildMobileNavLinkGroups(
   }
   const helpSupportLinks = dedupeLinks([
     baseLinks.find((link) => link.href === helpHref) ?? { href: helpHref, label: "Help Centre" },
+    ...(tutorialHref
+      ? [
+          baseLinks.find((link) => link.href === tutorialHref) ?? {
+            href: tutorialHref,
+            label: "Help Tutorials",
+          },
+        ]
+      : []),
     baseLinks.find((link) => link.href === supportHref) ??
       (supportHref === "/admin/support"
         ? { href: "/admin/support", label: "Admin support" }
