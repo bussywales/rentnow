@@ -65,3 +65,16 @@ void test("tenant and unknown roles receive no workspace sidebar items", () => {
   assert.deepEqual(getWorkspaceSidebarItems({ role: "tenant" }), []);
   assert.deepEqual(getWorkspaceSidebarItems({ role: null }), []);
 });
+
+void test("admin sidebar exposes tutorial authoring in the internal admin section", () => {
+  const sections = getWorkspaceSidebarSections({ role: "admin" });
+
+  assert.deepEqual(sections.map((section) => section.label), ["Admin"]);
+  assert.deepEqual(
+    sections[0]?.items.map((item) => ({ label: item.label, href: item.href })),
+    [
+      { label: "Admin", href: "/admin" },
+      { label: "Help Tutorials", href: "/admin/help/tutorials" },
+    ]
+  );
+});

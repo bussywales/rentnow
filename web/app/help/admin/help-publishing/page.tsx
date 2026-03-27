@@ -43,6 +43,8 @@ export default function HelpPublishingGuidePage() {
             </Link>{" "}
             to create or edit tutorials. The editor accepts normal YouTube URLs, shows the same click-to-load preview
             card used on published help pages, and publishes to the correct help route based on audience and visibility.
+            You can also reach it from the admin workspace sidebar under{" "}
+            <span className="font-semibold text-slate-900">Help Tutorials</span>.
           </div>
 
           <h2 className="text-lg font-semibold text-slate-900">Use file-based help when</h2>
