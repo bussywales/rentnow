@@ -1,10 +1,33 @@
----
-title: "Admin Listings Registry (Updated): Filters, Saved Views & Bulk Delete on PropatyHub"
-description: "Video-backed admin tutorial for searching, sorting, filtering, saved views, and guarded bulk cleanup in the listings registry."
-order: 25
-updated_at: "2026-03-26"
----
+alter table public.help_tutorials
+  add column if not exists seo_title text,
+  add column if not exists meta_description text;
 
+insert into public.help_tutorials (
+  title,
+  slug,
+  summary,
+  seo_title,
+  meta_description,
+  audience,
+  visibility,
+  status,
+  video_url,
+  body,
+  published_at,
+  created_at,
+  updated_at
+)
+values (
+  'Admin Listings Registry (Updated): Filters, Saved Views & Bulk Delete on PropatyHub',
+  'admin-listings-registry-video-tutorial',
+  'Video-backed admin tutorial for searching, sorting, filtering, saved views, and guarded bulk cleanup in the listings registry.',
+  null,
+  null,
+  'admin',
+  'internal',
+  'published',
+  'https://youtu.be/_jWHH5MQMAk',
+  $tutorial$
 ## What this tutorial covers
 
 - who the updated listings registry is for
@@ -20,10 +43,6 @@ updated_at: "2026-03-26"
 <Callout type="info">
 This is an internal admin tutorial. The route stays behind the existing `/help/admin/**` access guard.
 </Callout>
-
-## Watch the walkthrough
-
-<YouTube id="_jWHH5MQMAk" title="Admin Listings Registry (Updated): Filters, Saved Views & Bulk Delete on PropatyHub" />
 
 ## When to use the listings registry
 
@@ -146,3 +165,21 @@ Common mistakes to avoid:
 - [Admin listings ops runbook](/help/admin/listings)
 - [Admin & ops help landing](/help/admin)
 - [Listings registry durable runbook](/admin/listings)
+$tutorial$,
+  '2026-03-27T00:00:00.000Z',
+  now(),
+  now()
+)
+on conflict (audience, slug) do update
+set
+  title = excluded.title,
+  summary = excluded.summary,
+  seo_title = excluded.seo_title,
+  meta_description = excluded.meta_description,
+  visibility = excluded.visibility,
+  status = excluded.status,
+  video_url = excluded.video_url,
+  body = excluded.body,
+  published_at = coalesce(public.help_tutorials.published_at, excluded.published_at),
+  unpublished_at = null,
+  updated_at = now();

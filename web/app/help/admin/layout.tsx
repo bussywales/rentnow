@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { resolveServerRole } from "@/lib/auth/role";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
@@ -5,6 +6,13 @@ import { isAdminRole } from "@/lib/roles";
 import { RoleHelpShell } from "@/components/help/RoleHelpShell";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+  },
+};
 
 export default async function AdminHelpLayout({ children }: { children: React.ReactNode }) {
   if (!hasServerSupabaseEnv()) {

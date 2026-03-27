@@ -52,6 +52,8 @@ const updateSchema = z.object({
   title: z.string().trim().min(3).max(160),
   slug: z.string().trim().min(3).max(120),
   summary: z.string().trim().min(10).max(280),
+  seo_title: z.string().trim().max(160).nullable().optional(),
+  meta_description: z.string().trim().max(280).nullable().optional(),
   audience: z.enum(HELP_TUTORIAL_AUDIENCES),
   visibility: z.enum(HELP_TUTORIAL_VISIBILITIES),
   status: z.enum(HELP_TUTORIAL_STATUSES),
@@ -112,7 +114,7 @@ export async function patchAdminHelpTutorialResponse(
   const { data: existing, error: existingError } = await auth.supabase
     .from("help_tutorials")
     .select(
-      "id,title,slug,summary,audience,visibility,status,video_url,body,created_by,updated_by,created_at,updated_at,published_at,unpublished_at"
+      "id,title,slug,summary,seo_title,meta_description,audience,visibility,status,video_url,body,created_by,updated_by,created_at,updated_at,published_at,unpublished_at"
     )
     .eq("id", id)
     .maybeSingle();
@@ -164,7 +166,7 @@ export async function patchAdminHelpTutorialResponse(
     .update(mutation)
     .eq("id", id)
     .select(
-      "id,title,slug,summary,audience,visibility,status,video_url,body,created_by,updated_by,created_at,updated_at,published_at,unpublished_at"
+      "id,title,slug,summary,seo_title,meta_description,audience,visibility,status,video_url,body,created_by,updated_by,created_at,updated_at,published_at,unpublished_at"
     )
     .maybeSingle();
 

@@ -2,6 +2,8 @@ import type { HelpDoc, HelpRole } from "@/lib/help/docs";
 import { hasServerSupabaseEnv, createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   composeHelpTutorialBody,
+  resolveTutorialMetaDescription,
+  resolveTutorialSeoTitle,
   tutorialAudienceToHelpRole,
   type HelpTutorialAudience,
   type HelpTutorialRecord,
@@ -16,6 +18,14 @@ export function toHelpDocFromTutorial(row: HelpTutorialSelectRow): HelpDoc {
     filename: `${row.slug}.tutorial`,
     title: row.title,
     description: row.summary,
+    seoTitle: resolveTutorialSeoTitle({
+      title: row.title,
+      seoTitle: row.seo_title,
+    }),
+    metaDescription: resolveTutorialMetaDescription({
+      summary: row.summary,
+      metaDescription: row.meta_description,
+    }),
     order: 999,
     updatedAt: (row.updated_at || row.created_at || new Date().toISOString()).slice(0, 10),
     sourcePath: `db:help_tutorials/${row.id}`,
@@ -48,7 +58,7 @@ export async function getPublishedTutorialDocsForRole(role: HelpRole): Promise<H
     const { data, error } = await supabase
       .from("help_tutorials")
       .select(
-        "id,title,slug,summary,audience,visibility,status,video_url,body,created_by,updated_by,created_at,updated_at,published_at,unpublished_at"
+        "id,title,slug,summary,seo_title,meta_description,audience,visibility,status,video_url,body,created_by,updated_by,created_at,updated_at,published_at,unpublished_at"
       )
       .eq("audience", role as HelpTutorialAudience)
       .eq("status", "published")

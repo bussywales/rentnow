@@ -19,9 +19,9 @@ export default function HelpPublishingGuidePage() {
       >
         <section className="space-y-4">
           <HelpCallout variant="info" title="Publishing model (v1)">
-            Tutorial-style help is now authored in the internal editor at{" "}
+            Tutorial-style help now defaults to the authored tutorial editor at{" "}
             <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">/admin/help/tutorials</code>. Static help pages
-            and playbooks can still be maintained as{" "}
+            and durable runbooks can still be maintained as{" "}
             <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">.md</code> files in{" "}
             <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">web/docs/help/&lt;audience&gt;/</code> and
             shipped through a normal PR.
@@ -30,9 +30,10 @@ export default function HelpPublishingGuidePage() {
           <h2 className="text-lg font-semibold text-slate-900">Use the tutorial editor when</h2>
           <HelpStepList
             steps={[
-              "You need a create/edit workflow for an operator tutorial without touching files directly.",
+              "You are creating or updating a walkthrough, feature tutorial, training guide, or other content that should not require raw file edits.",
               "The tutorial needs audience and visibility controls (public tenant/landlord/agent or internal admin/ops).",
               "The tutorial includes an optional YouTube walkthrough and should support draft, publish, and unpublish states.",
+              "The tutorial needs SEO-ready title and meta description fields for public sharing.",
             ]}
           />
 
@@ -49,7 +50,7 @@ export default function HelpPublishingGuidePage() {
 
           <h2 className="text-lg font-semibold text-slate-900">Use file-based help when</h2>
           <p className="text-sm text-slate-700">
-            You are updating durable static runbooks, shared troubleshooting pages, or other help content that still belongs in the repo as markdown.
+            You are updating durable static runbooks, stable reference docs, shared troubleshooting pages, or other help content that should stay repo-reviewed as markdown.
           </p>
 
           <h2 className="text-lg font-semibold text-slate-900">Required frontmatter for file-based help</h2>
@@ -72,11 +73,12 @@ updated_at: 2026-03-26
 
           <HelpStepList
             steps={[
-              "Use /admin/help/tutorials for new tutorial pages that need audience, visibility, draft/publish, or video controls.",
+              "Use /admin/help/tutorials by default for new tutorials, walkthroughs, and video-backed training content.",
               "Create a new .md file in web/docs/help/<audience>/ only for static file-backed help pages.",
               "Place image assets in web/public/help/ and reference them via /help/... paths.",
               "Use YouTube IDs only (not full URLs) in the <YouTube /> component.",
               "Published help videos now render as thumbnail-first cards and only load the live YouTube player after a click.",
+              "Public authored tutorials can set SEO title and meta description; internal tutorials stay non-indexable.",
               "Run lint/test/build before opening a PR.",
             ]}
           />

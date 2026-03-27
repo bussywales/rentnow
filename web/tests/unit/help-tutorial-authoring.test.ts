@@ -6,6 +6,8 @@ import {
   coerceTutorialVisibility,
   composeHelpTutorialBody,
   extractYouTubeId,
+  resolveTutorialMetaDescription,
+  resolveTutorialSeoTitle,
 } from "@/lib/help/tutorials";
 import { mergeHelpDocs } from "@/lib/help/tutorials.server";
 
@@ -33,6 +35,20 @@ void test("admin tutorials stay internal while public role tutorials stay public
   assert.equal(coerceTutorialVisibility("admin", "public"), "internal");
   assert.equal(coerceTutorialVisibility("tenant", "internal"), "public");
   assert.equal(coerceTutorialVisibility("agent", "public"), "public");
+});
+
+void test("tutorial seo helpers fall back to title and summary when explicit values are missing", () => {
+  assert.equal(
+    resolveTutorialSeoTitle({ title: "Tenant shortlist tutorial", seoTitle: null }),
+    "Tenant shortlist tutorial"
+  );
+  assert.equal(
+    resolveTutorialMetaDescription({
+      summary: "Help tenants save and revisit promising homes.",
+      metaDescription: "",
+    }),
+    "Help tenants save and revisit promising homes."
+  );
 });
 
 void test("merged help docs preserve shipped file docs over authored slug collisions", () => {

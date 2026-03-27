@@ -1,8 +1,19 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { RoleHelpDetail } from "@/components/help/RoleHelpPage";
 import { getHelpDocByRoleAndSlug } from "@/lib/help/docs";
+import { getHelpDocMetadata } from "@/lib/help/metadata";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  return getHelpDocMetadata("agent", slug);
+}
 
 export default async function AgentRoleHelpDetailPage({
   params,

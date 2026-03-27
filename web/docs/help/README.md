@@ -23,9 +23,10 @@ Use `web/docs/help/**` as the docs-first source of truth for the in-app Help Cen
 
 Rule for new tutorials:
 
-1. Put admin, ops, moderation, payments-ops, bulk-cleanup, and internal tooling tutorials in `web/docs/help/admin/*`.
-2. Put landlord, agent, and tenant training in the matching public role folder.
-3. If the tutorial should be public, it must not depend on admin-only routes or internal operational actions.
+1. Default to the authored tutorial platform at `/admin/help/tutorials` for walkthroughs, video-led tutorials, audience-specific training, feature onboarding, and other tutorial content that changes regularly.
+2. Publish internal admin, ops, moderation, payments-ops, bulk-cleanup, and tooling tutorials as authored `admin` tutorials so they stay behind `/help/admin/**`.
+3. Publish tenant, landlord, and agent training as authored public tutorials unless the content is truly durable static reference documentation.
+4. If the tutorial should be public, it must not depend on admin-only routes or internal operational actions.
 
 ## Frontmatter
 
@@ -46,8 +47,8 @@ Every help page must include:
 
 ## Authoring guidance
 
-- Tutorial-style help can now be authored in the internal editor at `/admin/help/tutorials`.
-  - use this for tutorials that need audience selection, visibility, draft/publish, or optional YouTube embeds
+- Tutorial-style help now defaults to the internal editor at `/admin/help/tutorials`.
+  - use this for walkthroughs, feature onboarding, audience-specific training, draft/publish workflows, and optional YouTube embeds
   - published tutorials are merged into the live help routes without manual file edits
 - Keep content task-based and route-accurate.
 - Prefer practical checklists over long narrative text.
@@ -56,8 +57,9 @@ Every help page must include:
 
 Use file-backed markdown when:
 
-- you are editing durable static help pages or playbooks already stored in `web/docs/help/**`
-- the content does not need authoring-state controls or video-url handling
+- you are editing durable static runbooks, stable reference pages, or playbooks already stored in `web/docs/help/**`
+- the content is repo-reviewed operational guidance that should remain file-backed long term
+- the content does not need authoring-state controls, public SEO metadata, or video-url handling
 
 ## Template
 

@@ -25,6 +25,8 @@ const createSchema = z.object({
   title: z.string().trim().min(3).max(160),
   slug: z.string().trim().min(3).max(120),
   summary: z.string().trim().min(10).max(280),
+  seo_title: z.string().trim().max(160).nullable().optional(),
+  meta_description: z.string().trim().max(280).nullable().optional(),
   audience: z.enum(HELP_TUTORIAL_AUDIENCES),
   visibility: z.enum(HELP_TUTORIAL_VISIBILITIES),
   status: z.enum(HELP_TUTORIAL_STATUSES).default("draft"),
@@ -98,6 +100,8 @@ export function buildTutorialMutation(
     title: payload.title.trim(),
     slug: normalizedSlug,
     summary: payload.summary.trim(),
+    seo_title: payload.seo_title?.trim() || null,
+    meta_description: payload.meta_description?.trim() || null,
     audience: payload.audience,
     visibility: payload.visibility,
     status,
@@ -166,7 +170,7 @@ export async function postAdminHelpTutorialsResponse(
     .from("help_tutorials")
     .insert(mutation)
     .select(
-      "id,title,slug,summary,audience,visibility,status,video_url,body,created_by,updated_by,created_at,updated_at,published_at,unpublished_at"
+      "id,title,slug,summary,seo_title,meta_description,audience,visibility,status,video_url,body,created_by,updated_by,created_at,updated_at,published_at,unpublished_at"
     )
     .maybeSingle();
 

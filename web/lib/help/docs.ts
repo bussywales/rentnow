@@ -30,6 +30,8 @@ export type HelpDoc = {
   filename: string;
   title: string;
   description: string;
+  seoTitle?: string | null;
+  metaDescription?: string | null;
   order: number;
   updatedAt: string;
   sourcePath: string;
@@ -140,6 +142,18 @@ function toBaseDoc(filename: string, raw: string, sourcePath: string) {
       typeof meta.description === "string" && meta.description
         ? meta.description
         : "Help guidance",
+    seoTitle:
+      typeof meta.seo_title === "string" && meta.seo_title
+        ? meta.seo_title
+        : typeof meta.seoTitle === "string" && meta.seoTitle
+          ? meta.seoTitle
+          : null,
+    metaDescription:
+      typeof meta.meta_description === "string" && meta.meta_description
+        ? meta.meta_description
+        : typeof meta.metaDescription === "string" && meta.metaDescription
+          ? meta.metaDescription
+          : null,
     order: Number.isFinite(orderValue) ? Math.trunc(orderValue) : 999,
     updatedAt: updatedFromMeta || tryGetGitUpdatedDate(relativePath),
     sourcePath,

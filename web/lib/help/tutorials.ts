@@ -31,6 +31,8 @@ export type HelpTutorialRecord = {
   title: string;
   slug: string;
   summary: string;
+  seo_title: string | null;
+  meta_description: string | null;
   audience: HelpTutorialAudience;
   visibility: HelpTutorialVisibility;
   status: HelpTutorialStatus;
@@ -151,4 +153,20 @@ export function composeHelpTutorialBody(input: {
   const title = (input.videoTitle || "Tutorial walkthrough").replace(/"/g, "&quot;");
   const embed = `<YouTube id="${videoId}" title="${title}" />`;
   return body ? `${embed}\n\n${body}` : embed;
+}
+
+export function resolveTutorialSeoTitle(input: {
+  title: string;
+  seoTitle?: string | null;
+}) {
+  const explicit = input.seoTitle?.trim();
+  return explicit || input.title.trim();
+}
+
+export function resolveTutorialMetaDescription(input: {
+  summary: string;
+  metaDescription?: string | null;
+}) {
+  const explicit = input.metaDescription?.trim();
+  return explicit || input.summary.trim();
 }

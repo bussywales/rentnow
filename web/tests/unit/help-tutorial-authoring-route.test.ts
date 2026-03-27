@@ -61,6 +61,8 @@ function buildSupabaseStub(initialRows: HelpTutorialRecord[] = []) {
                       created_at: "2026-03-26T10:00:00.000Z",
                       updated_at: "2026-03-26T10:00:00.000Z",
                       unpublished_at: null,
+                      seo_title: null,
+                      meta_description: null,
                       ...payload,
                     } as HelpTutorialRecord;
                     rows.push(row);
@@ -125,6 +127,8 @@ void test("admin tutorial create publishes a public tenant tutorial with parsed 
       title: "Tenant shortlist tutorial",
       slug: "tenant-shortlist-tutorial",
       summary: "Show tenants how to save and manage shortlists.",
+      seo_title: "Tenant shortlist tutorial | PropatyHub Help",
+      meta_description: "Learn how tenants save, review, and share shortlisted homes on PropatyHub.",
       audience: "tenant",
       visibility: "public",
       status: "published",
@@ -139,6 +143,8 @@ void test("admin tutorial create publishes a public tenant tutorial with parsed 
   assert.equal(body.tutorial.status, "published");
   assert.equal(body.tutorial.visibility, "public");
   assert.equal(body.tutorial.created_by, "admin-1");
+  assert.equal(body.tutorial.seo_title, "Tenant shortlist tutorial | PropatyHub Help");
+  assert.match(String(body.tutorial.meta_description), /save, review, and share shortlisted homes/i);
   assert.ok(body.tutorial.published_at);
 });
 
@@ -192,6 +198,8 @@ void test("admin tutorial edit can unpublish a previously published tutorial", a
     title: "Admin listings walkthrough",
     slug: "admin-listings-walkthrough",
     summary: "Run the internal listings registry safely.",
+    seo_title: null,
+    meta_description: null,
     audience: "admin",
     visibility: "internal",
     status: "published",

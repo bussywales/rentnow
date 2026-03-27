@@ -31,7 +31,7 @@ export async function listHelpTutorialsForAdmin() {
   const { data, error } = await supabase
     .from("help_tutorials")
     .select(
-      "id,title,slug,summary,audience,visibility,status,video_url,body,created_by,updated_by,created_at,updated_at,published_at,unpublished_at"
+      "id,title,slug,summary,seo_title,meta_description,audience,visibility,status,video_url,body,created_by,updated_by,created_at,updated_at,published_at,unpublished_at"
     )
     .order("updated_at", { ascending: false });
 
@@ -46,7 +46,7 @@ export async function getHelpTutorialForAdmin(id: string, redirectPath: string) 
   const { data, error } = await supabase
     .from("help_tutorials")
     .select(
-      "id,title,slug,summary,audience,visibility,status,video_url,body,created_by,updated_by,created_at,updated_at,published_at,unpublished_at"
+      "id,title,slug,summary,seo_title,meta_description,audience,visibility,status,video_url,body,created_by,updated_by,created_at,updated_at,published_at,unpublished_at"
     )
     .eq("id", id)
     .maybeSingle();

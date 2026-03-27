@@ -43,6 +43,8 @@ export function AdminHelpTutorialEditor({ mode, initialTutorial }: Props) {
   const [slug, setSlug] = useState(initialTutorial?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(mode === "edit");
   const [summary, setSummary] = useState(initialTutorial?.summary ?? "");
+  const [seoTitle, setSeoTitle] = useState(initialTutorial?.seo_title ?? "");
+  const [metaDescription, setMetaDescription] = useState(initialTutorial?.meta_description ?? "");
   const [audience, setAudience] = useState<HelpTutorialAudience>(initialTutorial?.audience ?? "admin");
   const [visibility, setVisibility] = useState<HelpTutorialVisibility>(
     initialTutorial?.visibility ?? coerceTutorialVisibility(initialTutorial?.audience ?? "admin", null)
@@ -86,6 +88,8 @@ export function AdminHelpTutorialEditor({ mode, initialTutorial }: Props) {
         title: title.trim(),
         slug: effectiveSlug,
         summary: summary.trim(),
+        seo_title: seoTitle.trim() || null,
+        meta_description: metaDescription.trim() || null,
         audience,
         visibility: effectiveVisibility,
         status: nextStatus,
@@ -218,6 +222,30 @@ export function AdminHelpTutorialEditor({ mode, initialTutorial }: Props) {
           />
         </div>
 
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="text-xs font-semibold text-slate-500">SEO title (optional)</label>
+            <input
+              type="text"
+              value={seoTitle}
+              onChange={(event) => setSeoTitle(event.target.value)}
+              className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm"
+              disabled={pending}
+              placeholder="Defaults to the tutorial title"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-500">Meta description (optional)</label>
+            <textarea
+              value={metaDescription}
+              onChange={(event) => setMetaDescription(event.target.value)}
+              className="mt-1 min-h-[88px] w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm"
+              disabled={pending}
+              placeholder="Defaults to the summary for public tutorials"
+            />
+          </div>
+        </div>
+
         <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
@@ -289,6 +317,11 @@ export function AdminHelpTutorialEditor({ mode, initialTutorial }: Props) {
               </p>
               <p className="mt-1 text-xs text-slate-500">
                 Published tutorials appear under {audience === "admin" ? "/help/admin/*" : `/help/${audience}/*`}.
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {audience === "admin"
+                  ? "Internal tutorials stay non-indexable even when published."
+                  : "Public tutorials can override SEO title and meta description, or fall back to title and summary."}
               </p>
             </div>
 

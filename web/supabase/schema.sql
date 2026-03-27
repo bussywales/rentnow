@@ -180,6 +180,8 @@ CREATE TABLE public.help_tutorials (
   title TEXT NOT NULL,
   slug TEXT NOT NULL,
   summary TEXT NOT NULL,
+  seo_title TEXT,
+  meta_description TEXT,
   audience TEXT NOT NULL,
   visibility TEXT NOT NULL DEFAULT 'internal',
   status TEXT NOT NULL DEFAULT 'draft',
