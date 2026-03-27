@@ -377,7 +377,7 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
         type="button"
         ref={bellButtonRef}
         className="relative inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100"
-        aria-label="Product updates"
+        aria-label="Open updates"
         aria-expanded={open}
         onClick={openDrawer}
         data-testid="updates-bell"
@@ -391,11 +391,12 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
           strokeWidth="1.6"
         >
           <path
-            d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 0 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"
+            d="M4.75 10.25v3.5A1.25 1.25 0 0 0 6 15h2.15l1.65 4.1a.9.9 0 0 0 .84.57h.29a.9.9 0 0 0 .87-1.12L10.9 15h.27L18 12.25v-5.5L11.17 10H6a1.25 1.25 0 0 0-1.25 1.25Z"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-          <path d="M9 17a3 3 0 0 0 6 0" strokeLinecap="round" />
+          <path d="M18 8.5a4.25 4.25 0 0 1 0 2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M19.75 7.25a6.25 6.25 0 0 1 0 5.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         {unreadCount > 0 && (
           <span
