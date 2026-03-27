@@ -9,6 +9,12 @@ const migrationPath = path.join(
   "migrations",
   "20260327142608_help_tutorial_governance_and_seo.sql"
 );
+const publicShortletsTutorialMigrationPath = path.join(
+  process.cwd(),
+  "supabase",
+  "migrations",
+  "20260327220500_add_public_shortlets_search_tutorial.sql"
+);
 
 void test("tutorial governance docs make authored tutorials the default", () => {
   const readme = fs.readFileSync("docs/help/README.md", "utf8");
@@ -28,6 +34,19 @@ void test("governance migration adds seo fields and seeds the admin listings tut
   assert.match(sql, /admin-listings-registry-video-tutorial/);
   assert.match(sql, /https:\/\/youtu\.be\/_jWHH5MQMAk/);
   assert.match(sql, /on conflict \(audience, slug\) do update/i);
+});
+
+void test("public shortlets tutorial migration seeds a tenant-authored tutorial with seo metadata", () => {
+  const sql = fs.readFileSync(publicShortletsTutorialMigrationPath, "utf8");
+
+  assert.match(sql, /How to Find Short-Let Stays on PropatyHub/);
+  assert.match(sql, /find-shortlets-on-propatyhub/);
+  assert.match(sql, /Find Shortlet Apartments & Houses on PropatyHub \| Search Guide/);
+  assert.match(sql, /A step-by-step guide showing travellers how to search for short-let apartments and houses on PropatyHub\./);
+  assert.match(sql, /'tenant'/);
+  assert.match(sql, /'public'/);
+  assert.match(sql, /'published'/);
+  assert.match(sql, /null,\n\s+\$tutorial\$/);
 });
 
 void test("file-backed admin listings registry tutorial is retired after authored migration", () => {
