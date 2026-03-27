@@ -253,6 +253,39 @@ CREATE POLICY "product updates delete admin" ON public.product_updates
   FOR DELETE
   USING (public.is_admin());
 
+-- help_tutorials: public published help stays public; internal admin tutorials stay protected
+DROP POLICY IF EXISTS "help tutorials select" ON public.help_tutorials;
+CREATE POLICY "help tutorials select" ON public.help_tutorials
+  FOR SELECT
+  USING (
+    (
+      status = 'published'
+      AND visibility = 'public'
+    )
+    OR (
+      status = 'published'
+      AND visibility = 'internal'
+      AND public.is_admin()
+    )
+    OR public.is_admin()
+  );
+
+DROP POLICY IF EXISTS "help tutorials insert admin" ON public.help_tutorials;
+CREATE POLICY "help tutorials insert admin" ON public.help_tutorials
+  FOR INSERT
+  WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "help tutorials update admin" ON public.help_tutorials;
+CREATE POLICY "help tutorials update admin" ON public.help_tutorials
+  FOR UPDATE
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "help tutorials delete admin" ON public.help_tutorials;
+CREATE POLICY "help tutorials delete admin" ON public.help_tutorials
+  FOR DELETE
+  USING (public.is_admin());
+
 -- product_update_reads: user-owned read markers
 DROP POLICY IF EXISTS "product update reads select self" ON public.product_update_reads;
 CREATE POLICY "product update reads select self" ON public.product_update_reads

@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { cache } from "react";
 import type { HelpNavSection } from "@/components/help/help-nav";
+import { getPublishedTutorialDocsForRole, mergeHelpDocs } from "@/lib/help/tutorials.server";
 import type { UserRole } from "@/lib/types";
 
 export const HELP_ROLES = ["tenant", "landlord", "agent", "admin"] as const;
@@ -190,9 +191,25 @@ const loadAllSharedDocs = cache(async (): Promise<Record<HelpSharedSection, Shar
   return result;
 });
 
-export async function getHelpDocsForRole(role: HelpRole): Promise<HelpDoc[]> {
+export async function getFileHelpDocsForRole(role: HelpRole): Promise<HelpDoc[]> {
   const all = await loadAllRoleDocs();
   return all[role] ?? [];
+}
+
+export async function getFileHelpDocByRoleAndSlug(
+  role: HelpRole,
+  slug: string
+): Promise<HelpDoc | null> {
+  const docs = await getFileHelpDocsForRole(role);
+  return docs.find((doc) => doc.slug === slug) ?? null;
+}
+
+export async function getHelpDocsForRole(role: HelpRole): Promise<HelpDoc[]> {
+  const [fileDocs, tutorialDocs] = await Promise.all([
+    getFileHelpDocsForRole(role),
+    getPublishedTutorialDocsForRole(role),
+  ]);
+  return mergeHelpDocs(fileDocs, tutorialDocs);
 }
 
 export async function getHelpDocByRoleAndSlug(role: HelpRole, slug: string): Promise<HelpDoc | null> {
@@ -255,6 +272,7 @@ export async function buildHelpNavForRole(role: HelpRole): Promise<HelpNavSectio
         { label: "Support playbooks", href: "/help/admin/support-playbooks" },
         { label: "Listings operations", href: "/help/admin/listings" },
         { label: "Product updates", href: "/help/admin/product-updates" },
+        { label: "Tutorial editor", href: "/admin/help/tutorials" },
       ],
     });
   }

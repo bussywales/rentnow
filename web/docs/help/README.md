@@ -46,10 +46,18 @@ Every help page must include:
 
 ## Authoring guidance
 
+- Tutorial-style help can now be authored in the internal editor at `/admin/help/tutorials`.
+  - use this for tutorials that need audience selection, visibility, draft/publish, or optional YouTube embeds
+  - published tutorials are merged into the live help routes without manual file edits
 - Keep content task-based and route-accurate.
 - Prefer practical checklists over long narrative text.
 - Include real in-app routes in links (for faster support handoff).
 - Use callouts for high-risk guidance (`<Callout type="warning">...</Callout>`).
+
+Use file-backed markdown when:
+
+- you are editing durable static help pages or playbooks already stored in `web/docs/help/**`
+- the content does not need authoring-state controls or video-url handling
 
 ## Template
 

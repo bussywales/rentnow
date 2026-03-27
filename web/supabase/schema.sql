@@ -174,6 +174,37 @@ CREATE INDEX idx_product_updates_created_at ON public.product_updates (created_a
 CREATE UNIQUE INDEX idx_product_updates_source_ref_audience ON public.product_updates (source_ref, audience)
   WHERE source_ref IS NOT NULL;
 
+-- HELP TUTORIALS
+CREATE TABLE public.help_tutorials (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  slug TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  audience TEXT NOT NULL,
+  visibility TEXT NOT NULL DEFAULT 'internal',
+  status TEXT NOT NULL DEFAULT 'draft',
+  video_url TEXT,
+  body TEXT NOT NULL DEFAULT '',
+  created_by UUID REFERENCES public.profiles (id) ON DELETE SET NULL,
+  updated_by UUID REFERENCES public.profiles (id) ON DELETE SET NULL,
+  published_at TIMESTAMPTZ,
+  unpublished_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT help_tutorials_audience_check CHECK (audience IN ('tenant', 'landlord', 'agent', 'admin')),
+  CONSTRAINT help_tutorials_visibility_check CHECK (visibility IN ('public', 'internal')),
+  CONSTRAINT help_tutorials_status_check CHECK (status IN ('draft', 'published')),
+  CONSTRAINT help_tutorials_slug_check CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
+  CONSTRAINT help_tutorials_visibility_audience_check CHECK (
+    (audience = 'admin' AND visibility = 'internal')
+    OR (audience IN ('tenant', 'landlord', 'agent') AND visibility = 'public')
+  )
+);
+
+CREATE UNIQUE INDEX help_tutorials_audience_slug_unique ON public.help_tutorials (audience, slug);
+CREATE INDEX help_tutorials_status_visibility_idx ON public.help_tutorials (status, visibility, updated_at DESC);
+CREATE INDEX help_tutorials_audience_status_idx ON public.help_tutorials (audience, status, updated_at DESC);
+
 -- PRODUCT UPDATE READS
 CREATE TABLE public.product_update_reads (
   user_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
