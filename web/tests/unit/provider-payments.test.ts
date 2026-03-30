@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   computeProviderPlanUpdate,
   isProviderEventProcessed,
+  resolveProviderPricing,
   resolveTierForRole,
 } from "../../lib/billing/provider-payments";
 
@@ -62,4 +63,25 @@ void test("resolveTierForRole restricts tiers by role", () => {
   assert.equal(resolveTierForRole("tenant", "pro"), null);
   assert.equal(resolveTierForRole("landlord", "starter"), "starter");
   assert.equal(resolveTierForRole("agent", "pro"), "pro");
+});
+
+void test("provider pricing resolves only exact supported currencies", () => {
+  const ngnPricing = resolveProviderPricing({
+    provider: "paystack",
+    role: "tenant",
+    tier: "tenant_pro",
+    cadence: "monthly",
+    currency: "NGN",
+  });
+  assert.equal(ngnPricing?.currency, "NGN");
+  assert.equal(ngnPricing?.amountMajor, 900);
+
+  const cadPricing = resolveProviderPricing({
+    provider: "paystack",
+    role: "tenant",
+    tier: "tenant_pro",
+    cadence: "monthly",
+    currency: "CAD",
+  });
+  assert.equal(cadPricing, null);
 });

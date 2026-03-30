@@ -2,8 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { getTenantPlanForTier, isSavedSearchLimitReached, type PlanTier } from "@/lib/plans";
-import { PlanCard, type PlanCardConfig } from "@/components/billing/PlanCard";
+import { PlanCard } from "@/components/billing/PlanCard";
+import {
+  SUBSCRIPTION_PLAN_CARDS,
+  getSubscriptionPlanCardKeyForRole,
+} from "@/lib/billing/subscription-plan-cards";
+import type { SubscriptionPlanPricingSet } from "@/lib/billing/subscription-pricing.types";
+import { resolveYearlySavingsLabel } from "@/lib/billing/subscription-pricing";
 
 type Cadence = "monthly" | "yearly";
 
@@ -13,10 +20,7 @@ type Props = {
   billingSource: string;
   stripeStatus?: string | null;
   stripePeriodEnd?: string | null;
-  stripeEnabled: boolean;
-  paystackEnabled: boolean;
   paystackMode: string;
-  flutterwaveEnabled: boolean;
   flutterwaveMode: string;
   flutterwaveCheckoutVisible?: boolean;
   showManage: boolean;
@@ -24,40 +28,12 @@ type Props = {
   activeCount: number;
   maxListings: number;
   savedSearchCount: number;
+  marketCountry: string;
+  marketCurrency: string;
+  marketLabel: string;
+  pricingByPlanKey: Record<string, SubscriptionPlanPricingSet>;
   requestUpgradeAction: (formData: FormData) => void;
 };
-
-const PLAN_CARDS: PlanCardConfig[] = [
-  {
-    key: "free",
-    title: "Free",
-    tier: "free",
-    features: ["Essentials to browse or list", "Standard approval queue", "Email support"],
-  },
-  {
-    key: "landlord-pro",
-    title: "Landlord Pro",
-    tier: "pro",
-    role: "landlord",
-    highlight: true,
-    features: ["Publish up to 10 active listings", "Featured placement on search", "Priority approval queue"],
-  },
-  {
-    key: "agent-pro",
-    title: "Agent Pro",
-    tier: "pro",
-    role: "agent",
-    features: ["Publish up to 10 active listings", "Manage multiple landlords", "Priority approval queue"],
-  },
-  {
-    key: "tenant-pro",
-    title: "Tenant Pro",
-    tier: "tenant_pro",
-    role: "tenant",
-    usageType: "saved_searches",
-    features: ["Unlimited saved searches", "Instant alerts for new listings", "Priority contact on listings"],
-  },
-];
 
 export function PlansGrid({
   currentTier,
@@ -65,10 +41,7 @@ export function PlansGrid({
   billingSource,
   stripeStatus,
   stripePeriodEnd,
-  stripeEnabled,
-  paystackEnabled,
   paystackMode,
-  flutterwaveEnabled,
   flutterwaveMode,
   flutterwaveCheckoutVisible = false,
   showManage,
@@ -76,10 +49,15 @@ export function PlansGrid({
   activeCount,
   maxListings,
   savedSearchCount,
+  marketCountry,
+  marketCurrency,
+  marketLabel,
+  pricingByPlanKey,
   requestUpgradeAction,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { market } = useMarketPreference();
   const [cadence, setCadence] = useState<Cadence>("monthly");
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -94,20 +72,12 @@ export function PlansGrid({
     currentRole === "tenant"
       ? isSavedSearchLimitReached(savedSearchCount, tenantPlan)
       : activeCount >= maxListings;
+  const marketDrifted = market.country !== marketCountry || market.currency !== marketCurrency;
+  const activePlanKey = getSubscriptionPlanCardKeyForRole(currentRole);
+  const activePricingSet = activePlanKey ? pricingByPlanKey[activePlanKey] ?? null : null;
+  const activeQuote = activePricingSet?.[cadence] ?? null;
 
   const cadenceLabel = cadence === "monthly" ? "Billed monthly" : "Billed yearly";
-  const priceSubLabel = cadence === "yearly" ? "Save 17%" : null;
-
-  const getPriceLabel = (plan: PlanCardConfig) => {
-    if (plan.tier === "free") return "£0";
-    if (plan.role === "agent") {
-      return cadence === "monthly" ? "£49 / month" : "£490 / year";
-    }
-    if (plan.role === "tenant") {
-      return cadence === "monthly" ? "£9 / month" : "£90 / year";
-    }
-    return cadence === "monthly" ? "£29 / month" : "£290 / year";
-  };
 
   const startCheckout = async (tier: PlanTier) => {
     setLoadingKey(tier);
@@ -243,6 +213,9 @@ export function PlansGrid({
             Billing interval
           </p>
           <h2 className="text-lg font-semibold text-slate-900">Choose how you want to pay</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Pricing is shown for {marketLabel}.
+          </p>
         </div>
         <div className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 p-1">
           <button
@@ -266,6 +239,38 @@ export function PlansGrid({
         </div>
       </div>
 
+      {marketDrifted ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">
+            Your active market changed to {market.country} ({market.currency}).
+          </p>
+          <p className="mt-1">
+            Refresh billing to load the matching subscription prices before checkout.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.refresh()}
+            className="mt-2 text-sm font-semibold underline underline-offset-4"
+          >
+            Refresh pricing
+          </button>
+        </div>
+      ) : null}
+
+      {!marketDrifted && activeQuote?.fallbackApplied && activeQuote.fallbackMessage ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">Fallback pricing is active for this market.</p>
+          <p className="mt-1">{activeQuote.fallbackMessage}</p>
+        </div>
+      ) : null}
+
+      {!marketDrifted && activeQuote?.status === "unavailable" && activeQuote.unavailableReason ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          <p className="font-semibold">Subscription checkout is unavailable in this market.</p>
+          <p className="mt-1">{activeQuote.unavailableReason}</p>
+        </div>
+      ) : null}
+
       {limitReached && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p className="font-semibold">
@@ -282,36 +287,48 @@ export function PlansGrid({
       )}
 
       <div className="grid gap-4 lg:grid-cols-3">
-        {PLAN_CARDS.map((plan) => (
-          <PlanCard
-            key={plan.key}
-            plan={plan}
-            priceLabel={getPriceLabel(plan)}
-            priceSubLabel={plan.tier !== "free" ? priceSubLabel : null}
-            cadenceLabel={cadenceLabel}
-            currentTier={currentTier}
-            currentRole={currentRole}
-            billingSource={billingSource}
-            stripeManageAvailable={showManage}
-            stripeEnabled={stripeEnabled}
-            paystackEnabled={paystackEnabled}
-            paystackMode={paystackMode}
-            flutterwaveEnabled={flutterwaveEnabled}
-            flutterwaveMode={flutterwaveMode}
-            pendingUpgrade={pendingUpgrade}
-            loadingKey={loadingKey}
-            usageCount={plan.usageType === "saved_searches" ? savedSearchCount : activeCount}
-            onUpgrade={startCheckout}
-            onPaystack={(tier) => startProviderCheckout("paystack", tier)}
-            onFlutterwave={
-              flutterwaveCheckoutVisible
-                ? (tier) => startProviderCheckout("flutterwave", tier)
-                : undefined
-            }
-            onManage={openPortal}
-            requestUpgradeAction={requestUpgradeAction}
-          />
-        ))}
+        {SUBSCRIPTION_PLAN_CARDS.map((plan) => {
+          const pricing = plan.tier === "free" ? null : pricingByPlanKey[plan.key]?.[cadence] ?? null;
+          const priceLabel =
+            plan.tier === "free"
+              ? "Free"
+              : pricing?.status === "ready"
+              ? `${pricing.displayPrice} / ${cadence === "monthly" ? "month" : "year"}`
+              : "Unavailable";
+          const pairedPricing = plan.tier === "free" ? null : pricingByPlanKey[plan.key] ?? null;
+          const yearlySavings =
+            cadence === "yearly" && pairedPricing ? resolveYearlySavingsLabel(pairedPricing) : null;
+
+          return (
+            <PlanCard
+              key={plan.key}
+              plan={plan}
+              priceLabel={priceLabel}
+              priceSubLabel={plan.tier !== "free" ? yearlySavings : null}
+              pricing={pricing}
+              cadenceLabel={cadenceLabel}
+              currentTier={currentTier}
+              currentRole={currentRole}
+              billingSource={billingSource}
+              stripeManageAvailable={showManage}
+              paystackMode={paystackMode}
+              flutterwaveMode={flutterwaveMode}
+              pendingUpgrade={pendingUpgrade}
+              loadingKey={loadingKey}
+              usageCount={plan.usageType === "saved_searches" ? savedSearchCount : activeCount}
+              marketDrifted={marketDrifted}
+              onUpgrade={startCheckout}
+              onPaystack={(tier) => startProviderCheckout("paystack", tier)}
+              onFlutterwave={
+                flutterwaveCheckoutVisible
+                  ? (tier) => startProviderCheckout("flutterwave", tier)
+                  : undefined
+              }
+              onManage={openPortal}
+              requestUpgradeAction={requestUpgradeAction}
+            />
+          );
+        })}
       </div>
 
       {statusLabel && (

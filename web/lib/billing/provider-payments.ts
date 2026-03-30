@@ -1,4 +1,5 @@
 import { normalizePlanTier, type PlanTier } from "@/lib/plans";
+import { normalizeCurrency } from "@/lib/currencies";
 
 export type ProviderName = "paystack" | "flutterwave";
 export type BillingCadence = "monthly" | "yearly";
@@ -7,6 +8,8 @@ export type ProviderPricing = {
   currency: string;
   amountMajor: number;
   amountMinor: number;
+  requestedCurrency: string;
+  resolutionKey: string;
 };
 
 export type ProviderPlanDecision = {
@@ -21,37 +24,50 @@ type PricingInput = {
   role: "landlord" | "agent" | "tenant" | "admin";
   tier: PlanTier;
   cadence: BillingCadence;
+  currency?: string | null;
 };
 
-const PAYSTACK_PRICING_NGN: Record<string, Record<BillingCadence, number>> = {
-  landlord: { monthly: 2900, yearly: 29000 },
-  agent: { monthly: 4900, yearly: 49000 },
-  tenant: { monthly: 900, yearly: 9000 },
-};
-
-const FLUTTERWAVE_PRICING_NGN: Record<string, Record<BillingCadence, number>> = {
-  landlord: { monthly: 2900, yearly: 29000 },
-  agent: { monthly: 4900, yearly: 49000 },
-  tenant: { monthly: 900, yearly: 9000 },
+const PROVIDER_PRICING: Record<
+  ProviderName,
+  Record<string, Record<string, Record<BillingCadence, number>>>
+> = {
+  paystack: {
+    NGN: {
+      landlord: { monthly: 2900, yearly: 29000 },
+      agent: { monthly: 4900, yearly: 49000 },
+      tenant: { monthly: 900, yearly: 9000 },
+    },
+  },
+  flutterwave: {
+    NGN: {
+      landlord: { monthly: 2900, yearly: 29000 },
+      agent: { monthly: 4900, yearly: 49000 },
+      tenant: { monthly: 900, yearly: 9000 },
+    },
+  },
 };
 
 export function normalizeCadence(value?: string | null): BillingCadence {
   return value === "yearly" ? "yearly" : "monthly";
 }
 
-export function resolveProviderPricing(input: PricingInput): ProviderPricing {
+export function resolveProviderPricing(input: PricingInput): ProviderPricing | null {
   const cadence = input.cadence;
   const role = input.role === "admin" ? "landlord" : input.role;
-  const prices =
-    input.provider === "paystack" ? PAYSTACK_PRICING_NGN : FLUTTERWAVE_PRICING_NGN;
-  const rolePrices = prices[role] || prices.landlord;
+  const requestedCurrency = normalizeCurrency(input.currency ?? null) ?? "NGN";
+  const providerPricing = PROVIDER_PRICING[input.provider];
+  const pricesForCurrency = providerPricing[requestedCurrency];
+  if (!pricesForCurrency) return null;
+  const rolePrices = pricesForCurrency[role] || pricesForCurrency.landlord;
   const amountMajor = rolePrices[cadence];
   const amountMinor = Math.round(amountMajor * 100);
 
   return {
-    currency: "NGN",
+    currency: requestedCurrency,
     amountMajor,
     amountMinor,
+    requestedCurrency,
+    resolutionKey: `${input.provider.toUpperCase()}_${role.toUpperCase()}_${cadence.toUpperCase()}_${requestedCurrency}`,
   };
 }
 

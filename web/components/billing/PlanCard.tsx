@@ -3,36 +3,25 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { getPlanForTier, getTenantPlanForTier, type PlanTier } from "@/lib/plans";
-
-type BillingRole = "landlord" | "agent" | "tenant";
-
-export type PlanCardConfig = {
-  key: string;
-  title: string;
-  tier: PlanTier;
-  role?: BillingRole;
-  highlight?: boolean;
-  features: string[];
-  usageType?: "listings" | "saved_searches";
-};
+import type { SubscriptionPlanCardConfig } from "@/lib/billing/subscription-plan-cards";
+import type { SubscriptionPlanPricingView } from "@/lib/billing/subscription-pricing.types";
 
 type Props = {
-  plan: PlanCardConfig;
+  plan: SubscriptionPlanCardConfig;
   priceLabel: string;
   priceSubLabel?: string | null;
+  pricing: SubscriptionPlanPricingView | null;
   currentTier: PlanTier;
   currentRole: string | null;
   billingSource: string;
   stripeManageAvailable: boolean;
-  stripeEnabled: boolean;
-  paystackEnabled?: boolean;
   paystackMode?: string;
-  flutterwaveEnabled?: boolean;
   flutterwaveMode?: string;
   pendingUpgrade: boolean;
   loadingKey: string | null;
   cadenceLabel: string;
   usageCount: number;
+  marketDrifted: boolean;
   onUpgrade: (tier: PlanTier) => void;
   onPaystack?: (tier: PlanTier) => void;
   onFlutterwave?: (tier: PlanTier) => void;
@@ -44,19 +33,18 @@ export function PlanCard({
   plan,
   priceLabel,
   priceSubLabel,
+  pricing,
   currentTier,
   currentRole,
   billingSource,
   stripeManageAvailable,
-  stripeEnabled,
-  paystackEnabled,
   paystackMode,
-  flutterwaveEnabled,
   flutterwaveMode,
   pendingUpgrade,
   loadingKey,
   cadenceLabel,
   usageCount,
+  marketDrifted,
   onUpgrade,
   onPaystack,
   onFlutterwave,
@@ -70,18 +58,9 @@ export function PlanCard({
   const isCurrent =
     (plan.tier === currentTier && roleMatches) ||
     (plan.tier === "free" && currentTier === "starter");
-  const canStripeUpgrade = plan.tier !== "free" && stripeEnabled && roleMatches && !isCurrent;
-  const canProviderUpgrade = plan.tier !== "free" && roleMatches && !isCurrent;
+  const canUpgrade = plan.tier !== "free" && roleMatches && !isCurrent && pricing?.status === "ready" && !marketDrifted;
   const showCurrent = isCurrent && !pendingUpgrade;
   const showRequest = plan.tier !== "free" && roleMatches;
-  const showProviderActions =
-    canProviderUpgrade && (onPaystack || onFlutterwave);
-  const paystackLabel =
-    paystackMode === "live" ? "Pay with Paystack" : "Pay with Paystack (Test)";
-  const flutterwaveLabel =
-    flutterwaveMode === "live"
-      ? "Pay with Flutterwave"
-      : "Pay with Flutterwave (Test)";
   const usageMax =
     usageType === "saved_searches"
       ? tenantGate?.maxSavedSearches ?? 0
@@ -102,6 +81,37 @@ export function PlanCard({
       ? Math.min(100, Math.round((usageCount / usageMax) * 100))
       : 0;
   const muted = !roleMatches && !!plan.role;
+  const checkoutLabel =
+    pricing?.provider === "paystack"
+      ? paystackMode === "live"
+        ? "Pay with Paystack"
+        : "Pay with Paystack (Test)"
+      : pricing?.provider === "flutterwave"
+      ? flutterwaveMode === "live"
+        ? "Pay with Flutterwave"
+        : "Pay with Flutterwave (Test)"
+      : "Upgrade";
+
+  const handleUpgrade = () => {
+    if (pricing?.provider === "paystack") {
+      onPaystack?.(plan.tier);
+      return;
+    }
+    if (pricing?.provider === "flutterwave") {
+      onFlutterwave?.(plan.tier);
+      return;
+    }
+    onUpgrade(plan.tier);
+  };
+
+  const actionKey =
+    pricing?.provider === "paystack"
+      ? `paystack:${plan.tier}`
+      : pricing?.provider === "flutterwave"
+      ? `flutterwave:${plan.tier}`
+      : plan.tier;
+  const loadingLabel =
+    pricing?.provider === "stripe" || !pricing?.provider ? "Redirecting..." : "Opening checkout...";
 
   return (
     <div
@@ -118,7 +128,7 @@ export function PlanCard({
         )}
       </div>
       <div className="mt-4">
-        <p className="text-3xl font-semibold">{plan.tier === "free" ? "£0" : priceLabel}</p>
+        <p className="text-3xl font-semibold">{plan.tier === "free" ? "Free" : priceLabel}</p>
         <div className={`text-sm ${plan.highlight ? "text-white/70" : "text-slate-500"}`}>
           <p>{plan.tier === "free" ? "Always free" : cadenceLabel}</p>
           {priceSubLabel && <p className="font-semibold">{priceSubLabel}</p>}
@@ -166,21 +176,25 @@ export function PlanCard({
           <Button variant={plan.highlight ? "secondary" : "primary"} disabled>
             Current plan
           </Button>
-        ) : canStripeUpgrade ? (
+        ) : canUpgrade ? (
           <Button
             variant={plan.highlight ? "secondary" : "primary"}
-            onClick={() => onUpgrade(plan.tier)}
-            disabled={loadingKey === plan.tier}
+            onClick={handleUpgrade}
+            disabled={loadingKey === actionKey}
           >
-            {loadingKey === plan.tier ? "Redirecting..." : "Upgrade"}
+            {loadingKey === actionKey ? loadingLabel : checkoutLabel}
           </Button>
         ) : plan.tier === "free" ? (
           <Button variant="secondary" disabled>
             Free forever
           </Button>
-        ) : showProviderActions ? (
+        ) : marketDrifted ? (
           <Button variant="secondary" disabled>
-            Stripe unavailable
+            Refresh pricing
+          </Button>
+        ) : pricing?.status === "unavailable" ? (
+          <Button variant="secondary" disabled>
+            Not available
           </Button>
         ) : (
           <Button variant="secondary" disabled>
@@ -213,46 +227,17 @@ export function PlanCard({
         )}
       </div>
 
-      {showProviderActions && (
-        <div className="mt-3 space-y-2">
-          {onPaystack && (
-            <>
-              <Button
-                variant="secondary"
-                onClick={() => onPaystack(plan.tier)}
-                disabled={!paystackEnabled || loadingKey === `paystack:${plan.tier}`}
-              >
-                {loadingKey === `paystack:${plan.tier}`
-                  ? "Redirecting..."
-                  : paystackLabel}
-              </Button>
-              {!paystackEnabled && (
-                <p className="text-xs text-slate-500">
-                  Configure Paystack in Admin → Billing settings.
-                </p>
-              )}
-            </>
-          )}
-          {onFlutterwave && (
-            <>
-              <Button
-                variant="secondary"
-                onClick={() => onFlutterwave(plan.tier)}
-                disabled={!flutterwaveEnabled || loadingKey === `flutterwave:${plan.tier}`}
-              >
-                {loadingKey === `flutterwave:${plan.tier}`
-                  ? "Redirecting..."
-                  : flutterwaveLabel}
-              </Button>
-              {!flutterwaveEnabled && (
-                <p className="text-xs text-slate-500">
-                  Configure Flutterwave in Admin → Billing settings.
-                </p>
-              )}
-            </>
-          )}
-        </div>
-      )}
+      {plan.tier !== "free" && pricing?.fallbackApplied && pricing.fallbackMessage ? (
+        <p className={`mt-3 text-xs ${plan.highlight ? "text-white/80" : "text-amber-700"}`}>
+          {pricing.fallbackMessage}
+        </p>
+      ) : null}
+
+      {plan.tier !== "free" && pricing?.status === "unavailable" && pricing.unavailableReason ? (
+        <p className={`mt-3 text-xs ${plan.highlight ? "text-white/80" : "text-slate-500"}`}>
+          {pricing.unavailableReason}
+        </p>
+      ) : null}
 
       {showRequest && (
         <form action={requestUpgradeAction} className="mt-3">

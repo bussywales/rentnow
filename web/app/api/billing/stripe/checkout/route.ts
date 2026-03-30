@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/authz";
 import { getProviderModes } from "@/lib/billing/provider-settings";
+import type { BillingRole } from "@/lib/billing/stripe-plans";
 import { getStripeClient, getStripeConfigForMode } from "@/lib/billing/stripe";
-import { getStripePriceId } from "@/lib/billing/stripe-plans";
 import { getSiteUrl } from "@/lib/env";
 import { logFailure, logStripeCheckoutStarted } from "@/lib/observability";
+import { getMarketSettings } from "@/lib/market/market.server";
+import { resolveMarketFromRequest } from "@/lib/market/market";
+import { resolveSubscriptionPlanQuote } from "@/lib/billing/subscription-pricing";
 
 const routeLabel = "/api/billing/stripe/checkout";
 
@@ -51,6 +54,7 @@ export async function POST(request: Request) {
   if (auth.role !== "tenant" && payload.tier === "tenant_pro") {
     return NextResponse.json({ error: "Invalid plan selection" }, { status: 400 });
   }
+  const billingRole = auth.role as BillingRole;
   const { stripeMode } = await getProviderModes();
   const stripeConfig = getStripeConfigForMode(stripeMode);
   if (!stripeConfig.secretKey) {
@@ -59,16 +63,35 @@ export async function POST(request: Request) {
       { status: 503 }
     );
   }
-  const priceId = getStripePriceId({
-    role: auth.role,
+  const market = resolveMarketFromRequest({
+    headers: request.headers,
+    appSettings: await getMarketSettings(),
+  });
+  const resolvedQuote = await resolveSubscriptionPlanQuote({
+    role: billingRole,
     tier: payload.tier,
     cadence: payload.cadence,
-    mode: stripeConfig.mode,
+    market,
+    stripe: {
+      enabled: true,
+      mode: stripeConfig.mode,
+      secretKey: stripeConfig.secretKey,
+    },
+    paystack: {
+      enabled: false,
+      mode: "test",
+    },
+    flutterwave: {
+      enabled: false,
+      mode: "test",
+    },
   });
-
-  if (!priceId) {
+  if (resolvedQuote.status !== "ready" || resolvedQuote.provider !== "stripe" || !resolvedQuote.priceId) {
     return NextResponse.json(
-      { error: "Stripe price not configured", code: "stripe_price_missing" },
+      {
+        error: resolvedQuote.unavailableReason || "Stripe price not configured",
+        code: "stripe_price_missing",
+      },
       { status: 503 }
     );
   }
@@ -111,7 +134,7 @@ export async function POST(request: Request) {
     customer: planRow?.stripe_customer_id || undefined,
     customer_email: auth.user.email || undefined,
     client_reference_id: auth.user.id,
-    line_items: [{ price: priceId, quantity: 1 }],
+    line_items: [{ price: resolvedQuote.priceId, quantity: 1 }],
     allow_promotion_codes: true,
     success_url: `${siteUrl}/dashboard?stripe=success`,
     cancel_url: `${siteUrl}/dashboard?stripe=cancel`,
@@ -124,6 +147,10 @@ export async function POST(request: Request) {
       cadence: payload.cadence,
       billing_source: "stripe",
       stripe_mode: stripeConfig.mode,
+      subscription_market_country: market.country,
+      subscription_market_currency: market.currency,
+      subscription_resolved_currency: resolvedQuote.currency,
+      subscription_price_key: resolvedQuote.resolutionKey,
       env: process.env.NODE_ENV || "unknown",
     },
     subscription_data: {
@@ -136,6 +163,10 @@ export async function POST(request: Request) {
         cadence: payload.cadence,
         billing_source: "stripe",
         stripe_mode: stripeConfig.mode,
+        subscription_market_country: market.country,
+        subscription_market_currency: market.currency,
+        subscription_resolved_currency: resolvedQuote.currency,
+        subscription_price_key: resolvedQuote.resolutionKey,
         env: process.env.NODE_ENV || "unknown",
       },
     },

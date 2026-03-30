@@ -464,6 +464,10 @@ export default async function AdminBillingSettingsPage() {
         <p className="text-sm text-slate-600">
           Keys are never shown. Green means the env key is present if database keys are missing.
         </p>
+        <p className="mt-2 text-xs text-slate-500">
+          Market-aware Stripe subscription prices can also be supplied with currency suffixes such
+          as <code>STRIPE_PRICE_TENANT_MONTHLY_NGN_LIVE</code>. Use <Link href="/api/debug/env" className="underline underline-offset-4">/api/debug/env</Link> to inspect current market-aware price readiness.
+        </p>
         <div className="mt-4 grid gap-6 md:grid-cols-3">
           <div>
             <p className="text-sm font-semibold text-slate-900">Stripe keys</p>

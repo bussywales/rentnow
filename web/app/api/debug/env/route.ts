@@ -31,6 +31,46 @@ export async function GET() {
     const suffix = `_${mode.toUpperCase()}`;
     return !!process.env[`${key}${suffix}`] || !!process.env[key];
   };
+  const hasAnyEnvForMode = (keys: string[], mode: string) => keys.some((key) => hasEnvForMode(key, mode));
+  const subscriptionCurrencies = ["GBP", "NGN", "CAD"];
+  const subscriptionRoles = ["LANDLORD", "AGENT", "TENANT"] as const;
+  const subscriptionCadences = ["MONTHLY", "YEARLY"] as const;
+  const subscriptionTierKeyCandidates = (role: string, cadence: string, currency?: string) => {
+    const suffix = currency ? `_${currency}` : "";
+    if (role === "TENANT") {
+      return [
+        `STRIPE_PRICE_TENANT_TENANT_PRO_${cadence}${suffix}`,
+        `STRIPE_PRICE_TENANT_${cadence}${suffix}`,
+      ];
+    }
+    return [
+      `STRIPE_PRICE_${role}_PRO_${cadence}${suffix}`,
+      `STRIPE_PRICE_${role}_STARTER_${cadence}${suffix}`,
+      `STRIPE_PRICE_${role}_${cadence}${suffix}`,
+    ];
+  };
+  const stripeMarketPriceMatrix = Object.fromEntries(
+    subscriptionCurrencies.map((currency) => [
+      currency,
+      Object.fromEntries(
+        subscriptionRoles.map((role) => [
+          role.toLowerCase(),
+          Object.fromEntries(
+            subscriptionCadences.map((cadence) => {
+              const candidateKeys = subscriptionTierKeyCandidates(role, cadence, currency);
+              return [
+                cadence.toLowerCase(),
+                {
+                  configured: hasAnyEnvForMode(candidateKeys, providerModes.stripeMode),
+                  keys: candidateKeys,
+                },
+              ];
+            })
+          ),
+        ])
+      ),
+    ])
+  );
 
   const hasStripeWebhookEnvForScope = (scope: "billing" | "shortlet", mode: string) => {
     const prefix =
@@ -51,19 +91,26 @@ export async function GET() {
     "NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET",
   ];
   const missing = required.filter((key) => !process.env[key]);
-  const stripeRequired = [
-    "STRIPE_SECRET_KEY",
-    "STRIPE_WEBHOOK_SECRET",
-    "STRIPE_PRICE_LANDLORD_MONTHLY",
-    "STRIPE_PRICE_LANDLORD_YEARLY",
-    "STRIPE_PRICE_AGENT_MONTHLY",
-    "STRIPE_PRICE_AGENT_YEARLY",
-    "STRIPE_PRICE_TENANT_MONTHLY",
-    "STRIPE_PRICE_TENANT_YEARLY",
+  const stripeMissing = [
+    ...["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"].filter(
+      (key) => !hasEnvForMode(key, providerModes.stripeMode)
+    ),
+    ...[
+      "STRIPE_PRICE_LANDLORD_MONTHLY",
+      "STRIPE_PRICE_LANDLORD_YEARLY",
+      "STRIPE_PRICE_AGENT_MONTHLY",
+      "STRIPE_PRICE_AGENT_YEARLY",
+      "STRIPE_PRICE_TENANT_MONTHLY",
+      "STRIPE_PRICE_TENANT_YEARLY",
+    ].filter((baseKey) => {
+      const role = baseKey.split("_")[2];
+      const cadence = baseKey.split("_")[3];
+      if (hasAnyEnvForMode(subscriptionTierKeyCandidates(role, cadence), providerModes.stripeMode)) return false;
+      return !subscriptionCurrencies.some((currency) =>
+        hasAnyEnvForMode(subscriptionTierKeyCandidates(role, cadence, currency), providerModes.stripeMode)
+      );
+    }),
   ];
-  const stripeMissing = stripeRequired.filter(
-    (key) => !hasEnvForMode(key, providerModes.stripeMode)
-  );
   const paystackConfig = resolvePaystackServerConfig({
     mode: providerModes.paystackMode,
     settings: providerSettings,
@@ -121,6 +168,7 @@ export async function GET() {
       tenantMonthlyLive: !!process.env.STRIPE_PRICE_TENANT_MONTHLY_LIVE,
       tenantYearlyTest: !!process.env.STRIPE_PRICE_TENANT_YEARLY_TEST,
       tenantYearlyLive: !!process.env.STRIPE_PRICE_TENANT_YEARLY_LIVE,
+      marketPriceMatrix: stripeMarketPriceMatrix,
       missing: stripeMissing,
     },
     paystack: {

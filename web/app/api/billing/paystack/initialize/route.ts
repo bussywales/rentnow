@@ -7,6 +7,8 @@ import { getProviderModes } from "@/lib/billing/provider-settings";
 import { getPaystackConfig } from "@/lib/billing/paystack";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { logFailure, logProviderCheckoutStarted } from "@/lib/observability";
+import { getMarketSettings } from "@/lib/market/market.server";
+import { resolveMarketFromRequest } from "@/lib/market/market";
 
 const routeLabel = "/api/billing/paystack/initialize";
 
@@ -62,13 +64,24 @@ export async function POST(request: Request) {
   if (!auth.user.email) {
     return NextResponse.json({ error: "Account email is required for checkout." }, { status: 400 });
   }
+  const market = resolveMarketFromRequest({
+    headers: request.headers,
+    appSettings: await getMarketSettings(),
+  });
 
   const pricing = resolveProviderPricing({
     provider: "paystack",
     role: auth.role,
     tier,
     cadence,
+    currency: market.currency,
   });
+  if (!pricing) {
+    return NextResponse.json(
+      { error: `Paystack subscription pricing is not configured for ${market.currency}.` },
+      { status: 503 }
+    );
+  }
 
   const reference = `ps_${crypto.randomUUID()}`;
   const baseUrl = await getSiteUrl();

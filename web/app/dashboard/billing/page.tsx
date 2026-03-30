@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cookies, headers } from "next/headers";
 import { PlansGrid } from "@/components/billing/PlansGrid";
 import { PaymentModeBadge } from "@/components/billing/PaymentModeBadge";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -8,17 +9,21 @@ import { getProviderModes } from "@/lib/billing/provider-settings";
 import { getStripeConfigForMode } from "@/lib/billing/stripe";
 import { getPaystackConfig } from "@/lib/billing/paystack";
 import { getFlutterwaveConfig } from "@/lib/billing/flutterwave";
-import { getStripePriceId } from "@/lib/billing/stripe-plans";
 import { getCreditSummary } from "@/lib/billing/credits-summary.server";
 import { getPlanUsage } from "@/lib/plan-enforcement";
 import { normalizeRole } from "@/lib/roles";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
-import { normalizePlanTier, resolveEffectivePlanTier, type PlanTier } from "@/lib/plans";
+import { normalizePlanTier, resolveEffectivePlanTier } from "@/lib/plans";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
+import { getMarketSettings } from "@/lib/market/market.server";
+import { MARKET_COOKIE_NAME, resolveMarketFromRequest, formatMarketLabel } from "@/lib/market/market";
+import { SUBSCRIPTION_PLAN_CARDS } from "@/lib/billing/subscription-plan-cards";
+import { resolveSubscriptionPlanQuote } from "@/lib/billing/subscription-pricing";
+import type { SubscriptionPlanPricingSet } from "@/lib/billing/subscription-pricing.types";
 
 export const dynamic = "force-dynamic";
 
@@ -147,19 +152,16 @@ export default async function BillingPage() {
   const stripeConfig = getStripeConfigForMode(providerModes.stripeMode);
   const paystackConfig = await getPaystackConfig(providerModes.paystackMode);
   const flutterwaveConfig = await getFlutterwaveConfig(providerModes.flutterwaveMode);
-  const paidTiers: PlanTier[] =
-    normalizedRole === "tenant" ? ["tenant_pro"] : ["starter", "pro"];
-  const hasStripePrice = paidTiers.some((tier) =>
-    (["monthly", "yearly"] as const).some((cadence) =>
-      !!getStripePriceId({
-        role: normalizedRole,
-        tier,
-        cadence,
-        mode: stripeConfig.mode,
-      })
-    )
-  );
-  const stripeEnabled = !!stripeConfig.secretKey && hasStripePrice;
+  const requestHeaders = await headers();
+  const requestCookies = await cookies();
+  const marketSettings = await getMarketSettings(supabase);
+  const market = resolveMarketFromRequest({
+    headers: requestHeaders,
+    cookieValue: requestCookies.get(MARKET_COOKIE_NAME)?.value ?? null,
+    appSettings: marketSettings,
+  });
+  const marketLabel = formatMarketLabel(market);
+  const stripeEnabled = !!stripeConfig.secretKey;
   const paystackEnabled =
     !!paystackConfig.secretKey && !(providerModes.paystackMode === "live" && paystackConfig.fallbackFromLive);
   const flutterwaveCheckoutVisible = false;
@@ -167,6 +169,51 @@ export default async function BillingPage() {
     flutterwaveCheckoutVisible &&
     !!flutterwaveConfig.secretKey && !(providerModes.flutterwaveMode === "live" && flutterwaveConfig.fallbackFromLive);
   const showManage = billingSource === "stripe" && !!stripeCustomerId;
+  const pricingEntries = await Promise.all(
+    SUBSCRIPTION_PLAN_CARDS.filter((planCard) => planCard.tier !== "free" && planCard.role)
+      .map(async (planCard) => {
+        const monthly = await resolveSubscriptionPlanQuote({
+          role: planCard.role!,
+          tier: planCard.tier,
+          cadence: "monthly",
+          market,
+          stripe: {
+            enabled: stripeEnabled,
+            mode: stripeConfig.mode,
+            secretKey: stripeConfig.secretKey,
+          },
+          paystack: {
+            enabled: paystackEnabled,
+            mode: providerModes.paystackMode,
+          },
+          flutterwave: {
+            enabled: flutterwaveEnabled,
+            mode: providerModes.flutterwaveMode,
+          },
+        });
+        const yearly = await resolveSubscriptionPlanQuote({
+          role: planCard.role!,
+          tier: planCard.tier,
+          cadence: "yearly",
+          market,
+          stripe: {
+            enabled: stripeEnabled,
+            mode: stripeConfig.mode,
+            secretKey: stripeConfig.secretKey,
+          },
+          paystack: {
+            enabled: paystackEnabled,
+            mode: providerModes.paystackMode,
+          },
+          flutterwave: {
+            enabled: flutterwaveEnabled,
+            mode: providerModes.flutterwaveMode,
+          },
+        });
+        return [planCard.key, { monthly, yearly } satisfies SubscriptionPlanPricingSet] as const;
+      })
+  );
+  const pricingByPlanKey = Object.fromEntries(pricingEntries) as Record<string, SubscriptionPlanPricingSet>;
 
   const statusToken =
     billingSource === "stripe"
@@ -270,10 +317,7 @@ export default async function BillingPage() {
             billingSource={billingSource}
             stripeStatus={stripeStatus}
             stripePeriodEnd={stripePeriodEnd}
-            stripeEnabled={stripeEnabled}
-            paystackEnabled={paystackEnabled}
             paystackMode={providerModes.paystackMode}
-            flutterwaveEnabled={flutterwaveEnabled}
             flutterwaveMode={providerModes.flutterwaveMode}
             flutterwaveCheckoutVisible={flutterwaveCheckoutVisible}
             showManage={showManage}
@@ -281,6 +325,10 @@ export default async function BillingPage() {
             activeCount={usage.activeCount}
             maxListings={plan.maxListings}
             savedSearchCount={savedSearchCount ?? 0}
+            marketCountry={market.country}
+            marketCurrency={market.currency}
+            marketLabel={marketLabel}
+            pricingByPlanKey={pricingByPlanKey}
             requestUpgradeAction={requestUpgrade}
           />
         </>
