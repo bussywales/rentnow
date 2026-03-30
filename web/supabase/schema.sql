@@ -207,6 +207,48 @@ CREATE UNIQUE INDEX help_tutorials_audience_slug_unique ON public.help_tutorials
 CREATE INDEX help_tutorials_status_visibility_idx ON public.help_tutorials (status, visibility, updated_at DESC);
 CREATE INDEX help_tutorials_audience_status_idx ON public.help_tutorials (audience, status, updated_at DESC);
 
+-- SUBSCRIPTION PRICE BOOK
+CREATE TABLE public.subscription_price_book (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_area TEXT NOT NULL DEFAULT 'subscriptions',
+  role TEXT NOT NULL,
+  tier TEXT NOT NULL,
+  cadence TEXT NOT NULL,
+  market_country TEXT NOT NULL,
+  currency TEXT NOT NULL,
+  amount_minor INTEGER NOT NULL,
+  provider TEXT NOT NULL,
+  provider_price_ref TEXT,
+  active BOOLEAN NOT NULL DEFAULT true,
+  fallback_eligible BOOLEAN NOT NULL DEFAULT false,
+  effective_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ends_at TIMESTAMPTZ,
+  display_order INTEGER NOT NULL DEFAULT 0,
+  badge TEXT,
+  operator_notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by UUID REFERENCES public.profiles (id) ON DELETE SET NULL,
+  CONSTRAINT subscription_price_book_product_area_check CHECK (product_area = 'subscriptions'),
+  CONSTRAINT subscription_price_book_role_check CHECK (role IN ('tenant', 'landlord', 'agent')),
+  CONSTRAINT subscription_price_book_tier_check CHECK (tier IN ('free', 'starter', 'pro', 'tenant_pro')),
+  CONSTRAINT subscription_price_book_cadence_check CHECK (cadence IN ('monthly', 'yearly')),
+  CONSTRAINT subscription_price_book_country_check CHECK (market_country ~ '^[A-Z]{2}$'),
+  CONSTRAINT subscription_price_book_currency_check CHECK (currency ~ '^[A-Z]{3}$'),
+  CONSTRAINT subscription_price_book_provider_check CHECK (provider IN ('stripe', 'paystack', 'flutterwave')),
+  CONSTRAINT subscription_price_book_amount_check CHECK (amount_minor >= 0),
+  CONSTRAINT subscription_price_book_role_tier_check CHECK (
+    (role = 'tenant' AND tier IN ('free', 'tenant_pro'))
+    OR (role IN ('landlord', 'agent') AND tier IN ('free', 'starter', 'pro'))
+  )
+);
+
+CREATE UNIQUE INDEX subscription_price_book_active_current_unique
+  ON public.subscription_price_book (product_area, role, tier, cadence, market_country)
+  WHERE active = true AND ends_at IS NULL;
+CREATE INDEX subscription_price_book_market_idx ON public.subscription_price_book (market_country, role, cadence, active);
+CREATE INDEX subscription_price_book_provider_idx ON public.subscription_price_book (provider, active, fallback_eligible);
+
 -- PRODUCT UPDATE READS
 CREATE TABLE public.product_update_reads (
   user_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,

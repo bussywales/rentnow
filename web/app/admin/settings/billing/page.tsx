@@ -261,6 +261,9 @@ export default async function AdminBillingSettingsPage() {
           <Link href="/admin/billing" className="underline underline-offset-4">
             Back to Billing ops
           </Link>
+          <Link href="/admin/settings/billing/prices" className="underline underline-offset-4">
+            Subscription price matrix
+          </Link>
           <Link href="/admin" className="underline underline-offset-4">
             Admin home
           </Link>

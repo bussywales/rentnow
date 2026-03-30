@@ -253,6 +253,18 @@ CREATE POLICY "product updates delete admin" ON public.product_updates
   FOR DELETE
   USING (public.is_admin());
 
+-- subscription_price_book: admin-owned canonical subscription pricing truth
+DROP POLICY IF EXISTS "subscription price book admin read" ON public.subscription_price_book;
+CREATE POLICY "subscription price book admin read" ON public.subscription_price_book
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "subscription price book admin write" ON public.subscription_price_book;
+CREATE POLICY "subscription price book admin write" ON public.subscription_price_book
+  FOR ALL
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
 -- help_tutorials: public published help stays public; internal admin tutorials stay protected
 DROP POLICY IF EXISTS "help tutorials select" ON public.help_tutorials;
 CREATE POLICY "help tutorials select" ON public.help_tutorials
