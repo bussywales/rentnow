@@ -21,6 +21,17 @@ void test("subscription price book migration seeds official UK pricing truth", (
   assert.match(migration, /'GB',\s*'GBP',\s*38999,/);
 });
 
+void test("UK Stripe linkage migration stores the corrected live recurring price IDs", () => {
+  const migration = read("supabase/migrations/20260330174500_link_uk_subscription_price_refs.sql");
+
+  assert.match(migration, /price_1TGlYzPjtZ0fKtkBRTYNfytj/);
+  assert.match(migration, /price_1TGlZlPjtZ0fKtkB8WaYpy35/);
+  assert.match(migration, /price_1TGlc5PjtZ0fKtkB2ZUZqEBC/);
+  assert.match(migration, /price_1TGlcXPjtZ0fKtkBVvXmnte6/);
+  assert.match(migration, /price_1TGlacPjtZ0fKtkB598sPlfN/);
+  assert.match(migration, /price_1TGlb0PjtZ0fKtkBqgZX4RU1/);
+});
+
 void test("admin billing prices page is wired to the canonical matrix loader", () => {
   const source = read("app/admin/settings/billing/prices/page.tsx");
 

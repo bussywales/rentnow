@@ -8,7 +8,6 @@ import {
 
 process.env.STRIPE_PRICE_TENANT_TENANT_PRO_MONTHLY_NGN_LIVE = "price_tenant_ngn_monthly_live";
 process.env.STRIPE_PRICE_TENANT_TENANT_PRO_YEARLY_NGN_LIVE = "price_tenant_ngn_yearly_live";
-process.env.STRIPE_PRICE_TENANT_MONTHLY_LIVE = "price_tenant_gbp_monthly_live";
 
 void test("subscription pricing resolves exact market-aware Stripe quotes", async () => {
   const quote = await resolveSubscriptionPlanQuote({
@@ -101,9 +100,7 @@ void test("subscription pricing surfaces explicit unavailable state when no safe
   assert.match(quote.unavailableReason || "", /CAD/);
 });
 
-void test("canonical UK pricing can use a matching temporary legacy Stripe ref without changing canonical truth", async () => {
-  process.env.STRIPE_PRICE_TENANT_MONTHLY_LIVE = "price_tenant_gbp_monthly_live";
-
+void test("canonical UK pricing resolves through the linked Stripe recurring price", async () => {
   const quote = await resolveSubscriptionPlanQuote({
     role: "tenant",
     tier: "tenant_pro",
@@ -120,7 +117,7 @@ void test("canonical UK pricing can use a matching temporary legacy Stripe ref w
         currency: "GBP",
         amount_minor: 999,
         provider: "stripe",
-        provider_price_ref: null,
+        provider_price_ref: "price_1TGlYzPjtZ0fKtkBRTYNfytj",
         active: true,
         fallback_eligible: false,
         effective_at: "2026-03-30T00:00:00Z",
@@ -147,7 +144,7 @@ void test("canonical UK pricing can use a matching temporary legacy Stripe ref w
       mode: "test",
     },
     stripePriceLoader: async (_secretKey, priceId) => {
-      if (priceId === "price_tenant_gbp_monthly_live") {
+      if (priceId === "price_1TGlYzPjtZ0fKtkBRTYNfytj") {
         return { currency: "GBP", amountMinor: 999 };
       }
       return null;
@@ -159,30 +156,28 @@ void test("canonical UK pricing can use a matching temporary legacy Stripe ref w
   assert.equal(quote.provider, "stripe");
   assert.equal(quote.currency, "GBP");
   assert.equal(quote.amountMinor, 999);
-  assert.match(quote.resolutionKey || "", /LEGACY_REF/);
-  assert.equal(quote.priceId, "price_tenant_gbp_monthly_live");
+  assert.equal(quote.resolutionKey, "SUBSCRIPTION_PRICE_BOOK:uk-tenant-monthly");
+  assert.equal(quote.priceId, "price_1TGlYzPjtZ0fKtkBRTYNfytj");
 });
 
-void test("canonical UK pricing prefers a linked provider ref over legacy env refs", async () => {
-  process.env.STRIPE_PRICE_LANDLORD_MONTHLY_LIVE = "price_landlord_old_live";
-
+void test("canonical UK pricing uses the provided corrected agent yearly Stripe ref", async () => {
   const quote = await resolveSubscriptionPlanQuote({
-    role: "landlord",
+    role: "agent",
     tier: "pro",
-    cadence: "monthly",
+    cadence: "yearly",
     market: { country: "GB", currency: "GBP" },
     canonicalRows: [
       {
-        id: "uk-landlord-monthly",
+        id: "uk-agent-yearly",
         product_area: "subscriptions",
-        role: "landlord",
+        role: "agent",
         tier: "pro",
-        cadence: "monthly",
+        cadence: "yearly",
         market_country: "GB",
         currency: "GBP",
-        amount_minor: 1999,
+        amount_minor: 38999,
         provider: "stripe",
-        provider_price_ref: "price_landlord_canonical_live",
+        provider_price_ref: "price_1TGlb0PjtZ0fKtkBqgZX4RU1",
         active: true,
         fallback_eligible: false,
         effective_at: "2026-03-30T00:00:00Z",
@@ -209,11 +204,8 @@ void test("canonical UK pricing prefers a linked provider ref over legacy env re
       mode: "test",
     },
     stripePriceLoader: async (_secretKey, priceId) => {
-      if (priceId === "price_landlord_canonical_live") {
-        return { currency: "GBP", amountMinor: 1999 };
-      }
-      if (priceId === "price_landlord_old_live") {
-        return { currency: "GBP", amountMinor: 9999 };
+      if (priceId === "price_1TGlb0PjtZ0fKtkBqgZX4RU1") {
+        return { currency: "GBP", amountMinor: 38999 };
       }
       return null;
     },
@@ -221,13 +213,12 @@ void test("canonical UK pricing prefers a linked provider ref over legacy env re
 
   assert.equal(quote.status, "ready");
   assert.equal(quote.source, "canonical");
-  assert.equal(quote.priceId, "price_landlord_canonical_live");
-  assert.equal(quote.resolutionKey, "SUBSCRIPTION_PRICE_BOOK:uk-landlord-monthly");
+  assert.equal(quote.priceId, "price_1TGlb0PjtZ0fKtkBqgZX4RU1");
+  assert.equal(quote.amountMinor, 38999);
+  assert.equal(quote.resolutionKey, "SUBSCRIPTION_PRICE_BOOK:uk-agent-yearly");
 });
 
-void test("canonical UK pricing blocks stale Stripe refs when the linked or legacy price contradicts canonical truth", async () => {
-  process.env.STRIPE_PRICE_AGENT_MONTHLY_LIVE = "price_agent_gbp_monthly_live";
-
+void test("canonical UK pricing is unavailable when a canonical row is missing its linked provider ref", async () => {
   const quote = await resolveSubscriptionPlanQuote({
     role: "agent",
     tier: "pro",
@@ -270,8 +261,58 @@ void test("canonical UK pricing blocks stale Stripe refs when the linked or lega
       enabled: false,
       mode: "test",
     },
+  });
+
+  assert.equal(quote.status, "unavailable");
+  assert.equal(quote.source, "canonical");
+  assert.match(quote.unavailableReason || "", /missing a linked Stripe recurring price/);
+});
+
+void test("canonical UK pricing blocks linked Stripe refs when they contradict canonical truth", async () => {
+  const quote = await resolveSubscriptionPlanQuote({
+    role: "agent",
+    tier: "pro",
+    cadence: "monthly",
+    market: { country: "GB", currency: "GBP" },
+    canonicalRows: [
+      {
+        id: "uk-agent-monthly",
+        product_area: "subscriptions",
+        role: "agent",
+        tier: "pro",
+        cadence: "monthly",
+        market_country: "GB",
+        currency: "GBP",
+        amount_minor: 3999,
+        provider: "stripe",
+        provider_price_ref: "price_1TGlacPjtZ0fKtkB598sPlfN",
+        active: true,
+        fallback_eligible: false,
+        effective_at: "2026-03-30T00:00:00Z",
+        ends_at: null,
+        display_order: 30,
+        badge: null,
+        operator_notes: null,
+        created_at: "2026-03-30T00:00:00Z",
+        updated_at: "2026-03-30T00:00:00Z",
+        updated_by: null,
+      },
+    ],
+    stripe: {
+      enabled: true,
+      mode: "live",
+      secretKey: "sk_live_mock",
+    },
+    paystack: {
+      enabled: true,
+      mode: "live",
+    },
+    flutterwave: {
+      enabled: false,
+      mode: "test",
+    },
     stripePriceLoader: async (_secretKey, priceId) => {
-      if (priceId === "price_agent_gbp_monthly_live") {
+      if (priceId === "price_1TGlacPjtZ0fKtkB598sPlfN") {
         return { currency: "GBP", amountMinor: 4999 };
       }
       return null;

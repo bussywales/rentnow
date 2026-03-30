@@ -254,16 +254,8 @@ async function resolveCanonicalStripeQuote(
   }
 
   const canonicalPriceRef = row.provider_price_ref;
-  const legacySelection = resolveStripePriceSelection(
-    input.role,
-    input.tier,
-    input.cadence,
-    input.stripe.mode,
-    row.currency
-  );
-  const effectivePriceRef = canonicalPriceRef || legacySelection.priceId;
 
-  if (!effectivePriceRef) {
+  if (!canonicalPriceRef) {
     return buildUnavailableQuote(
       input,
       `Canonical UK subscription pricing is missing a linked Stripe recurring price for ${row.role} ${row.cadence}.`,
@@ -273,13 +265,13 @@ async function resolveCanonicalStripeQuote(
 
   const snapshot = await (input.stripePriceLoader || fetchStripePriceSnapshot)(
     input.stripe.secretKey,
-    effectivePriceRef
+    canonicalPriceRef
   );
 
   if (!snapshot) {
     return buildUnavailableQuote(
       input,
-      `Linked Stripe recurring price ${effectivePriceRef} could not be loaded for canonical UK pricing.`,
+      `Linked Stripe recurring price ${canonicalPriceRef} could not be loaded for canonical UK pricing.`,
       "canonical"
     );
   }
@@ -287,7 +279,7 @@ async function resolveCanonicalStripeQuote(
   if (snapshot.currency !== row.currency || snapshot.amountMinor !== row.amount_minor) {
     return buildUnavailableQuote(
       input,
-      `Linked Stripe recurring price ${effectivePriceRef} does not match canonical UK pricing (${formatCurrencyMinor(
+      `Linked Stripe recurring price ${canonicalPriceRef} does not match canonical UK pricing (${formatCurrencyMinor(
         row.currency,
         row.amount_minor,
         {
@@ -316,10 +308,8 @@ async function resolveCanonicalStripeQuote(
     fallbackApplied: false,
     fallbackMessage: null,
     unavailableReason: null,
-    resolutionKey: canonicalPriceRef
-      ? `SUBSCRIPTION_PRICE_BOOK:${row.id}`
-      : `SUBSCRIPTION_PRICE_BOOK:${row.id}:LEGACY_REF:${legacySelection.envKey || "unknown"}`,
-    priceId: effectivePriceRef,
+    resolutionKey: `SUBSCRIPTION_PRICE_BOOK:${row.id}`,
+    priceId: canonicalPriceRef,
   };
 }
 

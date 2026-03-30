@@ -119,7 +119,7 @@ void test("subscription price matrix marks aligned canonical rows cleanly", () =
         currency: "GBP",
         amount_minor: 999,
         provider: "stripe",
-        provider_price_ref: "price_tenant_monthly_live",
+        provider_price_ref: "price_1TGlYzPjtZ0fKtkBRTYNfytj",
         active: true,
         fallback_eligible: false,
         effective_at: "2026-03-30T00:00:00Z",
@@ -155,8 +155,8 @@ void test("subscription price matrix marks aligned canonical rows cleanly", () =
           fallbackApplied: false,
           fallbackMessage: null,
           unavailableReason: null,
-          resolutionKey: "STRIPE_PRICE_TENANT_MONTHLY",
-          priceId: "price_tenant_monthly_live",
+          resolutionKey: "SUBSCRIPTION_PRICE_BOOK:2",
+          priceId: "price_1TGlYzPjtZ0fKtkBRTYNfytj",
         },
       },
     ],
@@ -167,20 +167,20 @@ void test("subscription price matrix marks aligned canonical rows cleanly", () =
   assert.deepEqual(entry.diagnostics, []);
 });
 
-void test("subscription price matrix flags canonical runtime rows still using a temporary legacy provider ref bridge", () => {
+void test("subscription price matrix marks linked corrected UK rows as canonical and aligned", () => {
   const [entry] = buildSubscriptionPriceMatrixEntries({
     canonicalRows: [
       {
         id: "3",
         product_area: "subscriptions",
-        role: "tenant",
-        tier: "tenant_pro",
-        cadence: "monthly",
+        role: "agent",
+        tier: "pro",
+        cadence: "yearly",
         market_country: "GB",
         currency: "GBP",
-        amount_minor: 999,
+        amount_minor: 38999,
         provider: "stripe",
-        provider_price_ref: null,
+        provider_price_ref: "price_1TGlb0PjtZ0fKtkBqgZX4RU1",
         active: true,
         fallback_eligible: false,
         effective_at: "2026-03-30T00:00:00Z",
@@ -197,18 +197,18 @@ void test("subscription price matrix flags canonical runtime rows still using a 
       {
         marketCountry: "GB",
         marketCurrency: "GBP",
-        role: "tenant",
-        tier: "tenant_pro",
-        cadence: "monthly",
+        role: "agent",
+        tier: "pro",
+        cadence: "yearly",
         quote: {
           status: "ready",
           source: "canonical",
           provider: "stripe",
           providerMode: "live",
           currency: "GBP",
-          amountMinor: 999,
-          displayPrice: "£9.99",
-          cadence: "monthly",
+          amountMinor: 38999,
+          displayPrice: "£389.99",
+          cadence: "yearly",
           marketCountry: "GB",
           marketCurrency: "GBP",
           marketLabel: "United Kingdom (£)",
@@ -216,15 +216,15 @@ void test("subscription price matrix flags canonical runtime rows still using a 
           fallbackApplied: false,
           fallbackMessage: null,
           unavailableReason: null,
-          resolutionKey: "SUBSCRIPTION_PRICE_BOOK:3:LEGACY_REF:STRIPE_PRICE_TENANT_MONTHLY_LIVE",
-          priceId: "price_tenant_monthly_live",
+          resolutionKey: "SUBSCRIPTION_PRICE_BOOK:3",
+          priceId: "price_1TGlb0PjtZ0fKtkBqgZX4RU1",
         },
       },
     ],
   });
 
   assert.equal(entry.checkoutMatchesCanonical, true);
-  assert.equal(entry.missingProviderRef, true);
+  assert.equal(entry.missingProviderRef, false);
   assert.match(entry.diagnostics.join(" | "), /Canonical runtime/);
-  assert.match(entry.diagnostics.join(" | "), /Legacy provider ref fallback/);
+  assert.doesNotMatch(entry.diagnostics.join(" | "), /Missing provider ref/);
 });
