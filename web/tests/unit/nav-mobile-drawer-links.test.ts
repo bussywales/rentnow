@@ -63,6 +63,15 @@ void test("mobile drawer links are role-aware", () => {
     "tenant should see Trips link"
   );
   assert.ok(
+    tenantLinks.find((link) => link.href === "/tenant/billing"),
+    "tenant should see tenant billing link"
+  );
+  assert.equal(
+    tenantLinks.some((link) => link.href === "/dashboard/billing"),
+    false,
+    "tenant should not see host billing route"
+  );
+  assert.ok(
     tenantLinks.find((link) => link.href === "/requests/new"),
     "tenant should see Make a Request link"
   );
@@ -81,6 +90,15 @@ void test("mobile drawer links are role-aware", () => {
     false,
     "non-tenant roles should not inherit tenant request menu links"
   );
+  assert.ok(
+    userLinks.find((link) => link.href === "/dashboard/billing"),
+    "landlord should see dashboard billing link"
+  );
+  assert.equal(
+    userLinks.some((link) => link.href === "/tenant/billing"),
+    false,
+    "landlord should not see tenant billing route"
+  );
 });
 
 void test("mobile drawer groups include Help & Support, Company, and Legal sections", () => {
@@ -98,6 +116,7 @@ void test("mobile drawer groups include Help & Support, Company, and Legal secti
     mainGroup?.links.find((link) => link.href === "/agents")?.label,
     "Agents"
   );
+  assert.ok(mainGroup?.links.find((link) => link.href === "/tenant/billing"));
   assert.ok(mainGroup?.links.find((link) => link.href === "/requests/new"));
   assert.ok(mainGroup?.links.find((link) => link.href === "/requests/my"));
 
@@ -168,6 +187,7 @@ void test("tenant-only agents link is excluded from non-tenant main groups", () 
     role: "landlord",
   });
   const landlordMain = landlordGroups.find((group) => group.title === "Main");
+  assert.ok(landlordMain?.links.find((link) => link.href === "/dashboard/billing"));
   assert.equal(
     landlordMain?.links.some((link) => link.href === "/agents"),
     false
@@ -178,6 +198,10 @@ void test("tenant-only agents link is excluded from non-tenant main groups", () 
     role: "admin",
   });
   const adminMain = adminGroups.find((group) => group.title === "Main");
+  assert.equal(
+    adminMain?.links.some((link) => link.href === "/tenant/billing" || link.href === "/dashboard/billing"),
+    false
+  );
   assert.equal(
     adminMain?.links.some((link) => link.href === "/agents"),
     false

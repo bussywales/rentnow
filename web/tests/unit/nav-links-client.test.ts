@@ -22,6 +22,7 @@ test("host desktop nav keeps bookings, calendar, listings, and earnings", () => 
     links.map((link) => link.href),
     ["/host/bookings", "/host/calendar", "/host/listings", "/host/earnings"]
   );
+  assert.equal(links.some((link) => link.href === "/dashboard/billing"), false);
 });
 
 test("tenant desktop nav keeps shortlets, properties, trips, and saved", () => {
@@ -35,7 +36,12 @@ test("tenant desktop nav keeps shortlets, properties, trips, and saved", () => {
 test("tenant request links stay drawer-only and do not change desktop top nav", () => {
   const links = resolveDesktopTopNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "tenant" });
   assert.equal(
-    links.some((link) => link.href === "/requests/new" || link.href === "/requests/my"),
+    links.some(
+      (link) =>
+        link.href === "/requests/new" ||
+        link.href === "/requests/my" ||
+        link.href === "/tenant/billing"
+    ),
     false
   );
 });
@@ -54,11 +60,31 @@ test("resolveNavLinks still allows extended admin links for drawer contexts", ()
 test("non-admin roles do not see help tutorials in the main nav link set", () => {
   const tenantLinks = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "tenant" });
   const hostLinks = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "landlord" });
+  const agentLinks = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "agent" });
+  const adminLinks = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "admin" });
   const guestLinks = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: false, role: null });
 
   assert.equal(tenantLinks.some((link) => link.href === "/admin/help/tutorials"), false);
   assert.equal(hostLinks.some((link) => link.href === "/admin/help/tutorials"), false);
+  assert.equal(agentLinks.some((link) => link.href === "/admin/help/tutorials"), false);
+  assert.equal(adminLinks.some((link) => link.href === "/tenant/billing"), false);
+  assert.equal(adminLinks.some((link) => link.href === "/dashboard/billing"), false);
   assert.equal(guestLinks.some((link) => link.href === "/admin/help/tutorials"), false);
+});
+
+test("role-aware nav resolves the correct billing route per authenticated role", () => {
+  const tenantLinks = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "tenant" });
+  const landlordLinks = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "landlord" });
+  const agentLinks = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "agent" });
+
+  assert.ok(tenantLinks.find((link) => link.href === "/tenant/billing"));
+  assert.equal(tenantLinks.some((link) => link.href === "/dashboard/billing"), false);
+
+  assert.ok(landlordLinks.find((link) => link.href === "/dashboard/billing"));
+  assert.equal(landlordLinks.some((link) => link.href === "/tenant/billing"), false);
+
+  assert.ok(agentLinks.find((link) => link.href === "/dashboard/billing"));
+  assert.equal(agentLinks.some((link) => link.href === "/tenant/billing"), false);
 });
 
 test("host bookings nav badge appears when awaiting approvals exist", () => {

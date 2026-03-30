@@ -21,10 +21,12 @@ export const MAIN_NAV_LINKS: Array<{
 }> = [
   { href: "/properties", label: "Properties" },
   { href: "/shortlets", label: "Shortlets" },
+  { href: "/tenant/billing", label: "Billing", requireAuth: true, requireRole: "tenant" },
   { href: "/requests/new", label: "Make a Request", requireAuth: true, requireRole: "tenant" },
   { href: "/requests/my", label: "My Requests", requireAuth: true, requireRole: "tenant" },
   { href: "/tenant/saved", label: "Saved", requireAuth: true, requireRole: "tenant" },
   { href: "/trips", label: "Trips", requireAuth: true, requireRole: "tenant" },
+  { href: "/dashboard/billing", label: "Billing", requireAuth: true, denyRoles: ["tenant", "admin"] },
   { href: "/host/calendar", label: "Calendar", requireAuth: true, denyRoles: ["tenant", "admin"] },
   { href: "/host/listings", label: "Listings", requireAuth: true, denyRoles: ["tenant", "admin"] },
   { href: "/favourites", label: "Collections", requireAuth: true, denyRoles: ["tenant"] },
