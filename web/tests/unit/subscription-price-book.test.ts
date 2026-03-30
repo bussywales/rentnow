@@ -38,6 +38,7 @@ void test("subscription price matrix flags UK canonical checkout mismatches with
         cadence: "yearly",
         quote: {
           status: "ready",
+          source: "legacy",
           provider: "stripe",
           providerMode: "live",
           currency: "GBP",
@@ -77,6 +78,7 @@ void test("subscription price matrix surfaces market gaps and runtime fallback s
         cadence: "monthly",
         quote: {
           status: "ready",
+          source: "legacy",
           provider: "stripe",
           providerMode: "live",
           currency: "GBP",
@@ -139,6 +141,7 @@ void test("subscription price matrix marks aligned canonical rows cleanly", () =
         cadence: "monthly",
         quote: {
           status: "ready",
+          source: "legacy",
           provider: "stripe",
           providerMode: "live",
           currency: "GBP",
@@ -162,4 +165,66 @@ void test("subscription price matrix marks aligned canonical rows cleanly", () =
   assert.equal(entry.checkoutMatchesCanonical, true);
   assert.equal(entry.missingProviderRef, false);
   assert.deepEqual(entry.diagnostics, []);
+});
+
+void test("subscription price matrix flags canonical runtime rows still using a temporary legacy provider ref bridge", () => {
+  const [entry] = buildSubscriptionPriceMatrixEntries({
+    canonicalRows: [
+      {
+        id: "3",
+        product_area: "subscriptions",
+        role: "tenant",
+        tier: "tenant_pro",
+        cadence: "monthly",
+        market_country: "GB",
+        currency: "GBP",
+        amount_minor: 999,
+        provider: "stripe",
+        provider_price_ref: null,
+        active: true,
+        fallback_eligible: false,
+        effective_at: "2026-03-30T00:00:00Z",
+        ends_at: null,
+        display_order: 10,
+        badge: null,
+        operator_notes: null,
+        created_at: "2026-03-30T00:00:00Z",
+        updated_at: "2026-03-30T00:00:00Z",
+        updated_by: null,
+      },
+    ],
+    runtimeQuotes: [
+      {
+        marketCountry: "GB",
+        marketCurrency: "GBP",
+        role: "tenant",
+        tier: "tenant_pro",
+        cadence: "monthly",
+        quote: {
+          status: "ready",
+          source: "canonical",
+          provider: "stripe",
+          providerMode: "live",
+          currency: "GBP",
+          amountMinor: 999,
+          displayPrice: "£9.99",
+          cadence: "monthly",
+          marketCountry: "GB",
+          marketCurrency: "GBP",
+          marketLabel: "United Kingdom (£)",
+          marketAligned: true,
+          fallbackApplied: false,
+          fallbackMessage: null,
+          unavailableReason: null,
+          resolutionKey: "SUBSCRIPTION_PRICE_BOOK:3:LEGACY_REF:STRIPE_PRICE_TENANT_MONTHLY_LIVE",
+          priceId: "price_tenant_monthly_live",
+        },
+      },
+    ],
+  });
+
+  assert.equal(entry.checkoutMatchesCanonical, true);
+  assert.equal(entry.missingProviderRef, true);
+  assert.match(entry.diagnostics.join(" | "), /Canonical runtime/);
+  assert.match(entry.diagnostics.join(" | "), /Legacy provider ref fallback/);
 });

@@ -3,6 +3,7 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { getProviderModes } from "@/lib/billing/provider-settings";
 import { getStripeConfigForMode } from "@/lib/billing/stripe";
 import { resolveSubscriptionPlanQuote } from "@/lib/billing/subscription-pricing";
+import { loadSubscriptionPriceBookRows } from "@/lib/billing/subscription-price-book.repository";
 import {
   buildSubscriptionPriceMatrixEntries,
   getSubscriptionTierForRole,
@@ -85,19 +86,9 @@ async function createAdminMatrixClient() {
 
 async function loadCanonicalRows() {
   const client = await createAdminMatrixClient();
-  if (!client) return { rows: [] as SubscriptionPriceBookRow[], profileMap: new Map<string, string>() };
+  const rows = await loadSubscriptionPriceBookRows();
+  if (!client) return { rows, profileMap: new Map<string, string>() };
 
-  const { data } = await client
-    .from("subscription_price_book")
-    .select(
-      "id,product_area,role,tier,cadence,market_country,currency,amount_minor,provider,provider_price_ref,active,fallback_eligible,effective_at,ends_at,display_order,badge,operator_notes,created_at,updated_at,updated_by"
-    )
-    .order("market_country", { ascending: true })
-    .order("display_order", { ascending: true })
-    .order("cadence", { ascending: true })
-    .order("effective_at", { ascending: false });
-
-  const rows = ((data ?? []) as SubscriptionPriceBookRow[]).filter(Boolean);
   const updatedByIds = Array.from(new Set(rows.map((row) => row.updated_by).filter(Boolean))) as string[];
   if (!updatedByIds.length) {
     return { rows, profileMap: new Map<string, string>() };
@@ -115,7 +106,7 @@ async function loadCanonicalRows() {
   return { rows, profileMap };
 }
 
-async function loadRuntimeQuotes(): Promise<SubscriptionPriceBookRuntimeQuote[]> {
+async function loadRuntimeQuotes(canonicalRows: SubscriptionPriceBookRow[]): Promise<SubscriptionPriceBookRuntimeQuote[]> {
   const { stripeMode, paystackMode, flutterwaveMode } = await getProviderModes();
   const stripeConfig = getStripeConfigForMode(stripeMode);
   const quotes = await Promise.all(
@@ -132,6 +123,7 @@ async function loadRuntimeQuotes(): Promise<SubscriptionPriceBookRuntimeQuote[]>
             tier: getSubscriptionTierForRole(role),
             cadence,
             market: { country: market.country, currency: market.currency },
+            canonicalRows,
             stripe: {
               enabled: !!stripeConfig.secretKey,
               mode: stripeConfig.mode,
@@ -155,11 +147,8 @@ async function loadRuntimeQuotes(): Promise<SubscriptionPriceBookRuntimeQuote[]>
 }
 
 export async function loadAdminSubscriptionPriceMatrix(filters: AdminSubscriptionPriceMatrixFilters) {
-  const [{ rows, profileMap }, runtimeQuotes, providerModes] = await Promise.all([
-    loadCanonicalRows(),
-    loadRuntimeQuotes(),
-    getProviderModes(),
-  ]);
+  const [{ rows, profileMap }, providerModes] = await Promise.all([loadCanonicalRows(), getProviderModes()]);
+  const runtimeQuotes = await loadRuntimeQuotes(rows);
 
   const entries = buildSubscriptionPriceMatrixEntries({
     canonicalRows: rows,

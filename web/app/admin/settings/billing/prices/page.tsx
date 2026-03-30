@@ -214,7 +214,9 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
                     </td>
                     <td className="px-4 py-3 align-top text-slate-700">
                       <div className="font-semibold text-slate-900">{entry.runtimeQuote.displayPrice}</div>
-                      <div className="text-xs text-slate-500">{entry.runtimeQuote.provider || "Unavailable"}</div>
+                      <div className="text-xs text-slate-500">
+                        {entry.runtimeQuote.provider || "Unavailable"} · {entry.runtimeSource}
+                      </div>
                       {entry.runtimeQuote.resolutionKey ? <div className="mt-1 text-[11px] text-slate-500">{entry.runtimeQuote.resolutionKey}</div> : null}
                       {entry.runtimeQuote.priceId ? <div className="mt-1 text-[11px] text-slate-500">{entry.runtimeQuote.priceId}</div> : null}
                     </td>

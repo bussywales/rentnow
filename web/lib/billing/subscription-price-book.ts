@@ -59,6 +59,7 @@ export type SubscriptionPriceMatrixEntry = {
   canonicalUpdatedAt: string | null;
   canonicalUpdatedBy: string | null;
   runtimeQuote: SubscriptionPlanPricingView;
+  runtimeSource: SubscriptionPlanPricingView["source"];
   checkoutMatchesCanonical: boolean;
   missingProviderRef: boolean;
   marketGap: boolean;
@@ -169,6 +170,15 @@ export function buildSubscriptionPriceMatrixEntries(input: {
 
     const diagnostics: string[] = [];
     if (marketGap) diagnostics.push("Market gap");
+    if (runtime.quote.source === "canonical") diagnostics.push("Canonical runtime");
+    if (
+      canonicalRow &&
+      !canonicalRow.provider_price_ref &&
+      runtime.quote.status === "ready" &&
+      runtime.quote.source === "canonical"
+    ) {
+      diagnostics.push("Legacy provider ref fallback");
+    }
     if (runtime.quote.fallbackApplied) diagnostics.push("Runtime fallback");
     if (missingProviderRef) diagnostics.push("Missing provider ref");
     if (canonicalRow && !checkoutMatchesCanonical) diagnostics.push("Checkout mismatch");
@@ -195,6 +205,7 @@ export function buildSubscriptionPriceMatrixEntries(input: {
       canonicalUpdatedAt: canonicalRow?.updated_at || null,
       canonicalUpdatedBy: canonicalRow?.updated_by || null,
       runtimeQuote: runtime.quote,
+      runtimeSource: runtime.quote.source,
       checkoutMatchesCanonical,
       missingProviderRef,
       marketGap,

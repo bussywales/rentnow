@@ -9,6 +9,7 @@ import { logFailure, logStripeCheckoutStarted } from "@/lib/observability";
 import { getMarketSettings } from "@/lib/market/market.server";
 import { resolveMarketFromRequest } from "@/lib/market/market";
 import { resolveSubscriptionPlanQuote } from "@/lib/billing/subscription-pricing";
+import { loadSubscriptionPriceBookRows } from "@/lib/billing/subscription-price-book.repository";
 
 const routeLabel = "/api/billing/stripe/checkout";
 
@@ -67,11 +68,13 @@ export async function POST(request: Request) {
     headers: request.headers,
     appSettings: await getMarketSettings(),
   });
+  const canonicalRows = await loadSubscriptionPriceBookRows();
   const resolvedQuote = await resolveSubscriptionPlanQuote({
     role: billingRole,
     tier: payload.tier,
     cadence: payload.cadence,
     market,
+    canonicalRows,
     stripe: {
       enabled: true,
       mode: stripeConfig.mode,

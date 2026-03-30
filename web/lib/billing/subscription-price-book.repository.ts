@@ -1,0 +1,28 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import type { SubscriptionPriceBookRow } from "@/lib/billing/subscription-price-book";
+
+export const SUBSCRIPTION_PRICE_BOOK_SELECT =
+  "id,product_area,role,tier,cadence,market_country,currency,amount_minor,provider,provider_price_ref,active,fallback_eligible,effective_at,ends_at,display_order,badge,operator_notes,created_at,updated_at,updated_by";
+
+async function createPriceBookClient(): Promise<SupabaseClient | null> {
+  if (hasServiceRoleEnv()) return createServiceRoleClient();
+  if (hasServerSupabaseEnv()) return createServerSupabaseClient();
+  return null;
+}
+
+export async function loadSubscriptionPriceBookRows() {
+  const client = await createPriceBookClient();
+  if (!client) return [] as SubscriptionPriceBookRow[];
+
+  const { data } = await client
+    .from("subscription_price_book")
+    .select(SUBSCRIPTION_PRICE_BOOK_SELECT)
+    .order("market_country", { ascending: true })
+    .order("display_order", { ascending: true })
+    .order("cadence", { ascending: true })
+    .order("effective_at", { ascending: false });
+
+  return ((data ?? []) as SubscriptionPriceBookRow[]).filter(Boolean);
+}

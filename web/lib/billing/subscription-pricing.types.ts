@@ -4,6 +4,7 @@ export type SubscriptionCheckoutProvider = "stripe" | "paystack" | "flutterwave"
 
 export type SubscriptionPlanPricingView = {
   status: "ready" | "unavailable";
+  source: "canonical" | "legacy";
   provider: SubscriptionCheckoutProvider | null;
   providerMode: string | null;
   currency: string | null;

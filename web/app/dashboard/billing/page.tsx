@@ -23,6 +23,7 @@ import { getMarketSettings } from "@/lib/market/market.server";
 import { MARKET_COOKIE_NAME, resolveMarketFromRequest, formatMarketLabel } from "@/lib/market/market";
 import { SUBSCRIPTION_PLAN_CARDS } from "@/lib/billing/subscription-plan-cards";
 import { resolveSubscriptionPlanQuote } from "@/lib/billing/subscription-pricing";
+import { loadSubscriptionPriceBookRows } from "@/lib/billing/subscription-price-book.repository";
 import type { SubscriptionPlanPricingSet } from "@/lib/billing/subscription-pricing.types";
 
 export const dynamic = "force-dynamic";
@@ -152,6 +153,7 @@ export default async function BillingPage() {
   const stripeConfig = getStripeConfigForMode(providerModes.stripeMode);
   const paystackConfig = await getPaystackConfig(providerModes.paystackMode);
   const flutterwaveConfig = await getFlutterwaveConfig(providerModes.flutterwaveMode);
+  const canonicalRows = await loadSubscriptionPriceBookRows();
   const requestHeaders = await headers();
   const requestCookies = await cookies();
   const marketSettings = await getMarketSettings(supabase);
@@ -177,6 +179,7 @@ export default async function BillingPage() {
           tier: planCard.tier,
           cadence: "monthly",
           market,
+          canonicalRows,
           stripe: {
             enabled: stripeEnabled,
             mode: stripeConfig.mode,
@@ -196,6 +199,7 @@ export default async function BillingPage() {
           tier: planCard.tier,
           cadence: "yearly",
           market,
+          canonicalRows,
           stripe: {
             enabled: stripeEnabled,
             mode: stripeConfig.mode,
