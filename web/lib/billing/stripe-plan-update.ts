@@ -5,6 +5,7 @@ export type StripePlanUpdateInput = {
   status: string | null;
   currentPeriodEnd: string | null;
   allowImmediateDowngrade?: boolean;
+  ignoreManualOverride?: boolean;
 };
 
 export type ExistingPlanSnapshot = {
@@ -24,7 +25,7 @@ export function computeStripePlanUpdate(
   input: StripePlanUpdateInput,
   existingPlan?: ExistingPlanSnapshot | null
 ): StripePlanUpdateDecision {
-  if (existingPlan?.billing_source === "manual") {
+  if (!input.ignoreManualOverride && existingPlan?.billing_source === "manual") {
     return {
       planTier: normalizePlanTier(existingPlan.plan_tier),
       validUntil: existingPlan.valid_until ?? null,

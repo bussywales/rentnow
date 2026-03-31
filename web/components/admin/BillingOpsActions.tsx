@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 
 const planOptions = ["free", "starter", "pro", "tenant_pro"] as const;
@@ -29,6 +30,7 @@ export function BillingOpsActions({
   billingNotes,
   billingNotesUpdatedAt,
 }: Props) {
+  const router = useRouter();
   const [planTier, setPlanTier] = useState(currentPlan);
   const [validUntilValue, setValidUntilValue] = useState(toDateInput(validUntil));
   const [actionStatus, setActionStatus] = useState<Status>("idle");
@@ -54,6 +56,7 @@ export function BillingOpsActions({
     }
     setActionStatus("done");
     setActionMessage(message);
+    router.refresh();
   };
 
   const extendValidUntil = async () => {
@@ -107,6 +110,26 @@ export function BillingOpsActions({
     );
   };
 
+  const returnToProviderBilling = async () => {
+    const ok = confirm(
+      "Clear the manual override and restore provider-owned billing from Stripe for this account?"
+    );
+    if (!ok) return;
+    if (!actionReason.trim()) {
+      setActionStatus("error");
+      setActionMessage("Reason is required to return billing to the provider.");
+      return;
+    }
+    await runAction(
+      {
+        action: "return_to_provider_billing",
+        profileId,
+        reason: actionReason.trim(),
+      },
+      "Manual override cleared. Billing was restored from Stripe."
+    );
+  };
+
   const saveNotes = async () => {
     setNoteStatus("loading");
     setNoteMessage(null);
@@ -148,7 +171,23 @@ export function BillingOpsActions({
         >
           Expire now
         </Button>
+        {billingSource === "manual" && (
+          <Button
+            size="sm"
+            variant="secondary"
+            type="button"
+            onClick={returnToProviderBilling}
+            disabled={actionStatus === "loading"}
+          >
+            Return to Stripe billing
+          </Button>
+        )}
       </div>
+      {billingSource === "manual" && (
+        <p className="mt-2 text-xs text-slate-500">
+          Use this when a paid Stripe account is still masked by a manual support override.
+        </p>
+      )}
 
       <div className="mt-4">
         <label className="text-xs font-semibold text-slate-700">

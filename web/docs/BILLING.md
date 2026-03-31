@@ -173,6 +173,8 @@ Optional:
 - Stripe webhooks sync plan tier and `valid_until` only when `billing_source = stripe`.
 - Admins can still apply manual overrides at any time; manual overrides always win.
 - If you want manual control to persist, set `billing_source = manual` and cancel the Stripe subscription.
+- To return an already-paid account from manual support mode back to provider-owned billing, use `Return to Stripe billing` in admin billing ops.
+- That action clears the manual mask, re-fetches the stored Stripe subscription, restores `billing_source = stripe`, and keeps Stripe history intact.
 
 ## Ops checklist
 1) Set Stripe env vars in Vercel.
@@ -198,6 +200,7 @@ Optional:
   - Extend valid_until by 30 days for courtesy extensions.
   - Set plan tier to apply an immediate manual upgrade/downgrade.
   - Expire now to revoke access immediately.
+  - Return to Stripe billing to clear the override and re-sync from existing Stripe truth without another payment.
 - Update billing notes for internal tracking (admin-only).
 - Review upgrade requests and approve/reject with a reason.
 - Check Stripe webhook events for processed/ignored/failed outcomes and reasons.

@@ -43,6 +43,17 @@ type PlanOverrideLogInput = {
   validUntil?: string | null;
 };
 
+type BillingSourceRestoreLogInput = {
+  request?: Request;
+  route: string;
+  actorId: string;
+  profileId: string;
+  previousBillingSource?: string | null;
+  restoredBillingSource: string;
+  planTier: string;
+  stripeSubscriptionId?: string | null;
+};
+
 type UpgradeRequestLogInput = {
   request?: Request;
   route: string;
@@ -303,6 +314,32 @@ export function logPlanOverride({
     billingSource: billingSource || "manual",
     validUntil,
     source: "manual",
+  };
+
+  console.log(JSON.stringify(payload));
+}
+
+export function logBillingSourceRestored({
+  request,
+  route,
+  actorId,
+  profileId,
+  previousBillingSource,
+  restoredBillingSource,
+  planTier,
+  stripeSubscriptionId,
+}: BillingSourceRestoreLogInput) {
+  const payload = {
+    level: "info",
+    event: "billing_source_restored",
+    route,
+    requestId: getRequestId(request),
+    actorId,
+    profileId,
+    previousBillingSource: previousBillingSource || "manual",
+    restoredBillingSource,
+    planTier,
+    stripeSubscriptionId,
   };
 
   console.log(JSON.stringify(payload));

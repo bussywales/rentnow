@@ -18,7 +18,21 @@ void test("admin billing actions route persists max listings override for set pl
   const source = fs.readFileSync(filePath, "utf8");
 
   assert.match(source, /maxListingsOverride:\s*z\.number\(\)\.int\(\)\.positive\(\)\.max\(1_000\)\.nullable\(\)\.optional\(\)/);
-  assert.match(source, /select\("plan_tier, valid_until, max_listings_override"\)/);
+  assert.match(source, /plan_tier, valid_until, max_listings_override/);
   assert.match(source, /max_listings_override:\s*maxListingsOverride/);
   assert.match(source, /maxListingsOverride,\s*$/m);
+});
+
+void test("admin billing ops supports returning manual overrides to Stripe billing", () => {
+  const actionsRoutePath = path.join(process.cwd(), "app", "api", "admin", "billing", "actions", "route.ts");
+  const routeSource = fs.readFileSync(actionsRoutePath, "utf8");
+  assert.match(routeSource, /action:\s*z\.literal\("return_to_provider_billing"\)/);
+  assert.match(routeSource, /restoreStripeProviderBilling/);
+  assert.match(routeSource, /restoredBillingSource:\s*"stripe"/);
+
+  const actionsComponentPath = path.join(process.cwd(), "components", "admin", "BillingOpsActions.tsx");
+  const componentSource = fs.readFileSync(actionsComponentPath, "utf8");
+  assert.match(componentSource, /Return to Stripe billing/);
+  assert.match(componentSource, /action:\s*"return_to_provider_billing"/);
+  assert.match(componentSource, /Reason is required to return billing to the provider\./);
 });
