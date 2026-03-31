@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { AdminUserActions } from "@/components/admin/AdminUserActions";
 import { AdminUserBadge } from "@/components/admin/AdminUserBadge";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/components/ui/cn";
+import { buildAdminBillingLookupHref } from "@/lib/billing/admin-billing-lookup";
 import { isPlanExpired, normalizePlanTier, resolveEffectivePlanTier } from "@/lib/plans";
 import { formatRoleLabel, formatRoleStatus } from "@/lib/roles";
 import { getAdminUserStatus, type AdminUserRow } from "@/lib/admin/admin-users";
@@ -80,6 +82,10 @@ export function AdminUserDrawer({
   const roleLabel = formatRoleLabel(user.role ?? null);
   const roleStatus = formatRoleStatus(user.role ?? null, user.onboardingCompleted);
   const planExpired = isPlanExpired(user.validUntil ?? null);
+  const billingLookupHref = buildAdminBillingLookupHref({
+    profileId: user.id,
+    email: user.email ?? null,
+  });
 
   return (
     <div
@@ -164,6 +170,14 @@ export function AdminUserDrawer({
                   Previous override: {planLabelMap[rawPlan]}. Current access has fallen back to Free.
                 </p>
               ) : null}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  href={billingLookupHref}
+                  className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                >
+                  Open billing recovery
+                </Link>
+              </div>
             </div>
 
             <div className="mt-6">

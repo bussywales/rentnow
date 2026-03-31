@@ -5,6 +5,10 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { UpgradeRequestsQueue } from "@/components/admin/UpgradeRequestsQueue";
 import { BillingOpsActions } from "@/components/admin/BillingOpsActions";
 import { PaymentModeBadge } from "@/components/billing/PaymentModeBadge";
+import {
+  buildAdminBillingLookupHref,
+  resolveAdminBillingLookupIdentity,
+} from "@/lib/billing/admin-billing-lookup";
 import { buildBillingSnapshot, type BillingSnapshot } from "@/lib/billing/snapshot";
 import { SupportSnapshotCopy } from "@/components/admin/SupportSnapshotCopy";
 import { buildSupportSnapshot } from "@/lib/billing/support-snapshot";
@@ -146,28 +150,21 @@ async function loadBillingSnapshot({
   }
 
   const adminClient = createServiceRoleClient();
-  let userId = profileId ?? null;
+  let userId: string | null = null;
   let userEmail: string | null = null;
   let userFullName: string | null = null;
   let userRole: string | null = null;
 
-  if (email) {
-    const { data: users, error } = await adminClient.auth.admin.listUsers({ perPage: 200 });
-    if (error) {
-      return { snapshot: null, error: error.message };
-    }
-
-    const user = (users?.users || []).find((candidate) => candidate.email?.toLowerCase() === email.toLowerCase());
-    if (!user) {
-      return { snapshot: null, error: "User not found." };
-    }
-    userId = user.id;
-    userEmail = user.email ?? null;
+  const identity = await resolveAdminBillingLookupIdentity({
+    adminClient,
+    email,
+    profileId,
+  });
+  if (!identity.ok) {
+    return { snapshot: null, error: identity.error };
   }
-
-  if (!userId) {
-    return { snapshot: null, error: "Provide an email or profile ID." };
-  }
+  userId = identity.profileId;
+  userEmail = identity.email;
 
   if (!isValidUuid(userId)) {
     return { snapshot: null, error: "Profile ID must be a valid UUID." };
@@ -180,11 +177,6 @@ async function loadBillingSnapshot({
     .maybeSingle();
   userFullName = (profile as { full_name?: string | null } | null)?.full_name ?? null;
   userRole = (profile as { role?: string | null } | null)?.role ?? null;
-
-  if (!userEmail) {
-    const { data: users } = await adminClient.auth.admin.listUsers({ perPage: 200 });
-    userEmail = (users?.users || []).find((candidate) => candidate.id === userId)?.email ?? null;
-  }
 
   const { data: plan } = await adminClient
     .from("profile_plans")
@@ -698,12 +690,8 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
     params.set("triage", value);
     return `/admin/billing?${params.toString()}#support-queue`;
   };
-  const lookupHref = (profileId: string) => {
-    const params = new URLSearchParams(triageParams);
-    params.set("profileId", profileId);
-    params.delete("email");
-    return `/admin/billing?${params.toString()}`;
-  };
+  const lookupHref = (profileId: string, lookupEmail?: string | null) =>
+    buildAdminBillingLookupHref({ profileId, email: lookupEmail });
   const eventParams = new URLSearchParams();
   if (email) eventParams.set("email", email);
   if (profileIdParam) eventParams.set("profileId", profileIdParam);
@@ -1069,7 +1057,7 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
                   )}
                 </div>
                 <Link
-                  href={lookupHref(account.profile_id)}
+                  href={lookupHref(account.profile_id, account.email)}
                   className="text-xs font-semibold text-slate-900 underline underline-offset-4"
                 >
                   Open lookup
