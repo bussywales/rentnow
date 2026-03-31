@@ -35,13 +35,21 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   const eventId = body?.event_id;
+  const reason = typeof body?.reason === "string" ? body.reason.trim() : "";
   if (!eventId || typeof eventId !== "string") {
     return NextResponse.json({ error: "event_id is required" }, { status: 400 });
+  }
+  if (!reason) {
+    return NextResponse.json({ error: "reason is required" }, { status: 400 });
   }
 
   const adminClient = createServiceRoleClient();
   const adminDb = adminClient as unknown as {
     from: (table: string) => {
+      upsert: (
+        values: Record<string, unknown>,
+        options?: { onConflict?: string }
+      ) => Promise<{ error: { message?: string } | null }>;
       update: (values: Record<string, unknown>) => {
         eq: (column: string, value: string) => Promise<{ error: { message?: string } | null }>;
       };
@@ -140,6 +148,29 @@ export async function POST(request: Request) {
       replay_count: ((eventRow as StripeEventRow).replay_count ?? 0) + 1,
     })
     .eq("event_id", eventId);
+
+  const noteProfileId = outcome.profileId ?? null;
+  if (noteProfileId) {
+    const { data: existing } = await adminClient
+      .from("profile_billing_notes")
+      .select("billing_notes")
+      .eq("profile_id", noteProfileId)
+      .maybeSingle();
+    const existingNotes = (existing as { billing_notes?: string | null } | null)?.billing_notes ?? "";
+    const stamp = new Date().toISOString();
+    const noteLine = `[${stamp}] Support action: stripe_replay. Reason: ${reason}. event_id=${eventId}. outcome=${outcome.status}${outcome.reason ? `. reason_code=${outcome.reason}` : ""}`;
+    await adminDb
+      .from("profile_billing_notes")
+      .upsert(
+        {
+          profile_id: noteProfileId,
+          billing_notes: existingNotes ? `${existingNotes}\n${noteLine}` : noteLine,
+          updated_at: stamp,
+          updated_by: auth.user.id,
+        },
+        { onConflict: "profile_id" }
+      );
+  }
 
   logStripeReplayAttempt({
     route: routeLabel,

@@ -42,6 +42,10 @@ void test("buildBillingSnapshot normalizes plan and masks Stripe fields", () => 
   assert.equal(snapshot.planTier, "pro");
   assert.equal(snapshot.effectivePlanTier, "pro");
   assert.equal(snapshot.billingSource, "stripe");
+  assert.equal(snapshot.manualOverrideActive, false);
+  assert.equal(snapshot.stripeCustomerIdPresent, true);
+  assert.equal(snapshot.stripeSubscriptionIdPresent, true);
+  assert.equal(snapshot.stripePriceIdPresent, true);
   assert.equal(snapshot.stripeCustomerId, "cus_12...7890");
   assert.equal(snapshot.stripeSubscriptionId, "sub_12...7890");
   assert.equal(snapshot.stripePriceId, "price_...7890");
@@ -78,6 +82,7 @@ void test("expired tenant overrides resolve to free entitlements", () => {
   assert.equal(snapshot.planTier, "tenant_pro");
   assert.equal(snapshot.effectivePlanTier, "free");
   assert.equal(snapshot.isExpired, true);
+  assert.equal(snapshot.manualOverrideActive, true);
 });
 
 void test("validateUpgradeRequestAction enforces admin role and reject reason", () => {
@@ -137,6 +142,7 @@ void test("buildSupportSnapshot masks ids and includes recent events", () => {
         event_id: "evt_1234567890",
         stripe_customer_id: "cus_1234567890",
         stripe_subscription_id: "sub_1234567890",
+        stripe_price_id: "price_1234567890",
       },
     ],
   });
@@ -145,4 +151,5 @@ void test("buildSupportSnapshot masks ids and includes recent events", () => {
   assert.equal(supportSnapshot.open_upgrade_requests, 2);
   assert.equal(supportSnapshot.recent_events.length, 1);
   assert.equal(supportSnapshot.recent_events[0].event_id, "evt_12...7890");
+  assert.equal(supportSnapshot.recent_events[0].stripe_price_id, "price_...7890");
 });

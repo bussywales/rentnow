@@ -8,11 +8,21 @@ const planOptions = ["free", "starter", "pro", "tenant_pro"] as const;
 
 type Props = {
   profileId: string;
+  email: string | null;
   currentPlan: string;
   billingSource: string;
   validUntil: string | null;
   billingNotes: string | null;
   billingNotesUpdatedAt: string | null;
+  canReturnToProviderBilling: boolean;
+  returnToProviderBillingHint: string | null;
+  replayableEvents: Array<{
+    eventId: string;
+    eventType: string;
+    status: string | null;
+    reason: string | null;
+    createdAt: string | null;
+  }>;
 };
 
 type Status = "idle" | "loading" | "done" | "error";
@@ -24,11 +34,15 @@ function toDateInput(value: string | null) {
 
 export function BillingOpsActions({
   profileId,
+  email,
   currentPlan,
   billingSource,
   validUntil,
   billingNotes,
   billingNotesUpdatedAt,
+  canReturnToProviderBilling,
+  returnToProviderBillingHint,
+  replayableEvents,
 }: Props) {
   const router = useRouter();
   const [planTier, setPlanTier] = useState(currentPlan);
@@ -39,6 +53,7 @@ export function BillingOpsActions({
   const [noteStatus, setNoteStatus] = useState<Status>("idle");
   const [noteMessage, setNoteMessage] = useState<string | null>(null);
   const [actionReason, setActionReason] = useState("");
+  const [selectedReplayEventId, setSelectedReplayEventId] = useState(replayableEvents[0]?.eventId ?? "");
 
   const runAction = async (body: Record<string, unknown>, message: string) => {
     setActionStatus("loading");
@@ -56,6 +71,12 @@ export function BillingOpsActions({
     }
     setActionStatus("done");
     setActionMessage(message);
+    router.refresh();
+  };
+
+  const refreshSnapshot = () => {
+    setActionStatus("idle");
+    setActionMessage("Billing snapshot refreshed.");
     router.refresh();
   };
 
@@ -115,6 +136,11 @@ export function BillingOpsActions({
       "Clear the manual override and restore provider-owned billing from Stripe for this account?"
     );
     if (!ok) return;
+    if (!canReturnToProviderBilling) {
+      setActionStatus("error");
+      setActionMessage(returnToProviderBillingHint || "No recoverable Stripe provider state was found.");
+      return;
+    }
     if (!actionReason.trim()) {
       setActionStatus("error");
       setActionMessage("Reason is required to return billing to the provider.");
@@ -128,6 +154,45 @@ export function BillingOpsActions({
       },
       "Manual override cleared. Billing was restored from Stripe."
     );
+  };
+
+  const replayStripeEvent = async () => {
+    if (!selectedReplayEventId) {
+      setActionStatus("error");
+      setActionMessage("Select a replay-eligible Stripe event first.");
+      return;
+    }
+    if (!actionReason.trim()) {
+      setActionStatus("error");
+      setActionMessage("Reason is required to replay a Stripe event.");
+      return;
+    }
+    const ok = confirm("Replay the selected Stripe webhook event for this account?");
+    if (!ok) return;
+    setActionStatus("loading");
+    setActionMessage(null);
+    const res = await fetch("/api/admin/billing/stripe/replay", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event_id: selectedReplayEventId,
+        reason: actionReason.trim(),
+      }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setActionStatus("error");
+      setActionMessage(data?.error || `Replay failed (${res.status})`);
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    setActionStatus("done");
+    setActionMessage(
+      data?.status === "processed"
+        ? "Stripe event replayed and processed."
+        : `Replay completed with status: ${data?.status || "unknown"}.`
+    );
+    router.refresh();
   };
 
   const saveNotes = async () => {
@@ -155,7 +220,8 @@ export function BillingOpsActions({
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <h3 className="text-base font-semibold text-slate-900">Support actions</h3>
       <p className="mt-1 text-sm text-slate-600">
-        Manual overrides take precedence over Stripe. Current source: {billingSource || "manual"}.
+        Loaded account: {email || profileId}. Manual overrides take precedence over Stripe. Current source:{" "}
+        {billingSource || "manual"}.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -177,21 +243,25 @@ export function BillingOpsActions({
             variant="secondary"
             type="button"
             onClick={returnToProviderBilling}
-            disabled={actionStatus === "loading"}
+            disabled={actionStatus === "loading" || !canReturnToProviderBilling}
           >
             Return to Stripe billing
           </Button>
         )}
+        <Button size="sm" variant="secondary" type="button" onClick={refreshSnapshot} disabled={actionStatus === "loading"}>
+          Refresh billing snapshot
+        </Button>
       </div>
       {billingSource === "manual" && (
         <p className="mt-2 text-xs text-slate-500">
-          Use this when a paid Stripe account is still masked by a manual support override.
+          {returnToProviderBillingHint ||
+            "Use this when a paid Stripe account is still masked by a manual support override."}
         </p>
       )}
 
       <div className="mt-4">
         <label className="text-xs font-semibold text-slate-700">
-          Reason (required for expire or plan change)
+          Reason (required for plan changes, provider recovery, and replay)
           <input
             className="mt-2 w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
             value={actionReason}
@@ -200,6 +270,58 @@ export function BillingOpsActions({
             disabled={actionStatus === "loading"}
           />
         </label>
+      </div>
+
+      {actionMessage && (
+        <div
+          className={`mt-4 rounded-xl border px-3 py-2 text-xs ${
+            actionStatus === "error"
+              ? "border-rose-200 bg-rose-50 text-rose-700"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700"
+          }`}
+        >
+          {actionMessage}
+        </div>
+      )}
+
+      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <p className="text-xs font-semibold text-slate-700">Replay Stripe event</p>
+        <p className="mt-1 text-xs text-slate-500">
+          Reprocess an ignored or failed Stripe webhook for this loaded account using the normal provider-owned path.
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+          <select
+            className="min-w-[18rem] rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
+            value={selectedReplayEventId}
+            onChange={(event) => setSelectedReplayEventId(event.target.value)}
+            disabled={actionStatus === "loading" || replayableEvents.length === 0}
+          >
+            {replayableEvents.length === 0 ? (
+              <option value="">No replay-eligible events</option>
+            ) : (
+              replayableEvents.map((event) => (
+                <option key={event.eventId} value={event.eventId}>
+                  {event.eventType} • {event.status || "received"} • {event.reason || "no reason"} •{" "}
+                  {(event.createdAt || "").replace("T", " ").replace("Z", "") || "—"}
+                </option>
+              ))
+            )}
+          </select>
+          <Button
+            size="sm"
+            variant="secondary"
+            type="button"
+            onClick={replayStripeEvent}
+            disabled={actionStatus === "loading" || replayableEvents.length === 0}
+          >
+            Replay Stripe event
+          </Button>
+        </div>
+        {!replayableEvents.length && (
+          <p className="mt-2 text-xs text-slate-500">
+            No ignored or failed Stripe events are currently eligible for replay on this account.
+          </p>
+        )}
       </div>
 
       <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -239,10 +361,6 @@ export function BillingOpsActions({
             {actionStatus === "loading" ? "Saving..." : "Apply plan"}
           </Button>
         </div>
-        {actionMessage && <p className="mt-2 text-xs text-slate-600">{actionMessage}</p>}
-        {actionStatus === "error" && !actionMessage && (
-          <p className="mt-2 text-xs text-rose-600">Action failed.</p>
-        )}
       </div>
 
       <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">

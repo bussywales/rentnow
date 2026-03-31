@@ -9,6 +9,11 @@ import {
   buildAdminBillingLookupHref,
   resolveAdminBillingLookupIdentity,
 } from "@/lib/billing/admin-billing-lookup";
+import {
+  buildBillingOpsDiagnostics,
+  isReplayEligibleStripeEvent,
+  type BillingSubscriptionRow,
+} from "@/lib/billing/admin-billing-diagnostics";
 import { buildBillingSnapshot, type BillingSnapshot } from "@/lib/billing/snapshot";
 import { SupportSnapshotCopy } from "@/components/admin/SupportSnapshotCopy";
 import { buildSupportSnapshot } from "@/lib/billing/support-snapshot";
@@ -63,6 +68,10 @@ type StripeEventRow = {
   stripe_subscription_id?: string | null;
   stripe_price_id?: string | null;
   processed_at?: string | null;
+  replay_count?: number | null;
+  last_replay_at?: string | null;
+  last_replay_status?: string | null;
+  last_replay_reason?: string | null;
 };
 
 type ProviderEventRow = {
@@ -120,6 +129,12 @@ function resolveStartDate(range: string) {
   if (range === "7d") return new Date(now - 7 * 24 * 60 * 60 * 1000);
   if (range === "30d") return new Date(now - 30 * 24 * 60 * 60 * 1000);
   return null;
+}
+
+function severityClasses(level: "info" | "warn" | "error") {
+  if (level === "error") return "border-rose-200 bg-rose-50 text-rose-800";
+  if (level === "warn") return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-cyan-200 bg-cyan-50 text-cyan-800";
 }
 
 async function requireAdmin() {
@@ -260,7 +275,7 @@ async function loadUserEvents({
   const { data, error } = await adminDb
     .from("stripe_webhook_events")
     .select(
-      "event_id, event_type, created_at, status, reason, mode, plan_tier, profile_id, stripe_customer_id, stripe_subscription_id, processed_at"
+      "event_id, event_type, created_at, status, reason, mode, plan_tier, profile_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, processed_at, replay_count, last_replay_at, last_replay_status, last_replay_reason"
     )
     .order("created_at", { ascending: false })
     .limit(10)
@@ -271,6 +286,28 @@ async function loadUserEvents({
   }
 
   return { events: (data as StripeEventRow[]) || [] };
+}
+
+async function loadUserSubscriptions(profileId: string): Promise<{ rows: BillingSubscriptionRow[]; error?: string }> {
+  if (!hasServiceRoleEnv()) {
+    return { rows: [], error: "Service role key missing; provider subscription state unavailable." };
+  }
+
+  const adminClient = createServiceRoleClient();
+  const { data, error } = await adminClient
+    .from("subscriptions")
+    .select(
+      "provider, provider_subscription_id, status, plan_tier, role, current_period_start, current_period_end, canceled_at, created_at, updated_at"
+    )
+    .eq("user_id", profileId)
+    .order("current_period_end", { ascending: false, nullsFirst: false })
+    .limit(5);
+
+  if (error) {
+    return { rows: [], error: error.message || "Unable to load provider subscriptions." };
+  }
+
+  return { rows: (data as BillingSubscriptionRow[]) || [] };
 }
 
 async function loadSupportQueue(filter: string): Promise<{ accounts: SupportAccount[]; error?: string }> {
@@ -659,6 +696,22 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
   const userEventsResult = snapshotResult.snapshot
     ? await loadUserEvents({ profileId: snapshotResult.snapshot.profileId, plan: snapshotResult.plan ?? null })
     : { events: [] };
+  const userSubscriptionsResult = snapshotResult.snapshot
+    ? await loadUserSubscriptions(snapshotResult.snapshot.profileId)
+    : { rows: [] };
+  const billingDiagnostics = snapshotResult.snapshot
+    ? buildBillingOpsDiagnostics({
+        snapshot: snapshotResult.snapshot,
+        plan: snapshotResult.plan ?? null,
+        subscriptionRows: userSubscriptionsResult.rows,
+        events: userEventsResult.events,
+        billingNotes: snapshotResult.snapshot.billingNotes,
+      })
+    : null;
+  const replayableUserEvents = userEventsResult.events.filter(
+    (event): event is StripeEventRow & { event_id: string; event_type: string } =>
+      isReplayEligibleStripeEvent(event) && typeof event.event_id === "string" && typeof event.event_type === "string"
+  );
 
   const openRequests = snapshotResult.snapshot
     ? requests.filter((request) => request.profile_id === snapshotResult.snapshot?.profileId && request.status === "pending").length
@@ -678,6 +731,7 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
           event_id: event.event_id ?? null,
           stripe_customer_id: event.stripe_customer_id ?? null,
           stripe_subscription_id: event.stripe_subscription_id ?? null,
+          stripe_price_id: event.stripe_price_id ?? null,
         })),
       })
     : null;
@@ -831,15 +885,39 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-900">
-                    {snapshotResult.snapshot.email || "Email unavailable"}
+                    {snapshotResult.snapshot.fullName || snapshotResult.snapshot.email || "Account loaded"}
                   </p>
+                  <p className="text-xs text-slate-500">{snapshotResult.snapshot.email || "Email unavailable"}</p>
                   <p className="text-xs text-slate-500">
-                    Profile: {maskIdentifier(snapshotResult.snapshot.profileId)} • Role: {formatRoleLabel(snapshotResult.snapshot.role)}
+                    Profile UUID: {snapshotResult.snapshot.profileId} • Role: {formatRoleLabel(snapshotResult.snapshot.role)}
                   </p>
                 </div>
-                {snapshotResult.snapshot.isExpired && (
-                  <span className="rounded-full bg-rose-100 px-3 py-1 text-xs text-rose-700">Expired</span>
-                )}
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full bg-slate-900 px-3 py-1 text-white">
+                    {snapshotResult.snapshot.effectivePlanTier.replace("_", " ")}
+                  </span>
+                  <span
+                    className={`rounded-full px-3 py-1 ${
+                      snapshotResult.snapshot.manualOverrideActive
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-emerald-100 text-emerald-800"
+                    }`}
+                  >
+                    {snapshotResult.snapshot.manualOverrideActive ? "Manual override active" : "Provider-owned billing"}
+                  </span>
+                  {billingDiagnostics?.hasStoredStripeTruth && (
+                    <span className="rounded-full bg-cyan-100 px-3 py-1 text-cyan-800">Stored Stripe truth present</span>
+                  )}
+                  {billingDiagnostics?.stateMatchesProviderTruth === false && (
+                    <span className="rounded-full bg-rose-100 px-3 py-1 text-rose-700">Provider mismatch</span>
+                  )}
+                  {billingDiagnostics?.hasIdentityMismatch && (
+                    <span className="rounded-full bg-rose-100 px-3 py-1 text-rose-700">Identity mismatch</span>
+                  )}
+                  {snapshotResult.snapshot.isExpired && (
+                    <span className="rounded-full bg-rose-100 px-3 py-1 text-rose-700">Expired</span>
+                  )}
+                </div>
               </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div>
@@ -859,6 +937,22 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
                   <p className="text-sm text-slate-700">{snapshotResult.snapshot.billingSource || "manual"}</p>
                 </div>
                 <div>
+                  <p className="text-xs uppercase text-slate-400">Manual override</p>
+                  <p className="text-sm text-slate-700">
+                    {snapshotResult.snapshot.manualOverrideActive ? "Active" : "No"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-slate-400">Provider truth alignment</p>
+                  <p className="text-sm text-slate-700">
+                    {billingDiagnostics?.stateMatchesProviderTruth === false
+                      ? "Mismatch detected"
+                      : billingDiagnostics?.hasProviderSubscription
+                      ? "Aligned"
+                      : "No provider subscription found"}
+                  </p>
+                </div>
+                <div>
                   <p className="text-xs uppercase text-slate-400">Valid until</p>
                   <p className="text-sm text-slate-700">
                     {snapshotResult.snapshot.validUntil?.replace("T", " ").replace("Z", "") || "—"}
@@ -870,15 +964,30 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-400">Customer</p>
-                  <p className="text-sm text-slate-700">{snapshotResult.snapshot.stripeCustomerId}</p>
+                  <p className="text-sm text-slate-700">
+                    {snapshotResult.snapshot.stripeCustomerId}{" "}
+                    <span className="text-xs text-slate-500">
+                      ({snapshotResult.snapshot.stripeCustomerIdPresent ? "present" : "missing"})
+                    </span>
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-400">Subscription</p>
-                  <p className="text-sm text-slate-700">{snapshotResult.snapshot.stripeSubscriptionId}</p>
+                  <p className="text-sm text-slate-700">
+                    {snapshotResult.snapshot.stripeSubscriptionId}{" "}
+                    <span className="text-xs text-slate-500">
+                      ({snapshotResult.snapshot.stripeSubscriptionIdPresent ? "present" : "missing"})
+                    </span>
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-400">Price</p>
-                  <p className="text-sm text-slate-700">{snapshotResult.snapshot.stripePriceId}</p>
+                  <p className="text-sm text-slate-700">
+                    {snapshotResult.snapshot.stripePriceId}{" "}
+                    <span className="text-xs text-slate-500">
+                      ({snapshotResult.snapshot.stripePriceIdPresent ? "present" : "missing"})
+                    </span>
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-400">Period end</p>
@@ -899,6 +1008,79 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
                   </p>
                 </div>
               </div>
+              {billingDiagnostics && (
+                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 bg-white p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Conflict diagnostics
+                    </p>
+                    <div className="mt-3 space-y-2">
+                      {billingDiagnostics.diagnostics.map((item) => (
+                        <div
+                          key={item.key}
+                          className={`rounded-xl border px-3 py-2 text-sm ${severityClasses(item.severity)}`}
+                        >
+                          <p className="font-semibold">{item.title}</p>
+                          <p className="mt-1 text-xs">{item.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Provider truth
+                    </p>
+                    {userSubscriptionsResult.error ? (
+                      <p className="mt-2 text-sm text-rose-600">{userSubscriptionsResult.error}</p>
+                    ) : billingDiagnostics.providerSubscription ? (
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <p className="text-xs uppercase text-slate-400">Provider</p>
+                          <p className="text-sm text-slate-700">
+                            {billingDiagnostics.providerSubscription.provider || "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase text-slate-400">Subscription row</p>
+                          <p className="text-sm text-slate-700">
+                            {maskIdentifier(billingDiagnostics.providerSubscription.provider_subscription_id ?? null)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase text-slate-400">Status</p>
+                          <p className="text-sm text-slate-700">
+                            {billingDiagnostics.providerSubscription.status || "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase text-slate-400">Plan tier</p>
+                          <p className="text-sm text-slate-700">
+                            {billingDiagnostics.providerSubscription.plan_tier || "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase text-slate-400">Current period end</p>
+                          <p className="text-sm text-slate-700">
+                            {billingDiagnostics.providerSubscription.current_period_end
+                              ?.replace("T", " ")
+                              .replace("Z", "") || "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase text-slate-400">Updated</p>
+                          <p className="text-sm text-slate-700">
+                            {billingDiagnostics.providerSubscription.updated_at?.replace("T", " ").replace("Z", "") ||
+                              billingDiagnostics.providerSubscription.created_at?.replace("T", " ").replace("Z", "") ||
+                              "—"}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-600">No provider subscription row found for this profile.</p>
+                    )}
+                  </div>
+                </div>
+              )}
               {supportSnapshot && (
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <SupportSnapshotCopy payload={supportSnapshot} />
@@ -914,11 +1096,29 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
         {snapshotResult.snapshot && (
           <BillingOpsActions
             profileId={snapshotResult.snapshot.profileId}
+            email={snapshotResult.snapshot.email}
             currentPlan={snapshotResult.snapshot.planTier}
             billingSource={snapshotResult.snapshot.billingSource}
             validUntil={snapshotResult.snapshot.validUntil}
             billingNotes={snapshotResult.snapshot.billingNotes}
             billingNotesUpdatedAt={snapshotResult.snapshot.billingNotesUpdatedAt}
+            canReturnToProviderBilling={Boolean(
+              snapshotResult.snapshot.manualOverrideActive && billingDiagnostics?.hasStoredStripeTruth
+            )}
+            returnToProviderBillingHint={
+              snapshotResult.snapshot.manualOverrideActive
+                ? billingDiagnostics?.hasStoredStripeTruth
+                  ? "Clears the manual mask and restores the latest Stripe-backed provider state on this account."
+                  : "This account is manual today, but no stored Stripe provider truth is available to restore."
+                : "This account is already provider-owned."
+            }
+            replayableEvents={replayableUserEvents.map((event) => ({
+              eventId: event.event_id,
+              eventType: event.event_type,
+              status: event.status ?? null,
+              reason: event.reason ?? null,
+              createdAt: event.created_at ?? null,
+            }))}
           />
         )}
       </div>
@@ -929,7 +1129,7 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
             <div>
               <h3 className="text-base font-semibold text-slate-900">Recent Stripe events</h3>
               <p className="text-sm text-slate-600">
-                Last 10 events linked to this profile, masked for support tickets.
+                Last 10 events linked to this profile, including replay state and ignore reasons.
               </p>
             </div>
             <SupportSnapshotCopy
@@ -959,7 +1159,11 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
                     <th className="py-2 pr-3">Created</th>
                     <th className="py-2 pr-3">Event</th>
                     <th className="py-2 pr-3">Mode</th>
+                    <th className="py-2 pr-3">Profile</th>
+                    <th className="py-2 pr-3">Price</th>
                     <th className="py-2 pr-3">Outcome</th>
+                    <th className="py-2 pr-3">Replay</th>
+                    <th className="py-2 pr-3">Eligible</th>
                     <th className="py-2">Processed</th>
                   </tr>
                 </thead>
@@ -974,8 +1178,29 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
                         <div className="text-xs text-slate-500">{maskIdentifier(event.event_id)}</div>
                       </td>
                       <td className="py-2 pr-3 text-xs text-slate-500">{event.mode || "—"}</td>
+                      <td className="py-2 pr-3 text-xs text-slate-500">{event.profile_id || "—"}</td>
+                      <td className="py-2 pr-3 text-xs text-slate-500">{maskIdentifier(event.stripe_price_id)}</td>
                       <td className="py-2 pr-3 text-xs text-slate-500">
-                        {event.status || "received"} {event.reason ? `• ${event.reason}` : ""}
+                        <div>{event.status || "received"}</div>
+                        <div className="text-[11px] text-slate-400">{event.reason || "—"}</div>
+                      </td>
+                      <td className="py-2 pr-3 text-xs text-slate-500">
+                        <div>{event.replay_count ?? 0} replay(s)</div>
+                        <div className="text-[11px] text-slate-400">
+                          {event.last_replay_status || "never replayed"}
+                          {event.last_replay_reason ? ` • ${event.last_replay_reason}` : ""}
+                        </div>
+                      </td>
+                      <td className="py-2 pr-3 text-xs">
+                        <span
+                          className={`rounded-full px-2 py-1 ${
+                            isReplayEligibleStripeEvent(event)
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-emerald-100 text-emerald-800"
+                          }`}
+                        >
+                          {isReplayEligibleStripeEvent(event) ? "Replay eligible" : "Resolved"}
+                        </span>
                       </td>
                       <td className="py-2 text-xs text-slate-500">
                         {event.processed_at?.replace("T", " ").replace("Z", "") || "—"}
@@ -984,6 +1209,34 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {snapshotResult.snapshot && billingDiagnostics && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-3">
+            <h3 className="text-base font-semibold text-slate-900">Billing ops timeline</h3>
+            <p className="text-sm text-slate-600">
+              Manual overrides, provider recovery signals, replay attempts, webhook outcomes, and billing notes for this loaded account.
+            </p>
+          </div>
+          {!billingDiagnostics.timeline.length ? (
+            <p className="text-sm text-slate-600">No billing timeline entries recorded yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {billingDiagnostics.timeline.slice(0, 12).map((item) => (
+                <div key={item.key} className={`rounded-xl border px-3 py-2 ${severityClasses(item.severity)}`}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold">{item.title}</p>
+                    <p className="text-xs opacity-80">
+                      {item.timestamp?.replace("T", " ").replace("Z", "") || "—"}
+                    </p>
+                  </div>
+                  <p className="mt-1 text-xs">{item.description}</p>
+                </div>
+              ))}
             </div>
           )}
         </div>

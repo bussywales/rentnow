@@ -11,6 +11,7 @@ type SupportEvent = {
   event_id?: string | null;
   stripe_customer_id?: string | null;
   stripe_subscription_id?: string | null;
+  stripe_price_id?: string | null;
 };
 
 export function buildSupportSnapshot(input: {
@@ -40,6 +41,7 @@ export function buildSupportSnapshot(input: {
       event_id: maskIdentifier(event.event_id ?? null),
       stripe_customer_id: maskIdentifier(event.stripe_customer_id ?? null),
       stripe_subscription_id: maskIdentifier(event.stripe_subscription_id ?? null),
+      stripe_price_id: maskIdentifier(event.stripe_price_id ?? null),
     })),
   };
 }

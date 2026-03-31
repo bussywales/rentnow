@@ -31,11 +31,15 @@ export type BillingSnapshot = {
   planTier: string;
   effectivePlanTier: string;
   billingSource: string;
+  manualOverrideActive: boolean;
   validUntil: string | null;
   isExpired: boolean;
   stripeStatus: string | null;
+  stripeCustomerIdPresent: boolean;
   stripeCustomerId: string;
+  stripeSubscriptionIdPresent: boolean;
   stripeSubscriptionId: string;
+  stripePriceIdPresent: boolean;
   stripePriceId: string;
   stripeCurrentPeriodEnd: string | null;
   updatedAt: string | null;
@@ -69,11 +73,15 @@ export function buildBillingSnapshot(input: {
     planTier,
     effectivePlanTier,
     billingSource,
+    manualOverrideActive: billingSource === "manual",
     validUntil,
     isExpired: isPlanExpired(validUntil),
     stripeStatus: plan?.stripe_status ?? null,
+    stripeCustomerIdPresent: Boolean(plan?.stripe_customer_id),
     stripeCustomerId: maskIdentifier(plan?.stripe_customer_id ?? null),
+    stripeSubscriptionIdPresent: Boolean(plan?.stripe_subscription_id),
     stripeSubscriptionId: maskIdentifier(plan?.stripe_subscription_id ?? null),
+    stripePriceIdPresent: Boolean(plan?.stripe_price_id),
     stripePriceId: maskIdentifier(plan?.stripe_price_id ?? null),
     stripeCurrentPeriodEnd: plan?.stripe_current_period_end ?? null,
     updatedAt: plan?.updated_at ?? null,

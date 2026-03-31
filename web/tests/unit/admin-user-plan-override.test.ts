@@ -35,4 +35,16 @@ void test("admin billing ops supports returning manual overrides to Stripe billi
   assert.match(componentSource, /Return to Stripe billing/);
   assert.match(componentSource, /action:\s*"return_to_provider_billing"/);
   assert.match(componentSource, /Reason is required to return billing to the provider\./);
+  assert.match(componentSource, /Refresh billing snapshot/);
+  assert.match(componentSource, /Replay Stripe event/);
+  assert.match(componentSource, /Reason is required to replay a Stripe event\./);
+});
+
+void test("stripe replay route now requires a reason and records replay notes", () => {
+  const routePath = path.join(process.cwd(), "app", "api", "admin", "billing", "stripe", "replay", "route.ts");
+  const source = fs.readFileSync(routePath, "utf8");
+
+  assert.match(source, /reason is required/);
+  assert.match(source, /Support action: stripe_replay/);
+  assert.match(source, /profile_billing_notes/);
 });
