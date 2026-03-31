@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { computeStripePlanUpdate } from "@/lib/billing/stripe-plan-update";
-import { requireCheckoutMetadata, resolvePlanFromStripe } from "@/lib/billing/stripe-webhook";
+import { requireCheckoutMetadata, resolvePlanFromStripeAsync } from "@/lib/billing/stripe-webhook";
 import { logStripePaymentFailed, logStripePlanUpdated, logFailure } from "@/lib/observability";
 import {
   issueSubscriptionCreditsIfNeeded,
@@ -235,7 +235,7 @@ export async function processStripeEvent(
         const subscription = await context.stripe.subscriptions.retrieve(session.subscription as string, {
           expand: ["items.data.price"],
         });
-        const plan = resolvePlanFromStripe(subscription, session.metadata || undefined);
+        const plan = await resolvePlanFromStripeAsync(subscription, session.metadata || undefined);
         const customerId = typeof subscription.customer === "string" ? subscription.customer : null;
         outcomeCustomerId = customerId;
         outcomeSubscriptionId = subscription.id;
@@ -340,7 +340,7 @@ export async function processStripeEvent(
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        const plan = resolvePlanFromStripe(subscription, undefined);
+        const plan = await resolvePlanFromStripeAsync(subscription, undefined);
         if (!plan.tier) {
           logHandlerFailure(
             context,
@@ -444,7 +444,7 @@ export async function processStripeEvent(
         const subscription = await context.stripe.subscriptions.retrieve(subscriptionId, {
           expand: ["items.data.price"],
         });
-        const plan = resolvePlanFromStripe(subscription, invoice.metadata || undefined);
+        const plan = await resolvePlanFromStripeAsync(subscription, invoice.metadata || undefined);
         if (!plan.tier) {
           logHandlerFailure(
             context,

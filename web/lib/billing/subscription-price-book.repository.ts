@@ -26,3 +26,22 @@ export async function loadSubscriptionPriceBookRows() {
 
   return ((data ?? []) as SubscriptionPriceBookRow[]).filter(Boolean);
 }
+
+export async function loadSubscriptionPriceBookRowsByProviderPriceRef(
+  provider: SubscriptionPriceBookRow["provider"],
+  providerPriceRef: string
+) {
+  const client = await createPriceBookClient();
+  if (!client) return [] as SubscriptionPriceBookRow[];
+
+  const { data } = await client
+    .from("subscription_price_book")
+    .select(SUBSCRIPTION_PRICE_BOOK_SELECT)
+    .eq("provider", provider)
+    .eq("provider_price_ref", providerPriceRef)
+    .order("active", { ascending: false })
+    .order("effective_at", { ascending: false })
+    .order("updated_at", { ascending: false });
+
+  return ((data ?? []) as SubscriptionPriceBookRow[]).filter(Boolean);
+}

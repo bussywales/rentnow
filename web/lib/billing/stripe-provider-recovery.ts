@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import { resolvePlanFromStripe } from "@/lib/billing/stripe-webhook";
+import { resolvePlanFromStripeAsync } from "@/lib/billing/stripe-webhook";
 import { computeStripePlanUpdate } from "@/lib/billing/stripe-plan-update";
 import { issueSubscriptionCreditsIfNeeded, upsertSubscriptionRecord } from "@/lib/billing/subscription-credits.server";
 
@@ -183,7 +183,7 @@ export async function restoreStripeProviderBilling({
     };
   }
 
-  const plan = resolvePlanFromStripe(subscription, undefined);
+  const plan = await resolvePlanFromStripeAsync(subscription, undefined);
   if (!plan.tier) {
     return {
       ok: false,

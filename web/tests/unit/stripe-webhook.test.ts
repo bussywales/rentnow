@@ -7,6 +7,7 @@ import {
   extractPlanMetadata,
   requireCheckoutMetadata,
   resolvePlanFromStripe,
+  resolvePlanFromStripeAsync,
 } from "../../lib/billing/stripe-webhook";
 import { computeStripePlanUpdate } from "../../lib/billing/stripe-plan-update";
 import { parseWebhookInsertError } from "../../lib/billing/stripe-webhook-events";
@@ -85,6 +86,40 @@ void test("resolvePlanFromStripe returns null tier when price is unmapped", () =
 
   const plan = resolvePlanFromStripe(subscription, null);
   assert.equal(plan.tier, null);
+});
+
+void test("resolvePlanFromStripeAsync falls back to canonical price-book mapping when env mapping is absent", async () => {
+  const subscription = {
+    items: {
+      data: [
+        {
+          price: { id: "price_1TGlYzPjtZ0fKtkBRTYNfytj" },
+        },
+      ],
+    },
+    metadata: {
+      profile_id: "bf77a944-abbb-41af-90c3-c7f31def17a7",
+    },
+  } as Stripe.Subscription;
+
+  const plan = await resolvePlanFromStripeAsync(subscription, null, {
+    loadPlanByPriceId: async (priceId) =>
+      priceId === "price_1TGlYzPjtZ0fKtkBRTYNfytj"
+        ? {
+            role: "tenant",
+            tier: "tenant_pro",
+            cadence: "monthly",
+            priceId,
+            currency: "GBP",
+          }
+        : null,
+  });
+
+  assert.equal(plan.profileId, "bf77a944-abbb-41af-90c3-c7f31def17a7");
+  assert.equal(plan.role, "tenant");
+  assert.equal(plan.tier, "tenant_pro");
+  assert.equal(plan.cadence, "monthly");
+  assert.equal(plan.priceId, "price_1TGlYzPjtZ0fKtkBRTYNfytj");
 });
 
 void test("parseWebhookInsertError treats duplicate event ids as idempotent", () => {
