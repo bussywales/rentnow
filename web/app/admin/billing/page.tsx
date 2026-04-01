@@ -30,6 +30,7 @@ import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 export const dynamic = "force-dynamic";
 
 type SearchParams = Record<string, string | string[] | undefined>;
+type SearchParamsInput = SearchParams | Promise<SearchParams>;
 
 type UpgradeRequest = {
   id: string;
@@ -618,8 +619,10 @@ async function switchStripeToTest() {
   revalidatePath("/admin/settings/billing");
 }
 
-export default async function AdminBillingPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function AdminBillingPage({ searchParams }: { searchParams?: SearchParamsInput }) {
   await requireAdmin();
+
+  const resolvedSearchParams = searchParams ? await searchParams : {};
 
   const providerModes = await getProviderModes();
   const stripeMode = providerModes.stripeMode;
@@ -631,33 +634,33 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
       process.env.STRIPE_WEBHOOK_SECRET
   );
   const stripeLiveReady = stripeLiveSecretReady && stripeLiveWebhookReady;
-  const rawEmail = parseParam(searchParams, "email");
-  const rawProfileId = parseParam(searchParams, "profileId");
+  const rawEmail = parseParam(resolvedSearchParams, "email");
+  const rawProfileId = parseParam(resolvedSearchParams, "profileId");
   const lookupInput = normalizeAdminBillingLookupParams({
     email: rawEmail,
     profileId: rawProfileId,
   });
   const email = lookupInput.email;
   const profileIdParam = lookupInput.profileId;
-  const triageParam = parseParam(searchParams, "triage");
+  const triageParam = parseParam(resolvedSearchParams, "triage");
   const triage = TRIAGE_OPTIONS.includes(triageParam as (typeof TRIAGE_OPTIONS)[number])
     ? triageParam
     : "pending";
-  const rawStatusFilter = parseParam(searchParams, "status") || "all";
+  const rawStatusFilter = parseParam(resolvedSearchParams, "status") || "all";
   const statusFilter = rawStatusFilter === "processed" ? "ok" : rawStatusFilter;
-  const planFilter = parseParam(searchParams, "plan") || "all";
-  const modeFilter = parseParam(searchParams, "mode") || stripeMode;
-  const rangeFilter = parseParam(searchParams, "range") || "7d";
-  const query = parseParam(searchParams, "q");
-  const pageParam = Number.parseInt(parseParam(searchParams, "page") || "1", 10);
+  const planFilter = parseParam(resolvedSearchParams, "plan") || "all";
+  const modeFilter = parseParam(resolvedSearchParams, "mode") || stripeMode;
+  const rangeFilter = parseParam(resolvedSearchParams, "range") || "7d";
+  const query = parseParam(resolvedSearchParams, "q");
+  const pageParam = Number.parseInt(parseParam(resolvedSearchParams, "page") || "1", 10);
   const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
 
-  const providerNameParam = parseParam(searchParams, "provider");
-  const providerStatusParam = parseParam(searchParams, "provider_status");
-  const providerModeParam = parseParam(searchParams, "provider_mode");
-  const providerRangeParam = parseParam(searchParams, "provider_range");
-  const providerQuery = parseParam(searchParams, "provider_q");
-  const providerPageParam = Number.parseInt(parseParam(searchParams, "provider_page") || "1", 10);
+  const providerNameParam = parseParam(resolvedSearchParams, "provider");
+  const providerStatusParam = parseParam(resolvedSearchParams, "provider_status");
+  const providerModeParam = parseParam(resolvedSearchParams, "provider_mode");
+  const providerRangeParam = parseParam(resolvedSearchParams, "provider_range");
+  const providerQuery = parseParam(resolvedSearchParams, "provider_q");
+  const providerPageParam = Number.parseInt(parseParam(resolvedSearchParams, "provider_page") || "1", 10);
   const providerPage = Number.isFinite(providerPageParam) && providerPageParam > 0 ? providerPageParam : 1;
 
   const providerFilter = PROVIDER_OPTIONS.includes(providerNameParam as (typeof PROVIDER_OPTIONS)[number])
@@ -690,12 +693,12 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
       : null;
   const { requests, users } = await loadUpgradeRequests();
   const { events, error } = await loadEvents({
-    ...searchParams,
+    ...resolvedSearchParams,
     mode: modeFilter,
     page: String(page),
   });
   const { events: providerEvents, error: providerEventsError } = await loadProviderEvents({
-    ...searchParams,
+    ...resolvedSearchParams,
     provider: providerFilter,
     provider_status: providerStatusFilter,
     provider_mode: providerModeFilter,

@@ -7,9 +7,9 @@ void test("admin billing page normalizes lookup params and surfaces explicit loo
   const filePath = path.join(process.cwd(), "app", "admin", "billing", "page.tsx");
   const source = readFileSync(filePath, "utf8");
 
+  assert.match(source, /const resolvedSearchParams = searchParams \? await searchParams : \{\}/);
   assert.match(source, /normalizeAdminBillingLookupParams/);
   assert.match(source, /const lookupError =/);
   assert.match(source, /No billing snapshot was loaded for the supplied lookup\./);
   assert.match(source, /title="Lookup failed"/);
 });
-
