@@ -30,15 +30,32 @@ export function buildAdminBillingLookupHref({
   profileId,
   email,
 }: {
-  profileId: string;
+  profileId?: string | null;
   email?: string | null;
 }) {
   const params = new URLSearchParams();
-  params.set("profileId", profileId);
+  if (profileId?.trim()) {
+    params.set("profileId", profileId.trim());
+  }
   if (email?.trim()) {
     params.set("email", email.trim());
   }
-  return `/admin/billing?${params.toString()}`;
+  const query = params.toString();
+  return query ? `/admin/billing?${query}` : "/admin/billing";
+}
+
+export function normalizeAdminBillingLookupParams(input: {
+  email?: string | null;
+  profileId?: string | null;
+}) {
+  const email = input.email?.trim() ?? "";
+  const profileId = input.profileId?.trim() ?? "";
+
+  return {
+    email,
+    profileId,
+    hasLookupInput: Boolean(email || profileId),
+  };
 }
 
 export async function findAdminAuthUserByEmail(

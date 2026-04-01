@@ -7,6 +7,7 @@ import { BillingOpsActions } from "@/components/admin/BillingOpsActions";
 import { PaymentModeBadge } from "@/components/billing/PaymentModeBadge";
 import {
   buildAdminBillingLookupHref,
+  normalizeAdminBillingLookupParams,
   resolveAdminBillingLookupIdentity,
 } from "@/lib/billing/admin-billing-lookup";
 import {
@@ -630,8 +631,14 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
       process.env.STRIPE_WEBHOOK_SECRET
   );
   const stripeLiveReady = stripeLiveSecretReady && stripeLiveWebhookReady;
-  const email = parseParam(searchParams, "email");
-  const profileIdParam = parseParam(searchParams, "profileId");
+  const rawEmail = parseParam(searchParams, "email");
+  const rawProfileId = parseParam(searchParams, "profileId");
+  const lookupInput = normalizeAdminBillingLookupParams({
+    email: rawEmail,
+    profileId: rawProfileId,
+  });
+  const email = lookupInput.email;
+  const profileIdParam = lookupInput.profileId;
   const triageParam = parseParam(searchParams, "triage");
   const triage = TRIAGE_OPTIONS.includes(triageParam as (typeof TRIAGE_OPTIONS)[number])
     ? triageParam
@@ -671,12 +678,16 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
     : "7d";
 
   const snapshotResult =
-    email || profileIdParam
+    lookupInput.hasLookupInput
       ? await loadBillingSnapshot({
           email: email || undefined,
           profileId: profileIdParam || undefined,
         })
       : { snapshot: null };
+  const lookupError =
+    lookupInput.hasLookupInput && !snapshotResult.snapshot
+      ? snapshotResult.error || "No billing snapshot was loaded for the supplied lookup."
+      : null;
   const { requests, users } = await loadUpgradeRequests();
   const { events, error } = await loadEvents({
     ...searchParams,
@@ -863,17 +874,17 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
             </button>
           </form>
 
-          {!email && !profileIdParam && (
+          {!lookupInput.hasLookupInput && (
             <p className="mt-4 text-sm text-slate-500">
               Enter an email or profile ID to load the billing snapshot and admin actions.
             </p>
           )}
 
-          {(email || profileIdParam) && snapshotResult.error && (
+          {lookupError && (
             <div className="mt-4">
               <ErrorState
                 title="Lookup failed"
-                description={snapshotResult.error}
+                description={lookupError}
                 retryLabel="Back to Admin"
                 retryHref="/admin"
               />

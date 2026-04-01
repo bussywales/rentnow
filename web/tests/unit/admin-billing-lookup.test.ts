@@ -7,6 +7,7 @@ import {
   buildAdminBillingLookupHref,
   findAdminAuthUserByEmail,
   findAdminAuthUserById,
+  normalizeAdminBillingLookupParams,
   resolveAdminBillingLookupIdentity,
 } from "../../lib/billing/admin-billing-lookup";
 
@@ -86,6 +87,42 @@ void test("billing lookup reports identity mismatches when email and profile id 
   assert.equal(result.error, "Email and profile ID refer to different accounts.");
 });
 
+void test("billing lookup treats blank profileId query params as absent", () => {
+  const normalized = normalizeAdminBillingLookupParams({
+    email: "  tenant@example.com ",
+    profileId: "   ",
+  });
+
+  assert.deepEqual(normalized, {
+    email: "tenant@example.com",
+    profileId: "",
+    hasLookupInput: true,
+  });
+});
+
+void test("billing identity resolution still loads from email when profileId query param is blank", async () => {
+  const adminClient = createAdminClient([
+    [
+      {
+        id: "66666666-6666-4666-8666-666666666666",
+        email: "tenant@example.com",
+      },
+    ],
+  ]);
+
+  const result = await resolveAdminBillingLookupIdentity({
+    adminClient: adminClient as never,
+    email: "tenant@example.com",
+    profileId: "   ",
+  });
+
+  assert.deepEqual(result, {
+    ok: true,
+    profileId: "66666666-6666-4666-8666-666666666666",
+    email: "tenant@example.com",
+  });
+});
+
 void test("billing recovery href carries profile id and email for operator-safe handoff", () => {
   const href = buildAdminBillingLookupHref({
     profileId: "55555555-5555-4555-8555-555555555555",
@@ -96,6 +133,15 @@ void test("billing recovery href carries profile id and email for operator-safe 
     href,
     "/admin/billing?profileId=55555555-5555-4555-8555-555555555555&email=tenant%40example.com"
   );
+});
+
+void test("billing recovery href omits blank params so email-only recovery stays clean", () => {
+  const href = buildAdminBillingLookupHref({
+    profileId: "   ",
+    email: "tenant@example.com",
+  });
+
+  assert.equal(href, "/admin/billing?email=tenant%40example.com");
 });
 
 void test("admin user drawer exposes direct billing recovery entry point", () => {
