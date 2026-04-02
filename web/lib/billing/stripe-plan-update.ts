@@ -1,4 +1,4 @@
-import { normalizePlanTier, type PlanTier } from "@/lib/plans";
+import { isPlanExpired, normalizePlanTier, type PlanTier } from "@/lib/plans";
 
 export type StripePlanUpdateInput = {
   tier: PlanTier | string;
@@ -19,18 +19,26 @@ export type StripePlanUpdateDecision = {
   validUntil: string | null;
   skipped: boolean;
   skipReason: "manual_override" | null;
+  releasedExpiredManualOverride: boolean;
 };
+
+export function isExpiredManualOverride(existingPlan?: ExistingPlanSnapshot | null, now = Date.now()) {
+  return existingPlan?.billing_source === "manual" && isPlanExpired(existingPlan.valid_until ?? null, now);
+}
 
 export function computeStripePlanUpdate(
   input: StripePlanUpdateInput,
   existingPlan?: ExistingPlanSnapshot | null
 ): StripePlanUpdateDecision {
-  if (!input.ignoreManualOverride && existingPlan?.billing_source === "manual") {
+  const expiredManualOverride = isExpiredManualOverride(existingPlan);
+
+  if (!input.ignoreManualOverride && existingPlan?.billing_source === "manual" && !expiredManualOverride) {
     return {
       planTier: normalizePlanTier(existingPlan.plan_tier),
       validUntil: existingPlan.valid_until ?? null,
       skipped: true,
       skipReason: "manual_override",
+      releasedExpiredManualOverride: false,
     };
   }
 
@@ -50,5 +58,6 @@ export function computeStripePlanUpdate(
     validUntil: shouldDowngrade ? null : input.currentPeriodEnd,
     skipped: false,
     skipReason: null,
+    releasedExpiredManualOverride: expiredManualOverride,
   };
 }

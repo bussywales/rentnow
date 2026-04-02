@@ -29,6 +29,10 @@ type PlanUpdateInput = {
   allowImmediateDowngrade?: boolean;
 };
 
+type BillingNotesRow = {
+  billing_notes?: string | null;
+};
+
 export type StripeEventProcessContext = {
   adminClient: ReturnType<typeof createServiceRoleClient>;
   stripe: Stripe;
@@ -113,6 +117,51 @@ async function getExistingPlan(
   return (data as ExistingPlan | null) ?? null;
 }
 
+async function appendAutomaticStripeTakeoverNote(
+  adminClient: ReturnType<typeof createServiceRoleClient>,
+  params: {
+    profileId: string;
+    eventId: string;
+    subscriptionId: string;
+    priceId: string | null;
+  }
+) {
+  const { data: existing } = await adminClient
+    .from("profile_billing_notes")
+    .select("billing_notes")
+    .eq("profile_id", params.profileId)
+    .maybeSingle();
+
+  const existingNotes = (existing as BillingNotesRow | null)?.billing_notes ?? "";
+  const stamp = new Date().toISOString();
+  const noteLine = [
+    `[${stamp}] Automatic Stripe takeover after expired manual override.`,
+    "Restored billing_source=stripe from provider truth.",
+    `source_event=${params.eventId}`,
+    `stripe_subscription_id=${params.subscriptionId}`,
+    `stripe_price_id=${params.priceId ?? "—"}`,
+  ].join(" ");
+
+  const adminDb = adminClient as unknown as {
+    from: (table: string) => {
+      upsert: (
+        values: Record<string, unknown>,
+        options?: { onConflict?: string }
+      ) => Promise<{ error: { message?: string } | null }>;
+    };
+  };
+
+  await adminDb.from("profile_billing_notes").upsert(
+    {
+      profile_id: params.profileId,
+      billing_notes: existingNotes ? `${existingNotes}\n${noteLine}` : noteLine,
+      updated_at: stamp,
+      updated_by: null,
+    },
+    { onConflict: "profile_id" }
+  );
+}
+
 function isRedundantStripeUpdate(
   plan: ExistingPlan | null,
   input: PlanUpdateInput,
@@ -154,6 +203,7 @@ async function applyPlanUpdate(
       skipped: true,
       skipReason: decision.skipReason,
       applied: false,
+      releasedExpiredManualOverride: false,
     };
   }
 
@@ -169,6 +219,7 @@ async function applyPlanUpdate(
       skipped: true,
       skipReason: "duplicate_update",
       applied: false,
+      releasedExpiredManualOverride: false,
     };
   }
 
@@ -206,6 +257,7 @@ async function applyPlanUpdate(
     skipped: false,
     skipReason: null,
     applied: !error,
+    releasedExpiredManualOverride: decision.releasedExpiredManualOverride,
   };
 }
 
@@ -310,6 +362,19 @@ export async function processStripeEvent(
             stripeStatus: subscription.status,
             stripeSubscriptionId: subscription.id,
           });
+
+          if (result.releasedExpiredManualOverride) {
+            try {
+              await appendAutomaticStripeTakeoverNote(context.adminClient, {
+                profileId,
+                eventId: event.id,
+                subscriptionId: subscription.id,
+                priceId: plan.priceId,
+              });
+            } catch (error) {
+              logHandlerFailure(context, 200, error, "warn");
+            }
+          }
         }
 
         const subscriptionRow = await upsertSubscriptionRecord({
@@ -409,6 +474,19 @@ export async function processStripeEvent(
             stripeStatus: subscription.status,
             stripeSubscriptionId: subscription.id,
           });
+
+          if (result.releasedExpiredManualOverride) {
+            try {
+              await appendAutomaticStripeTakeoverNote(context.adminClient, {
+                profileId,
+                eventId: event.id,
+                subscriptionId: subscription.id,
+                priceId: plan.priceId,
+              });
+            } catch (error) {
+              logHandlerFailure(context, 200, error, "warn");
+            }
+          }
         }
 
         const subscriptionRow = await upsertSubscriptionRecord({
@@ -511,6 +589,19 @@ export async function processStripeEvent(
             stripeStatus: subscription.status,
             stripeSubscriptionId: subscription.id,
           });
+
+          if (result.releasedExpiredManualOverride) {
+            try {
+              await appendAutomaticStripeTakeoverNote(context.adminClient, {
+                profileId,
+                eventId: event.id,
+                subscriptionId: subscription.id,
+                priceId: plan.priceId,
+              });
+            } catch (error) {
+              logHandlerFailure(context, 200, error, "warn");
+            }
+          }
         }
 
         if (!result.skipped && event.type === "invoice.payment_failed") {

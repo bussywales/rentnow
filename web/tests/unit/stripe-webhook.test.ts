@@ -9,7 +9,7 @@ import {
   resolvePlanFromStripe,
   resolvePlanFromStripeAsync,
 } from "../../lib/billing/stripe-webhook";
-import { computeStripePlanUpdate } from "../../lib/billing/stripe-plan-update";
+import { computeStripePlanUpdate, isExpiredManualOverride } from "../../lib/billing/stripe-plan-update";
 import { parseWebhookInsertError } from "../../lib/billing/stripe-webhook-events";
 
 process.env.STRIPE_SECRET_KEY = "sk_test_123";
@@ -158,4 +158,55 @@ void test("computeStripePlanUpdate downgrades canceled unless manual", () => {
   );
   assert.equal(manual.skipped, true);
   assert.equal(manual.planTier, "pro");
+  assert.equal(manual.releasedExpiredManualOverride, false);
+});
+
+void test("expired manual override allows Stripe takeover and marks release", () => {
+  const expiredManual = computeStripePlanUpdate(
+    {
+      tier: "tenant_pro",
+      status: "active",
+      currentPeriodEnd: "2099-01-01T00:00:00.000Z",
+    },
+    {
+      billing_source: "manual",
+      plan_tier: "free",
+      valid_until: "2026-01-01T00:00:00.000Z",
+    }
+  );
+
+  assert.equal(
+    isExpiredManualOverride(
+      {
+        billing_source: "manual",
+        plan_tier: "free",
+        valid_until: "2026-01-01T00:00:00.000Z",
+      },
+      Date.parse("2026-03-18T00:00:00.000Z")
+    ),
+    true
+  );
+  assert.equal(expiredManual.skipped, false);
+  assert.equal(expiredManual.skipReason, null);
+  assert.equal(expiredManual.planTier, "tenant_pro");
+  assert.equal(expiredManual.validUntil, "2099-01-01T00:00:00.000Z");
+  assert.equal(expiredManual.releasedExpiredManualOverride, true);
+});
+
+void test("healthy Stripe-owned accounts do not report expired manual release", () => {
+  const activeStripe = computeStripePlanUpdate(
+    {
+      tier: "pro",
+      status: "active",
+      currentPeriodEnd: "2099-01-01T00:00:00.000Z",
+    },
+    {
+      billing_source: "stripe",
+      plan_tier: "pro",
+      valid_until: "2099-01-01T00:00:00.000Z",
+    }
+  );
+
+  assert.equal(activeStripe.skipped, false);
+  assert.equal(activeStripe.releasedExpiredManualOverride, false);
 });
