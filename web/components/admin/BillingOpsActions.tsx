@@ -23,6 +23,10 @@ type Props = {
     reason: string | null;
     createdAt: string | null;
   }>;
+  showBillingTestReset: boolean;
+  canResetBillingTestAccount: boolean;
+  billingTestResetStatus: "not_test_account" | "blocked_active_subscription" | "ready_now" | "reset_available";
+  billingTestResetHint: string | null;
 };
 
 type Status = "idle" | "loading" | "done" | "error";
@@ -43,6 +47,10 @@ export function BillingOpsActions({
   canReturnToProviderBilling,
   returnToProviderBillingHint,
   replayableEvents,
+  showBillingTestReset,
+  canResetBillingTestAccount,
+  billingTestResetStatus,
+  billingTestResetHint,
 }: Props) {
   const router = useRouter();
   const [planTier, setPlanTier] = useState(currentPlan);
@@ -195,6 +203,34 @@ export function BillingOpsActions({
     router.refresh();
   };
 
+  const resetBillingTestAccount = async () => {
+    const ok = confirm(
+      "Reset this billing test account to a free expired-manual baseline? Historical subscriptions and webhook records will be preserved."
+    );
+    if (!ok) return;
+    if (!canResetBillingTestAccount) {
+      setActionStatus("error");
+      setActionMessage(
+        billingTestResetHint ||
+          "This account cannot be reset right now. Cancel any active subscription first and confirm it is a designated test account."
+      );
+      return;
+    }
+    if (!actionReason.trim()) {
+      setActionStatus("error");
+      setActionMessage("Reason is required to reset a billing test account.");
+      return;
+    }
+    await runAction(
+      {
+        action: "reset_billing_test_account",
+        profileId,
+        reason: actionReason.trim(),
+      },
+      "Billing test account reset to a reusable free baseline."
+    );
+  };
+
   const saveNotes = async () => {
     setNoteStatus("loading");
     setNoteMessage(null);
@@ -258,6 +294,48 @@ export function BillingOpsActions({
             "Use this when a paid Stripe account is still masked by a manual support override."}
         </p>
       )}
+
+      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <p className="text-xs font-semibold text-slate-700">Billing test account reset</p>
+        <p className="mt-1 text-xs text-slate-500">
+          Internal use only. Reset clears current <code>profile_plans</code> state back to free and preserves
+          historical subscriptions, Stripe webhook events, and revenue records.
+        </p>
+        <p className="mt-2 text-xs text-slate-600">
+          {billingTestResetHint ||
+            "Reset is available only for designated internal test accounts. Active provider subscriptions must be cancelled first."}
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span
+            className={`rounded-full px-2 py-1 text-xs ${
+              billingTestResetStatus === "ready_now"
+                ? "bg-emerald-100 text-emerald-700"
+                : billingTestResetStatus === "reset_available"
+                ? "bg-cyan-100 text-cyan-700"
+                : "bg-slate-100 text-slate-600"
+            }`}
+          >
+            {billingTestResetStatus === "ready_now"
+              ? "Reusable now"
+              : billingTestResetStatus === "reset_available"
+              ? "Reset available"
+              : billingTestResetStatus === "blocked_active_subscription"
+              ? "Blocked by active subscription"
+              : "Not a test account"}
+          </span>
+          {showBillingTestReset && (
+            <Button
+              size="sm"
+              variant="secondary"
+              type="button"
+              onClick={resetBillingTestAccount}
+              disabled={actionStatus === "loading" || !canResetBillingTestAccount}
+            >
+              Reset billing test account
+            </Button>
+          )}
+        </div>
+      </div>
 
       <div className="mt-4">
         <label className="text-xs font-semibold text-slate-700">

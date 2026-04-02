@@ -15,6 +15,7 @@ import {
   isReplayEligibleStripeEvent,
   type BillingSubscriptionRow,
 } from "@/lib/billing/admin-billing-diagnostics";
+import { evaluateBillingTestability } from "@/lib/billing/billing-test-accounts";
 import { buildBillingSnapshot, type BillingSnapshot } from "@/lib/billing/snapshot";
 import { SupportSnapshotCopy } from "@/components/admin/SupportSnapshotCopy";
 import { buildSupportSnapshot } from "@/lib/billing/support-snapshot";
@@ -722,6 +723,13 @@ export default async function AdminBillingPage({ searchParams }: { searchParams?
         billingNotes: snapshotResult.snapshot.billingNotes,
       })
     : null;
+  const billingTestability = snapshotResult.snapshot
+    ? evaluateBillingTestability({
+        email: snapshotResult.snapshot.email,
+        snapshot: snapshotResult.snapshot,
+        subscriptionRows: userSubscriptionsResult.rows,
+      })
+    : null;
   const replayableUserEvents = userEventsResult.events.filter(
     (event): event is StripeEventRow & { event_id: string; event_type: string } =>
       isReplayEligibleStripeEvent(event) && typeof event.event_id === "string" && typeof event.event_type === "string"
@@ -957,6 +965,18 @@ export default async function AdminBillingPage({ searchParams }: { searchParams?
                   </p>
                 </div>
                 <div>
+                  <p className="text-xs uppercase text-slate-400">Billing testability</p>
+                  <p className="text-sm text-slate-700">
+                    {billingTestability?.status === "ready_now"
+                      ? "Reusable now"
+                      : billingTestability?.status === "reset_available"
+                      ? "Reset available"
+                      : billingTestability?.status === "blocked_active_subscription"
+                      ? "Blocked by active subscription"
+                      : "Not a designated test account"}
+                  </p>
+                </div>
+                <div>
                   <p className="text-xs uppercase text-slate-400">Provider truth alignment</p>
                   <p className="text-sm text-slate-700">
                     {billingDiagnostics?.stateMatchesProviderTruth === false
@@ -1095,6 +1115,20 @@ export default async function AdminBillingPage({ searchParams }: { searchParams?
                   </div>
                 </div>
               )}
+              {billingTestability && (
+                <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Billing test account reset</p>
+                  <p className="mt-2 text-sm text-slate-700">{billingTestability.message}</p>
+                  {billingTestability.blocker && (
+                    <p className="mt-2 text-xs text-amber-700">
+                      Blocking subscription: {billingTestability.blocker.provider || "provider"} •{" "}
+                      {maskIdentifier(billingTestability.blocker.providerSubscriptionId)} •{" "}
+                      {billingTestability.blocker.status || "unknown"} • period end{" "}
+                      {billingTestability.blocker.currentPeriodEnd?.replace("T", " ").replace("Z", "") || "—"}
+                    </p>
+                  )}
+                </div>
+              )}
               {supportSnapshot && (
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <SupportSnapshotCopy payload={supportSnapshot} />
@@ -1133,6 +1167,10 @@ export default async function AdminBillingPage({ searchParams }: { searchParams?
               reason: event.reason ?? null,
               createdAt: event.created_at ?? null,
             }))}
+            showBillingTestReset={Boolean(billingTestability?.isDesignatedTestAccount)}
+            canResetBillingTestAccount={Boolean(billingTestability?.canReset)}
+            billingTestResetStatus={billingTestability?.status ?? "not_test_account"}
+            billingTestResetHint={billingTestability?.message ?? null}
           />
         )}
       </div>

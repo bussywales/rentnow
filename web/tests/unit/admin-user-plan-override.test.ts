@@ -27,14 +27,19 @@ void test("admin billing ops supports returning manual overrides to Stripe billi
   const actionsRoutePath = path.join(process.cwd(), "app", "api", "admin", "billing", "actions", "route.ts");
   const routeSource = fs.readFileSync(actionsRoutePath, "utf8");
   assert.match(routeSource, /action:\s*z\.literal\("return_to_provider_billing"\)/);
+  assert.match(routeSource, /action:\s*z\.literal\("reset_billing_test_account"\)/);
   assert.match(routeSource, /restoreStripeProviderBilling/);
+  assert.match(routeSource, /resetBillingTestAccount/);
   assert.match(routeSource, /restoredBillingSource:\s*"stripe"/);
 
   const actionsComponentPath = path.join(process.cwd(), "components", "admin", "BillingOpsActions.tsx");
   const componentSource = fs.readFileSync(actionsComponentPath, "utf8");
   assert.match(componentSource, /Return to Stripe billing/);
+  assert.match(componentSource, /Reset billing test account/);
   assert.match(componentSource, /action:\s*"return_to_provider_billing"/);
+  assert.match(componentSource, /action:\s*"reset_billing_test_account"/);
   assert.match(componentSource, /Reason is required to return billing to the provider\./);
+  assert.match(componentSource, /Reason is required to reset a billing test account\./);
   assert.match(componentSource, /Refresh billing snapshot/);
   assert.match(componentSource, /Replay Stripe event/);
   assert.match(componentSource, /Reason is required to replay a Stripe event\./);

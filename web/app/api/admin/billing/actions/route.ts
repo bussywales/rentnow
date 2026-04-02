@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/authz";
 import { logBillingSourceRestored, logPlanOverride } from "@/lib/observability";
+import { resetBillingTestAccount } from "@/lib/billing/billing-test-account-reset";
 import { getProviderModes } from "@/lib/billing/provider-settings";
 import { getStripeClient, getStripeConfigForMode } from "@/lib/billing/stripe";
 import { restoreStripeProviderBilling } from "@/lib/billing/stripe-provider-recovery";
@@ -34,6 +35,11 @@ const actionSchema = z.discriminatedUnion("action", [
     profileId: z.string().uuid(),
     reason: z.string().max(500),
   }),
+  z.object({
+    action: z.literal("reset_billing_test_account"),
+    profileId: z.string().uuid(),
+    reason: z.string().max(500),
+  }),
 ]);
 
 function addDays(base: Date, days: number) {
@@ -62,12 +68,12 @@ export async function POST(request: Request) {
 
   const payload = actionSchema.parse(await request.json());
   const reason = (payload as { reason?: string }).reason?.trim() ?? "";
-  if (
-    (payload.action === "expire_now" ||
-      payload.action === "set_plan_tier" ||
-      payload.action === "return_to_provider_billing") &&
-    !reason
-  ) {
+  const requiresReason =
+    payload.action === "expire_now" ||
+    payload.action === "set_plan_tier" ||
+    payload.action === "return_to_provider_billing" ||
+    payload.action === "reset_billing_test_account";
+  if (requiresReason && !reason) {
     return NextResponse.json({ error: "Reason is required for this action." }, { status: 400 });
   }
   const adminClient = createServiceRoleClient();
@@ -162,6 +168,49 @@ export async function POST(request: Request) {
       stripeStatus: restored.stripeStatus,
       stripeSubscriptionId: restored.stripeSubscriptionId,
       stripePriceId: restored.stripePriceId,
+    });
+  }
+
+  if (payload.action === "reset_billing_test_account") {
+    const resetResult = await resetBillingTestAccount({
+      adminClient: adminClient as never,
+      profileId: payload.profileId,
+      actorId: auth.user.id,
+      reason,
+    });
+
+    if (!resetResult.ok) {
+      const status =
+        resetResult.code === "not_designated_test_account"
+          ? 403
+          : resetResult.code === "active_provider_subscription"
+          ? 409
+          : resetResult.code === "auth_user_not_found"
+          ? 404
+          : 400;
+
+      return NextResponse.json(
+        {
+          error: resetResult.error,
+          code: resetResult.code,
+          email: resetResult.email,
+          providerStatePresent: resetResult.providerStatePresent,
+          blockerProvider: resetResult.blockerProvider ?? null,
+          blockerSubscriptionId: resetResult.blockerSubscriptionId ?? null,
+          blockerStatus: resetResult.blockerStatus ?? null,
+        },
+        { status }
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      planTier: "free",
+      billingSource: "manual",
+      validUntil: resetResult.validUntil,
+      reusableNow: resetResult.reusableNow,
+      providerStatePresent: resetResult.providerStatePresent,
+      email: resetResult.email,
     });
   }
 
