@@ -61,6 +61,8 @@ type ProfileRow = {
   role?: string | null;
   onboarding_completed?: boolean | null;
   onboarding_completed_at?: string | null;
+  phone?: string | null;
+  preferred_contact?: string | null;
 };
 
 type ProfilePlanRow = {
@@ -119,6 +121,7 @@ export type BillingTestAccountProvisionOutcome = {
   role: BillingTestAccountRole;
   createdAuthUser: boolean;
   profileRoleUpdated: boolean;
+  profileCompletenessSeeded: boolean;
   billingBaselinePrepared: boolean;
   notesAppended: boolean;
 };
@@ -128,9 +131,13 @@ export type BillingTestAccountProvisionSummary = {
   created: number;
   alreadyExisted: number;
   rolesUpdated: number;
+  profileCompletenessSeeded: number;
   baselinesPrepared: number;
   accounts: BillingTestAccountProvisionOutcome[];
 };
+
+const TEST_ACCOUNT_PLACEHOLDER_PHONE = "+440000000000";
+const TEST_ACCOUNT_PLACEHOLDER_PREFERRED_CONTACT = "email";
 
 function normalizeEmail(value: string | null | undefined) {
   return String(value || "").trim().toLowerCase();
@@ -156,7 +163,7 @@ async function waitForProfile(adminClient: AdminClientLike, profileId: string, r
   for (let attempt = 0; attempt < retries; attempt += 1) {
     const { data, error } = await adminClient
       .from("profiles")
-      .select("id, role, onboarding_completed, onboarding_completed_at")
+      .select("id, role, onboarding_completed, onboarding_completed_at, phone, preferred_contact")
       .eq("id", profileId)
       .maybeSingle();
 
@@ -196,6 +203,10 @@ function shouldPrepareFreshBillingBaseline(plan: ProfilePlanRow | null) {
     !plan.stripe_current_period_end &&
     !plan.stripe_status
   );
+}
+
+function shouldSeedProfileCompleteness(role: BillingTestAccountRole) {
+  return role === "landlord" || role === "agent";
 }
 
 async function appendProvisioningNote(input: {
@@ -248,6 +259,7 @@ export async function provisionBillingTestAccounts(input: {
     created: 0,
     alreadyExisted: 0,
     rolesUpdated: 0,
+    profileCompletenessSeeded: 0,
     baselinesPrepared: 0,
     accounts: [],
   };
@@ -301,6 +313,26 @@ export async function provisionBillingTestAccounts(input: {
       summary.rolesUpdated += 1;
     }
 
+    const shouldSeedCompleteness =
+      shouldSeedProfileCompleteness(spec.role) && (!profile.phone || !profile.preferred_contact);
+
+    if (shouldSeedCompleteness) {
+      const { error } = await input.adminClient
+        .from("profiles")
+        .update({
+          phone: profile.phone || TEST_ACCOUNT_PLACEHOLDER_PHONE,
+          preferred_contact: profile.preferred_contact || TEST_ACCOUNT_PLACEHOLDER_PREFERRED_CONTACT,
+          updated_at: stamp,
+        })
+        .eq("id", authUser.id);
+
+      if (error) {
+        throw new Error(error.message || `Unable to seed profile completeness for ${spec.email}.`);
+      }
+
+      summary.profileCompletenessSeeded += 1;
+    }
+
     const existingPlan = await loadPlan(input.adminClient, authUser.id);
     const shouldPrepareBaseline = shouldPrepareFreshBillingBaseline(existingPlan);
     if (shouldPrepareBaseline) {
@@ -334,7 +366,7 @@ export async function provisionBillingTestAccounts(input: {
     await appendProvisioningNote({
       adminClient: input.adminClient,
       profileId: authUser.id,
-      line: `[${stamp}] Internal billing smoke test account provisioned. role=${spec.role}. cadence=${spec.cadence}. market=${spec.market}. created_auth_user=${createdAuthUser}. baseline_prepared=${shouldPrepareBaseline}. Existing subscriptions, webhook events, and prior billing history were preserved.`,
+      line: `[${stamp}] Internal billing smoke test account provisioned. role=${spec.role}. cadence=${spec.cadence}. market=${spec.market}. created_auth_user=${createdAuthUser}. profile_completeness_seeded=${shouldSeedCompleteness}. baseline_prepared=${shouldPrepareBaseline}. Existing subscriptions, webhook events, and prior billing history were preserved.`,
     });
 
     summary.accounts.push({
@@ -342,6 +374,7 @@ export async function provisionBillingTestAccounts(input: {
       role: spec.role,
       createdAuthUser,
       profileRoleUpdated: shouldUpdateRole,
+      profileCompletenessSeeded: shouldSeedCompleteness,
       billingBaselinePrepared: shouldPrepareBaseline,
       notesAppended: true,
     });

@@ -28,7 +28,7 @@ async function main() {
 
   console.log("[billing-test-accounts] Provisioning complete.");
   console.log(
-    `[billing-test-accounts] Processed ${summary.processed} accounts: created=${summary.created}, existing=${summary.alreadyExisted}, roles_updated=${summary.rolesUpdated}, baselines_prepared=${summary.baselinesPrepared}.`
+    `[billing-test-accounts] Processed ${summary.processed} accounts: created=${summary.created}, existing=${summary.alreadyExisted}, roles_updated=${summary.rolesUpdated}, profile_completeness_seeded=${summary.profileCompletenessSeeded}, baselines_prepared=${summary.baselinesPrepared}.`
   );
   for (const account of summary.accounts) {
     console.log(
@@ -38,6 +38,7 @@ async function main() {
         `role=${account.role}`,
         `created=${account.createdAuthUser}`,
         `roleUpdated=${account.profileRoleUpdated}`,
+        `profileCompletenessSeeded=${account.profileCompletenessSeeded}`,
         `baselinePrepared=${account.billingBaselinePrepared}`,
       ].join(" ")
     );

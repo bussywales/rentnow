@@ -13,6 +13,8 @@ type Profile = {
   role: string | null;
   onboarding_completed: boolean | null;
   onboarding_completed_at: string | null;
+  phone?: string | null;
+  preferred_contact?: string | null;
 };
 type ProfilePlan = {
   profile_id: string;
@@ -189,6 +191,7 @@ void test("billing test account provisioner creates missing users and prepares a
   assert.equal(result.created, 6);
   assert.equal(result.alreadyExisted, 0);
   assert.equal(result.rolesUpdated, 6);
+  assert.equal(result.profileCompletenessSeeded, 4);
   assert.equal(result.baselinesPrepared, 6);
 
   for (const spec of BILLING_TEST_ACCOUNT_SPECS) {
@@ -198,6 +201,13 @@ void test("billing test account provisioner creates missing users and prepares a
     const profile = store.profiles.get(user.id);
     assert.equal(profile?.role, spec.role);
     assert.equal(profile?.onboarding_completed, true);
+    if (spec.role === "landlord" || spec.role === "agent") {
+      assert.equal(profile?.phone, "+440000000000");
+      assert.equal(profile?.preferred_contact, "email");
+    } else {
+      assert.equal(profile?.phone ?? null, null);
+      assert.equal(profile?.preferred_contact ?? null, null);
+    }
 
     const plan = store.plans.get(user.id);
     assert.equal(plan?.plan_tier, "free");
@@ -247,10 +257,60 @@ void test("billing test account provisioner leaves existing non-baseline billing
   const existingOutcome = result.accounts.find((account) => account.email === existingUser.email);
   assert.equal(existingOutcome?.createdAuthUser, false);
   assert.equal(existingOutcome?.profileRoleUpdated, true);
+  assert.equal(existingOutcome?.profileCompletenessSeeded, true);
   assert.equal(existingOutcome?.billingBaselinePrepared, false);
 
   const preservedPlan = store.plans.get(existingUser.id);
   assert.equal(preservedPlan?.billing_source, "stripe");
   assert.equal(preservedPlan?.stripe_subscription_id, "sub_live_123");
   assert.equal(preservedPlan?.plan_tier, "pro");
+
+  const updatedProfile = store.profiles.get(existingUser.id);
+  assert.equal(updatedProfile?.phone, "+440000000000");
+  assert.equal(updatedProfile?.preferred_contact, "email");
+});
+
+void test("billing test account provisioner does not clobber non-empty host profile completeness fields", async () => {
+  const existingUser = { id: "existing-2", email: "agent-yearly-uk-01@rentnow.test" };
+  const { client, store } = createProvisioningAdminClient({
+    authUsers: [existingUser],
+    profiles: [
+      {
+        id: existingUser.id,
+        role: "agent",
+        onboarding_completed: true,
+        onboarding_completed_at: "2026-04-01T10:00:00.000Z",
+        phone: "+447700900000",
+        preferred_contact: "phone",
+      },
+    ],
+    plans: [
+      {
+        profile_id: existingUser.id,
+        plan_tier: "free",
+        billing_source: "manual",
+        valid_until: null,
+        max_listings_override: null,
+        stripe_customer_id: null,
+        stripe_subscription_id: null,
+        stripe_price_id: null,
+        stripe_current_period_end: null,
+        stripe_status: null,
+      },
+    ],
+  });
+
+  const result = await provisionBillingTestAccounts({
+    adminClient: client as never,
+    password: "shared-secret",
+    now: new Date("2026-04-02T10:00:00.000Z"),
+  });
+
+  const existingOutcome = result.accounts.find((account) => account.email === existingUser.email);
+  assert.equal(existingOutcome?.profileRoleUpdated, false);
+  assert.equal(existingOutcome?.profileCompletenessSeeded, false);
+
+  const updatedProfile = store.profiles.get(existingUser.id);
+  assert.equal(updatedProfile?.phone, "+447700900000");
+  assert.equal(updatedProfile?.preferred_contact, "phone");
 });
