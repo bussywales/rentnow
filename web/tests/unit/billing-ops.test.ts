@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import { maskEmail, maskIdentifier } from "../../lib/billing/mask";
 import { buildBillingSnapshot } from "../../lib/billing/snapshot";
@@ -152,4 +154,14 @@ void test("buildSupportSnapshot masks ids and includes recent events", () => {
   assert.equal(supportSnapshot.recent_events.length, 1);
   assert.equal(supportSnapshot.recent_events[0].event_id, "evt_12...7890");
   assert.equal(supportSnapshot.recent_events[0].stripe_price_id, "price_...7890");
+});
+
+void test("billing ops action panel includes operator safety guidance", () => {
+  const filePath = path.join(process.cwd(), "components", "admin", "BillingOpsActions.tsx");
+  const source = readFileSync(filePath, "utf8");
+
+  assert.match(source, /Operator guidance/);
+  assert.match(source, /Return to Stripe billing/);
+  assert.match(source, /Replay Stripe event/);
+  assert.match(source, /Reset billing test account/);
 });

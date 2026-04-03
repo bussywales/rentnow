@@ -2,6 +2,13 @@
 
 This document covers manual billing (admin-driven), Stripe subscriptions, and tenant premium alerts.
 
+## Operator docs
+- Launch readiness: `web/docs/runbooks/billing-launch-readiness.md`
+- Billing ops runbook: `web/docs/runbooks/billing-ops-runbook.md`
+- Support triage matrix: `web/docs/runbooks/billing-support-triage.md`
+- Billing incident template: `web/docs/runbooks/billing-incident-template.md`
+- Launch status: `web/docs/runbooks/billing-launch-status.md`
+
 ## Plan model
 - Landlord/agent tiers: `free`, `starter`, `pro`.
 - Tenant tier: `tenant_pro`.

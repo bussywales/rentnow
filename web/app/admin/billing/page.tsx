@@ -17,6 +17,7 @@ import {
 } from "@/lib/billing/admin-billing-diagnostics";
 import { evaluateBillingTestability } from "@/lib/billing/billing-test-accounts";
 import { buildBillingSnapshot, type BillingSnapshot } from "@/lib/billing/snapshot";
+import { resolveSubscriptionLifecycleState } from "@/lib/billing/subscription-lifecycle";
 import { SupportSnapshotCopy } from "@/components/admin/SupportSnapshotCopy";
 import { buildSupportSnapshot } from "@/lib/billing/support-snapshot";
 import { maskEmail, maskIdentifier } from "@/lib/billing/mask";
@@ -723,6 +724,17 @@ export default async function AdminBillingPage({ searchParams }: { searchParams?
         billingNotes: snapshotResult.snapshot.billingNotes,
       })
     : null;
+  const billingLifecycle = snapshotResult.snapshot
+    ? resolveSubscriptionLifecycleState({
+        billingSource: snapshotResult.snapshot.billingSource,
+        planTier: snapshotResult.snapshot.planTier,
+        effectivePlanTier: snapshotResult.snapshot.effectivePlanTier,
+        validUntil: snapshotResult.snapshot.validUntil,
+        stripeStatus: snapshotResult.snapshot.stripeStatus,
+        stripeCurrentPeriodEnd: snapshotResult.snapshot.stripeCurrentPeriodEnd,
+        providerSubscription: billingDiagnostics?.providerSubscription ?? null,
+      })
+    : null;
   const billingTestability = snapshotResult.snapshot
     ? evaluateBillingTestability({
         email: snapshotResult.snapshot.email,
@@ -730,6 +742,12 @@ export default async function AdminBillingPage({ searchParams }: { searchParams?
         subscriptionRows: userSubscriptionsResult.rows,
       })
     : null;
+  const latestLifecycleEvent = userEventsResult.events.find((event) =>
+    typeof event.event_type === "string" &&
+    (/^customer\.subscription\./.test(event.event_type) ||
+      event.event_type === "checkout.session.completed" ||
+      /^invoice\./.test(event.event_type))
+  );
   const replayableUserEvents = userEventsResult.events.filter(
     (event): event is StripeEventRow & { event_id: string; event_type: string } =>
       isReplayEligibleStripeEvent(event) && typeof event.event_id === "string" && typeof event.event_type === "string"
@@ -841,6 +859,14 @@ export default async function AdminBillingPage({ searchParams }: { searchParams?
             Provider settings
           </Link>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-950">
+        <p className="font-semibold">Launch posture</p>
+        <p className="mt-1 text-cyan-900">
+          Certified UK lanes can use the normal Stripe-owned recovery path. Landlord yearly and agent yearly remain provisionally
+          accepted, so treat those incidents with extra care and verify final account truth before closing the case.
+        </p>
       </div>
 
       {stripeMode === "live" && !stripeLiveReady && (
@@ -959,9 +985,17 @@ export default async function AdminBillingPage({ searchParams }: { searchParams?
                   <p className="text-sm text-slate-700">{snapshotResult.snapshot.billingSource || "manual"}</p>
                 </div>
                 <div>
+                  <p className="text-xs uppercase text-slate-400">Lifecycle state</p>
+                  <p className="text-sm text-slate-700">{billingLifecycle?.label || "—"}</p>
+                </div>
+                <div>
                   <p className="text-xs uppercase text-slate-400">Manual override</p>
                   <p className="text-sm text-slate-700">
-                    {snapshotResult.snapshot.manualOverrideActive ? "Active" : "No"}
+                    {billingLifecycle?.key === "manual_override"
+                      ? "Active"
+                      : snapshotResult.snapshot.manualOverrideActive
+                      ? "Stored on row"
+                      : "No"}
                   </p>
                 </div>
                 <div>
@@ -987,14 +1021,35 @@ export default async function AdminBillingPage({ searchParams }: { searchParams?
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase text-slate-400">Valid until</p>
+                  <p className="text-xs uppercase text-slate-400">
+                    {billingLifecycle?.renewalAt
+                      ? "Renews"
+                      : billingLifecycle?.key === "cancelled_period_end"
+                      ? "Access until"
+                      : "Valid until"}
+                  </p>
                   <p className="text-sm text-slate-700">
-                    {snapshotResult.snapshot.validUntil?.replace("T", " ").replace("Z", "") || "—"}
+                    {(billingLifecycle?.renewalAt ?? billingLifecycle?.accessUntil ?? snapshotResult.snapshot.validUntil)
+                      ?.replace("T", " ")
+                      .replace("Z", "") || "—"}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-400">Stripe status</p>
                   <p className="text-sm text-slate-700">{snapshotResult.snapshot.stripeStatus || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-slate-400">Cancellation requested</p>
+                  <p className="text-sm text-slate-700">
+                    {billingLifecycle?.cancellationRequestedAt?.replace("T", " ").replace("Z", "") || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-slate-400">Latest lifecycle event</p>
+                  <p className="text-sm text-slate-700">
+                    {latestLifecycleEvent?.event_type || "—"}
+                    {latestLifecycleEvent?.status ? ` • ${latestLifecycleEvent.status}` : ""}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs uppercase text-slate-400">Customer</p>
@@ -1092,16 +1147,24 @@ export default async function AdminBillingPage({ searchParams }: { searchParams?
                             {billingDiagnostics.providerSubscription.plan_tier || "—"}
                           </p>
                         </div>
-                        <div>
-                          <p className="text-xs uppercase text-slate-400">Current period end</p>
-                          <p className="text-sm text-slate-700">
+                      <div>
+                        <p className="text-xs uppercase text-slate-400">Current period end</p>
+                        <p className="text-sm text-slate-700">
                             {billingDiagnostics.providerSubscription.current_period_end
                               ?.replace("T", " ")
                               .replace("Z", "") || "—"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs uppercase text-slate-400">Updated</p>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase text-slate-400">Cancellation requested</p>
+                        <p className="text-sm text-slate-700">
+                          {billingDiagnostics.providerSubscription.canceled_at
+                            ?.replace("T", " ")
+                            .replace("Z", "") || "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase text-slate-400">Updated</p>
                           <p className="text-sm text-slate-700">
                             {billingDiagnostics.providerSubscription.updated_at?.replace("T", " ").replace("Z", "") ||
                               billingDiagnostics.providerSubscription.created_at?.replace("T", " ").replace("Z", "") ||
@@ -1137,6 +1200,13 @@ export default async function AdminBillingPage({ searchParams }: { searchParams?
                   </span>
                 </div>
               )}
+              <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
+                <p className="font-semibold text-slate-700">Healthy final state</p>
+                <p className="mt-1">
+                  Close the incident only when billing source, effective plan, provider subscription status, and the latest webhook
+                  outcome all agree.
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -1182,6 +1252,10 @@ export default async function AdminBillingPage({ searchParams }: { searchParams?
               <h3 className="text-base font-semibold text-slate-900">Recent Stripe events</h3>
               <p className="text-sm text-slate-600">
                 Last 10 events linked to this profile, including replay state and ignore reasons.
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Fix the root cause before replay. Common reasons are <code>missing_plan_mapping</code>, <code>manual_override</code>,
+                <code>missing_profile_attach</code>, and <code>identity_mismatch</code>.
               </p>
             </div>
             <SupportSnapshotCopy

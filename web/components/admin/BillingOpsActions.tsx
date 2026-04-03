@@ -259,6 +259,14 @@ export function BillingOpsActions({
         Loaded account: {email || profileId}. Manual overrides take precedence over Stripe. Current source:{" "}
         {billingSource || "manual"}.
       </p>
+      <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+        <p className="font-semibold text-slate-700">Operator guidance</p>
+        <ul className="mt-2 space-y-1">
+          <li>Use <span className="font-semibold">Return to Stripe billing</span> only when manual override is masking stored Stripe truth.</li>
+          <li>Use <span className="font-semibold">Replay Stripe event</span> only after the underlying cause has been fixed.</li>
+          <li><span className="font-semibold">Reset billing test account</span> never deletes historical subscriptions, webhook rows, or revenue records.</li>
+        </ul>
+      </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Button size="sm" type="button" onClick={extendValidUntil} disabled={actionStatus === "loading"}>
