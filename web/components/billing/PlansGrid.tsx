@@ -31,6 +31,8 @@ type Props = {
   marketCountry: string;
   marketCurrency: string;
   marketLabel: string;
+  lifecycleLabel: string;
+  lifecycleDetail?: string | null;
   pricingByPlanKey: Record<string, SubscriptionPlanPricingSet>;
   requestUpgradeAction: (formData: FormData) => void;
 };
@@ -52,6 +54,8 @@ export function PlansGrid({
   marketCountry,
   marketCurrency,
   marketLabel,
+  lifecycleLabel,
+  lifecycleDetail,
   pricingByPlanKey,
   requestUpgradeAction,
 }: Props) {
@@ -331,10 +335,12 @@ export function PlansGrid({
         })}
       </div>
 
-      {statusLabel && (
+      {(statusLabel || lifecycleDetail) && (
         <p className="text-xs text-slate-500">
-          Stripe status: {statusLabel}
-          {periodLabel ? ` • Renews ${periodLabel}` : ""}
+          Lifecycle: {lifecycleLabel}
+          {lifecycleDetail ? ` • ${lifecycleDetail}` : ""}
+          {statusLabel ? ` • Stripe status: ${statusLabel}` : ""}
+          {periodLabel && !lifecycleDetail ? ` • Renews ${periodLabel}` : ""}
         </p>
       )}
 

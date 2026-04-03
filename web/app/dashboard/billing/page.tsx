@@ -24,9 +24,13 @@ import { MARKET_COOKIE_NAME, resolveMarketFromRequest, formatMarketLabel } from 
 import { SUBSCRIPTION_PLAN_CARDS } from "@/lib/billing/subscription-plan-cards";
 import { resolveSubscriptionPlanQuote } from "@/lib/billing/subscription-pricing";
 import { loadSubscriptionPriceBookRows } from "@/lib/billing/subscription-price-book.repository";
+import { resolveSubscriptionLifecycleState } from "@/lib/billing/subscription-lifecycle";
 import type { SubscriptionPlanPricingSet } from "@/lib/billing/subscription-pricing.types";
 
 export const dynamic = "force-dynamic";
+
+type SearchParams = Record<string, string | string[] | undefined>;
+type SearchParamsInput = SearchParams | Promise<SearchParams>;
 
 type PlanRow = {
   plan_tier?: string | null;
@@ -35,7 +39,29 @@ type PlanRow = {
   stripe_status?: string | null;
   stripe_current_period_end?: string | null;
   stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
 };
+
+type SubscriptionRow = {
+  provider?: string | null;
+  provider_subscription_id?: string | null;
+  status?: string | null;
+  current_period_end?: string | null;
+  canceled_at?: string | null;
+};
+
+function parseParam(params: SearchParams, key: string) {
+  const value = params[key];
+  if (!value) return "";
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function resolveLifecycleToneClasses(tone: "neutral" | "positive" | "warning" | "danger") {
+  if (tone === "positive") return "bg-emerald-100 text-emerald-700";
+  if (tone === "warning") return "bg-amber-100 text-amber-700";
+  if (tone === "danger") return "bg-rose-100 text-rose-700";
+  return "bg-slate-100 text-slate-600";
+}
 
 async function requestUpgrade(formData: FormData) {
   "use server";
@@ -70,7 +96,7 @@ async function requestUpgrade(formData: FormData) {
   });
 }
 
-export default async function BillingPage() {
+export default async function BillingPage({ searchParams }: { searchParams?: SearchParamsInput } = {}) {
   if (!hasServerSupabaseEnv()) {
     return (
       <ErrorState
@@ -102,7 +128,7 @@ export default async function BillingPage() {
   const { data: planRow } = await planClient
     .from("profile_plans")
     .select(
-      "plan_tier, billing_source, valid_until, stripe_status, stripe_current_period_end, stripe_customer_id"
+      "plan_tier, billing_source, valid_until, stripe_status, stripe_current_period_end, stripe_customer_id, stripe_subscription_id"
     )
     .eq("profile_id", profile.id)
     .maybeSingle();
@@ -112,13 +138,19 @@ export default async function BillingPage() {
   const stripeStatus = (planRow as PlanRow | null)?.stripe_status ?? null;
   const stripePeriodEnd = (planRow as PlanRow | null)?.stripe_current_period_end ?? null;
   const stripeCustomerId = (planRow as PlanRow | null)?.stripe_customer_id ?? null;
-  const now = new Date();
-  const expired =
-    !!validUntil && Number.isFinite(Date.parse(validUntil)) && new Date(validUntil).getTime() < now.getTime();
+  const stripeSubscriptionId = (planRow as PlanRow | null)?.stripe_subscription_id ?? null;
   const effectivePlanTier = resolveEffectivePlanTier(
     normalizePlanTier((planRow as PlanRow | null)?.plan_tier),
     validUntil
   );
+  const { data: subscriptionRow } = await planClient
+    .from("subscriptions")
+    .select("provider, provider_subscription_id, status, current_period_end, canceled_at")
+    .eq("user_id", profile.id)
+    .eq("provider", "stripe")
+    .order("current_period_end", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
   const usage = await getPlanUsage({
     supabase,
     ownerId: profile.id,
@@ -170,7 +202,16 @@ export default async function BillingPage() {
   const flutterwaveEnabled =
     flutterwaveCheckoutVisible &&
     !!flutterwaveConfig.secretKey && !(providerModes.flutterwaveMode === "live" && flutterwaveConfig.fallbackFromLive);
-  const showManage = billingSource === "stripe" && !!stripeCustomerId;
+  const lifecycle = resolveSubscriptionLifecycleState({
+    billingSource,
+    planTier: (planRow as PlanRow | null)?.plan_tier ?? null,
+    effectivePlanTier,
+    validUntil,
+    stripeStatus,
+    stripeCurrentPeriodEnd: stripePeriodEnd,
+    providerSubscription: (subscriptionRow as SubscriptionRow | null) ?? null,
+  });
+  const showManage = lifecycle.portalEligible && !!stripeCustomerId && !!stripeSubscriptionId;
   const pricingEntries = await Promise.all(
     SUBSCRIPTION_PLAN_CARDS.filter((planCard) => planCard.tier !== "free" && planCard.role)
       .map(async (planCard) => {
@@ -219,30 +260,21 @@ export default async function BillingPage() {
   );
   const pricingByPlanKey = Object.fromEntries(pricingEntries) as Record<string, SubscriptionPlanPricingSet>;
 
-  const statusToken =
-    billingSource === "stripe"
-      ? stripeStatus || (expired ? "expired" : "active")
-      : billingSource === "manual"
-      ? "manual"
-      : expired
-      ? "expired"
-      : "active";
-  const statusLabel = statusToken.replace(/_/g, " ");
-  const statusTone =
-    statusToken === "active" || statusToken === "trialing"
-      ? "bg-emerald-100 text-emerald-700"
-      : statusToken === "past_due" || statusToken === "unpaid"
-      ? "bg-amber-100 text-amber-700"
-      : statusToken === "canceled" || statusToken === "incomplete_expired" || statusToken === "expired"
-      ? "bg-rose-100 text-rose-700"
-      : "bg-slate-100 text-slate-600";
   const summaryCopy =
     normalizedRole === "tenant"
       ? "Your plan unlocks saved search alerts and early access."
       : "Your plan controls listing limits and approval priority.";
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const portalReturned = parseParam(resolvedSearchParams, "stripe") === "portal-return";
 
   return (
     <div className="space-y-6">
+      {portalReturned ? (
+        <div className="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
+          <p className="font-semibold">Returned from Stripe billing portal.</p>
+          <p className="mt-1">Subscription details below were refreshed from the latest stored Stripe state.</p>
+        </div>
+      ) : null}
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -270,25 +302,54 @@ export default async function BillingPage() {
               <span className="font-semibold">{plan.name}</span>
             </div>
             <div className="mt-2 flex items-center justify-between gap-4">
+              <span className="text-slate-500">Lifecycle</span>
+              <span
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${resolveLifecycleToneClasses(lifecycle.tone)}`}
+              >
+                {lifecycle.label}
+              </span>
+            </div>
+            <div className="mt-2">
+              <p className="text-xs text-slate-500">{lifecycle.description}</p>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-4">
               <span className="text-slate-500">Billing source</span>
               <span className="capitalize">{billingSource}</span>
             </div>
             <div className="mt-2 flex items-center justify-between gap-4">
-              <span className="text-slate-500">Status</span>
-              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${statusTone}`}>
-                {statusLabel}
-              </span>
+              <span className="text-slate-500">Stripe status</span>
+              <span>{stripeStatus ? stripeStatus.replace(/_/g, " ") : "—"}</span>
             </div>
-            {billingSource === "stripe" && stripePeriodEnd && (
+            {lifecycle.renewalAt && (
               <div className="mt-2 flex items-center justify-between gap-4">
                 <span className="text-slate-500">Renews</span>
-                <span>{new Date(stripePeriodEnd).toLocaleDateString()}</span>
+                <span>{new Date(lifecycle.renewalAt).toLocaleDateString()}</span>
               </div>
             )}
-            <div className="mt-2 flex items-center justify-between gap-4">
-              <span className="text-slate-500">Valid until</span>
-              <span>{validUntil ? new Date(validUntil).toLocaleDateString() : "—"}</span>
-            </div>
+            {lifecycle.accessUntil ? (
+              <div className="mt-2 flex items-center justify-between gap-4">
+                <span className="text-slate-500">
+                  {lifecycle.key === "cancelled_period_end" ? "Access until" : "Valid until"}
+                </span>
+                <span>{new Date(lifecycle.accessUntil).toLocaleDateString()}</span>
+              </div>
+            ) : (
+              <div className="mt-2 flex items-center justify-between gap-4">
+                <span className="text-slate-500">Valid until</span>
+                <span>—</span>
+              </div>
+            )}
+            {lifecycle.cancellationRequestedAt && (
+              <div className="mt-2 flex items-center justify-between gap-4">
+                <span className="text-slate-500">Cancellation requested</span>
+                <span>{new Date(lifecycle.cancellationRequestedAt).toLocaleDateString()}</span>
+              </div>
+            )}
+            {!showManage && billingSource === "stripe" && (
+              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                Stripe billing exists, but portal access is unavailable for the current lifecycle state.
+              </div>
+            )}
             <div className="mt-3 border-t border-slate-200 pt-3">
               <div className="flex items-center justify-between gap-4">
                 <span className="text-slate-500">Listing credits</span>
@@ -334,6 +395,16 @@ export default async function BillingPage() {
             marketLabel={marketLabel}
             pricingByPlanKey={pricingByPlanKey}
             requestUpgradeAction={requestUpgrade}
+            lifecycleLabel={lifecycle.label}
+            lifecycleDetail={
+              lifecycle.key === "cancelled_period_end" && lifecycle.accessUntil
+                ? `Access until ${new Date(lifecycle.accessUntil).toLocaleDateString()}`
+                : lifecycle.key === "active_paid" && lifecycle.renewalAt
+                ? `Renews ${new Date(lifecycle.renewalAt).toLocaleDateString()}`
+                : lifecycle.key === "payment_issue"
+                ? "Payment collection needs attention."
+                : null
+            }
           />
         </>
       ) : (

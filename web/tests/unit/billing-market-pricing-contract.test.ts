@@ -37,3 +37,19 @@ void test("stripe checkout route resolves market-aware subscription pricing befo
   assert.match(source, /resolveSubscriptionPlanQuote/);
   assert.match(source, /subscription_market_currency/);
 });
+
+void test("billing page surfaces subscription lifecycle state and Stripe portal return messaging", () => {
+  const source = read("app/dashboard/billing/page.tsx");
+  const tenantSource = read("app/tenant/billing/page.tsx");
+  const gridSource = read("components/billing/PlansGrid.tsx");
+  const cardSource = read("components/billing/PlanCard.tsx");
+
+  assert.match(source, /resolveSubscriptionLifecycleState/);
+  assert.match(source, /Returned from Stripe billing portal\./);
+  assert.match(source, /Lifecycle/);
+  assert.match(source, /Cancellation requested/);
+  assert.match(source, /parseParam\(resolvedSearchParams, "stripe"\) === "portal-return"/);
+  assert.match(tenantSource, /<BillingPage searchParams=\{searchParams\} \/>/);
+  assert.match(gridSource, /Lifecycle: \{lifecycleLabel\}/);
+  assert.match(cardSource, /Manage subscription/);
+});

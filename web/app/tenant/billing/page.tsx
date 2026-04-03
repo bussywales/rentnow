@@ -6,7 +6,13 @@ import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 
 export const dynamic = "force-dynamic";
 
-export default async function TenantBillingPage() {
+type SearchParams = Record<string, string | string[] | undefined>;
+
+export default async function TenantBillingPage({
+  searchParams,
+}: {
+  searchParams?: SearchParams | Promise<SearchParams>;
+}) {
   if (hasServerSupabaseEnv()) {
     const { user, role } = await resolveServerRole();
     if (!user) {
@@ -23,7 +29,7 @@ export default async function TenantBillingPage() {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
-      <BillingPage />
+      <BillingPage searchParams={searchParams} />
     </div>
   );
 }
