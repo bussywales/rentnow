@@ -16,6 +16,7 @@ import { resolveAgentOnboardingProgress } from "@/lib/agents/agent-onboarding.se
 import AgentOnboardingChecklist from "@/components/agents/AgentOnboardingChecklist";
 import ReferralCaptureBootstrap from "@/components/referrals/ReferralCaptureBootstrap";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
+import { listMissingHostProfileFields } from "@/lib/host/activation";
 
 export default async function DashboardLayout({
   children,
@@ -51,6 +52,13 @@ export default async function DashboardLayout({
     normalizedRole === "landlord" || normalizedRole === "agent"
       ? !profile?.phone || !profile?.preferred_contact
       : false;
+  const missingHostProfileFields =
+    normalizedRole === "landlord" || normalizedRole === "agent"
+      ? listMissingHostProfileFields({
+          phone: profile?.phone ?? null,
+          preferredContact: profile?.preferred_contact ?? null,
+        })
+      : [];
   let unreadMessages = 0;
   let requireLegalAcceptance = false;
   let supabase = null as Awaited<ReturnType<typeof createServerSupabaseClient>> | null;
@@ -132,7 +140,8 @@ export default async function DashboardLayout({
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p className="font-semibold">Complete your profile to get listings approved faster.</p>
           <p className="mt-1 text-amber-800">
-            Add a phone number and preferred contact so tenants can reach you quickly.
+            Missing: {missingHostProfileFields.join(", ")}. Add these now so tenants can reach you
+            quickly and your listings are easier to approve.
           </p>
           <Link
             href={`/onboarding/${normalizedRole}`}

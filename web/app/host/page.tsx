@@ -55,6 +55,11 @@ import {
   shouldDefaultHostToBookingsInbox,
 } from "@/lib/shortlet/host-bookings-inbox";
 import { buildCanonicalHostBookingsHrefFromSearchParams } from "@/lib/host/bookings-navigation";
+import { resolveSubscriptionLifecycleState } from "@/lib/billing/subscription-lifecycle";
+import {
+  buildHostActivationState,
+  listMissingHostProfileFields,
+} from "@/lib/host/activation";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +88,23 @@ type PropertyStatus =
   | "paused_owner"
   | "paused_occupied"
   | "changes_requested";
+
+type PlanRow = {
+  plan_tier?: string | null;
+  billing_source?: string | null;
+  max_listings_override?: number | null;
+  valid_until?: string | null;
+  stripe_status?: string | null;
+  stripe_current_period_end?: string | null;
+};
+
+type SubscriptionRow = {
+  provider?: string | null;
+  provider_subscription_id?: string | null;
+  status?: string | null;
+  current_period_end?: string | null;
+  canceled_at?: string | null;
+};
 
 function normalizeStatus(property: Property): PropertyStatus {
   const normalized = property.status ? property.status.toString().trim().toLowerCase() : null;
@@ -156,8 +178,13 @@ export default async function DashboardHome({ searchParams }: PageProps) {
   let fetchError: string | null = null;
   let role: string | null = null;
   let planTier: string | null = null;
+  let billingSource: string | null = null;
   let maxOverride: number | null = null;
   let validUntil: string | null = null;
+  let stripeStatus: string | null = null;
+  let stripeCurrentPeriodEnd: string | null = null;
+  let providerSubscription: SubscriptionRow | null = null;
+  let profileMissingFields: string[] = [];
   let pendingUpgrade = false;
   let trustMarkers: TrustMarkerState | null = null;
   let hostUserId: string | null = null;
@@ -248,13 +275,38 @@ export default async function DashboardHome({ searchParams }: PageProps) {
             const { data: planRow } = await planClient
               .from("profile_plans")
               .select(
-                "plan_tier, max_listings_override, valid_until"
+                "plan_tier, billing_source, max_listings_override, valid_until, stripe_status, stripe_current_period_end"
               )
               .eq("profile_id", ownerId)
-              .maybeSingle();
+              .maybeSingle<PlanRow>();
             planTier = planRow?.plan_tier ?? null;
+            billingSource = planRow?.billing_source ?? null;
             maxOverride = planRow?.max_listings_override ?? null;
             validUntil = planRow?.valid_until ?? null;
+            stripeStatus = planRow?.stripe_status ?? null;
+            stripeCurrentPeriodEnd = planRow?.stripe_current_period_end ?? null;
+
+            const [{ data: subscriptionRow }, { data: ownerProfileRow }] = await Promise.all([
+              planClient
+                .from("subscriptions")
+                .select("provider, provider_subscription_id, status, current_period_end, canceled_at")
+                .eq("user_id", ownerId)
+                .eq("provider", "stripe")
+                .order("current_period_end", { ascending: false, nullsFirst: false })
+                .limit(1)
+                .maybeSingle<SubscriptionRow>(),
+              planClient
+                .from("profiles")
+                .select("phone, preferred_contact")
+                .eq("id", ownerId)
+                .maybeSingle<{ phone?: string | null; preferred_contact?: string | null }>(),
+            ]);
+
+            providerSubscription = subscriptionRow ?? null;
+            profileMissingFields = listMissingHostProfileFields({
+              phone: ownerProfileRow?.phone ?? null,
+              preferredContact: ownerProfileRow?.preferred_contact ?? null,
+            });
           }
 
           const { data: upgradeRequest } = await supabase
@@ -423,6 +475,54 @@ export default async function DashboardHome({ searchParams }: PageProps) {
     }
   }
 
+  const draftCount = properties.filter((property) => normalizeStatus(property) === "draft").length;
+  const pendingCount = properties.filter((property) => normalizeStatus(property) === "pending").length;
+  const liveCount = properties.filter((property) => normalizeStatus(property) === "live").length;
+  const rejectedCount = properties.filter((property) => normalizeStatus(property) === "rejected").length;
+  const changesRequestedCount = properties.filter(
+    (property) => normalizeStatus(property) === "changes_requested"
+  ).length;
+  const hasFeaturedRequest = Object.values(initialFeaturedRequestsByProperty).some(
+    (request) => request.status === "pending" || request.status === "approved"
+  );
+  const hasFeaturedListing = properties.some((property) => property.is_featured === true);
+  const lifecycle =
+    role === "landlord" || role === "agent"
+      ? resolveSubscriptionLifecycleState({
+          billingSource,
+          planTier,
+          validUntil,
+          stripeStatus,
+          stripeCurrentPeriodEnd,
+          providerSubscription,
+        })
+      : null;
+  const activationState =
+    (role === "landlord" || role === "agent") && lifecycle
+      ? buildHostActivationState({
+          role,
+          billingSource,
+          lifecycle,
+          plan,
+          activeListings: activeCount,
+          draftListings: draftCount,
+          pendingListings: pendingCount,
+          liveListings: liveCount,
+          rejectedListings: rejectedCount,
+          changesRequestedListings: changesRequestedCount,
+          hasFeaturedRequest,
+          hasFeaturedListing,
+          profileMissingFields,
+        })
+      : null;
+
+  function formatDateLabel(value: string | null) {
+    if (!value) return null;
+    const parsed = Date.parse(value);
+    if (!Number.isFinite(parsed)) return null;
+    return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(parsed);
+  }
+
   return (
     <div className="min-w-0 space-y-4">
       <section
@@ -467,6 +567,115 @@ export default async function DashboardHome({ searchParams }: PageProps) {
           </div>
         </div>
       </section>
+
+      {activationState && lifecycle && (
+        <section
+          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+          data-testid="host-home-activation-summary"
+        >
+          <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr_1fr]">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Plan and access
+              </p>
+              <h2 className="mt-1 text-xl font-semibold text-slate-900">
+                {activationState.planLabel}
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">{activationState.lifecycleDescription}</p>
+              <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-xs">
+                <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">
+                  Billing source {activationState.billingSourceLabel}
+                </span>
+                <span className="rounded-full bg-sky-100 px-2.5 py-1 font-semibold text-sky-800">
+                  Status {activationState.lifecycleLabel}
+                </span>
+                <span className="rounded-full bg-emerald-100 px-2.5 py-1 font-semibold text-emerald-800">
+                  {activationState.usageSummary}
+                </span>
+              </div>
+              <div className="mt-3 space-y-1 text-sm text-slate-700">
+                {lifecycle.renewalAt && (
+                  <p>
+                    <span className="font-semibold text-slate-900">Renews on:</span>{" "}
+                    {formatDateLabel(lifecycle.renewalAt)}
+                  </p>
+                )}
+                {!lifecycle.renewalAt && lifecycle.accessUntil && (
+                  <p>
+                    <span className="font-semibold text-slate-900">Access until:</span>{" "}
+                    {formatDateLabel(lifecycle.accessUntil)}
+                  </p>
+                )}
+                {lifecycle.cancellationRequestedAt && (
+                  <p>
+                    <span className="font-semibold text-slate-900">Cancellation requested:</span>{" "}
+                    {formatDateLabel(lifecycle.cancellationRequestedAt)}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Next best step
+              </p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">
+                {activationState.nextStep.label}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">
+                {activationState.nextStep.description}
+              </p>
+              <div className="mt-3">
+                <Link href={activationState.nextStep.href}>
+                  <Button size="sm">Open next step</Button>
+                </Link>
+              </div>
+              {activationState.blockers.length > 0 && (
+                <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                  <p className="text-sm font-semibold text-amber-900">Current blockers</p>
+                  <ul className="mt-2 space-y-1 text-sm text-amber-800">
+                    {activationState.blockers.map((blocker) => (
+                      <li key={blocker}>• {blocker}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Listing pipeline
+              </p>
+              <div className="mt-2 flex min-w-0 flex-wrap gap-2">
+                {activationState.metrics.map((metric) => (
+                  <span
+                    key={metric.key}
+                    className={
+                      metric.tone === "positive"
+                        ? "rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800"
+                        : metric.tone === "warning"
+                          ? "rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900"
+                          : metric.tone === "danger"
+                            ? "rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800"
+                            : "rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700"
+                    }
+                  >
+                    {metric.label} {metric.count > 0 ? metric.count : ""}
+                  </span>
+                ))}
+              </div>
+              <div className="mt-4">
+                <p className="text-sm font-semibold text-slate-900">What this plan unlocks</p>
+                <ul className="mt-2 space-y-1 text-sm text-slate-600">
+                  {activationState.unlocked.map((line) => (
+                    <li key={line}>• {line}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <HostListingsFeed listings={dashboardListings} />
 
