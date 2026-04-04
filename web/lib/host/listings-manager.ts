@@ -9,6 +9,8 @@ export type HostListingsPortfolioStats = {
   live: number;
   pending: number;
   draft: number;
+  changes_requested: number;
+  rejected: number;
   paused: number;
 };
 
@@ -25,6 +27,8 @@ export function summarizeHostListingsPortfolio(listings: DashboardListing[]): Ho
       live: 0,
       pending: 0,
       draft: 0,
+      changes_requested: 0,
+      rejected: 0,
       paused: 0,
     }
   );

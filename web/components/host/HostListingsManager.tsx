@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/components/ui/cn";
 import { HostFeaturedStrip } from "@/components/host/HostFeaturedStrip";
 import { HostListingsMasonryGrid } from "@/components/host/HostListingsMasonryGrid";
+import { buildListingApprovalGuidance } from "@/lib/host/listing-approval";
 import {
   filterAndSortHostProperties,
   resolveManagerStatus,
@@ -26,7 +27,6 @@ import {
 } from "@/lib/host/listings-manager-view";
 import { LISTING_INTENT_LABELS_PUBLIC, normalizeListingIntent } from "@/lib/listing-intents";
 import type { DashboardListing } from "@/lib/properties/host-dashboard";
-import { mapStatusLabel } from "@/lib/properties/status";
 
 type Props = {
   listings: DashboardListing[];
@@ -40,6 +40,8 @@ const STATUS_FILTERS: Array<{ value: HostPropertiesStatusFilter; label: string }
   { value: "live", label: "Live" },
   { value: "pending", label: "Pending" },
   { value: "draft", label: "Draft" },
+  { value: "changes_requested", label: "Changes requested" },
+  { value: "rejected", label: "Rejected" },
   { value: "paused", label: "Paused" },
 ];
 
@@ -174,7 +176,11 @@ export function HostListingsManager({ listings, loadError = null }: Props) {
                     ? stats.pending
                     : item.value === "draft"
                       ? stats.draft
-                      : stats.paused}
+                      : item.value === "changes_requested"
+                        ? stats.changes_requested
+                        : item.value === "rejected"
+                          ? stats.rejected
+                          : stats.paused}
               </span>
             </button>
           ))}
@@ -317,6 +323,7 @@ export function HostListingsManager({ listings, loadError = null }: Props) {
                 {visibleManageRows.length ? (
                   visibleManageRows.map((listing) => {
                     const managerStatus = resolveManagerStatus(listing);
+                    const guidance = buildListingApprovalGuidance(listing);
                     return (
                       <tr key={listing.id} data-testid={`host-listings-row-${listing.id}`}>
                         <td className="px-4 py-3">
@@ -325,8 +332,12 @@ export function HostListingsManager({ listings, loadError = null }: Props) {
                         </td>
                         <td className="px-4 py-3">
                           <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
-                            {mapStatusLabel(managerStatus)}
+                            {guidance.statusLabel}
                           </span>
+                          <p className="mt-1 max-w-sm text-xs text-slate-600">{guidance.summary}</p>
+                          {guidance.reasonSummary ? (
+                            <p className="mt-1 max-w-sm text-xs text-amber-700">{guidance.reasonSummary}</p>
+                          ) : null}
                         </td>
                         <td className="px-4 py-3 text-slate-600">{listingIntentLabel(listing)}</td>
                         <td className="px-4 py-3 text-slate-700">
@@ -360,10 +371,10 @@ export function HostListingsManager({ listings, loadError = null }: Props) {
                               </>
                             ) : (
                               <Link
-                                href={`/host/properties/${listing.id}/edit?step=submit`}
+                                href={guidance.nextActionHref}
                                 className="rounded-full border border-slate-200 px-2.5 py-1 text-slate-700 hover:bg-slate-50"
                               >
-                                Submit
+                                {guidance.nextActionLabel}
                               </Link>
                             )}
                           </div>

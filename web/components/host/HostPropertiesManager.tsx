@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/components/ui/cn";
+import { buildListingApprovalGuidance } from "@/lib/host/listing-approval";
 import type { DashboardListing } from "@/lib/properties/host-dashboard";
 import {
   countByManagerStatus,
@@ -21,8 +22,10 @@ const FILTERS: Array<{ value: HostPropertiesStatusFilter; label: string }> = [
   { value: "all", label: "All" },
   { value: "live", label: "Live" },
   { value: "pending", label: "Pending" },
-  { value: "paused", label: "Paused" },
   { value: "draft", label: "Draft" },
+  { value: "changes_requested", label: "Changes requested" },
+  { value: "rejected", label: "Rejected" },
+  { value: "paused", label: "Paused" },
 ];
 
 const PAGE_SIZE = 20;
@@ -48,6 +51,10 @@ function managerStatusChipClass(status: HostPropertiesStatusFilter | Exclude<Hos
       return "border-slate-300 bg-slate-100 text-slate-700";
     case "draft":
       return "border-slate-200 bg-slate-50 text-slate-600";
+    case "changes_requested":
+      return "border-amber-200 bg-amber-50 text-amber-800";
+    case "rejected":
+      return "border-rose-200 bg-rose-50 text-rose-700";
     default:
       return "border-slate-200 bg-slate-50 text-slate-600";
   }
@@ -168,6 +175,7 @@ export function HostPropertiesManager({ listings }: Props) {
               {visibleListings.length ? (
                 visibleListings.map((listing) => {
                   const managerStatus = resolveManagerStatus(listing);
+                  const guidance = buildListingApprovalGuidance(listing);
                   return (
                     <tr key={listing.id} data-testid={`host-properties-row-${listing.id}`}>
                       <td className="px-4 py-3">
@@ -183,8 +191,12 @@ export function HostPropertiesManager({ listings }: Props) {
                             managerStatusChipClass(managerStatus)
                           )}
                         >
-                          {managerStatus}
+                          {guidance.statusLabel}
                         </span>
+                        <p className="mt-1 max-w-sm text-xs text-slate-600">{guidance.summary}</p>
+                        {guidance.reasonSummary ? (
+                          <p className="mt-1 max-w-sm text-xs text-amber-700">{guidance.reasonSummary}</p>
+                        ) : null}
                       </td>
                       <td className="px-4 py-3 text-slate-600">{formatDateLabel(listing.updated_at || listing.created_at)}</td>
                       <td className="px-4 py-3 text-right">

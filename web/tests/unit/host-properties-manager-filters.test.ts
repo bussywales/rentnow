@@ -63,6 +63,8 @@ void test("host properties manager status filters return expected rows", () => {
     all: 4,
     live: 1,
     pending: 1,
+    changes_requested: 0,
+    rejected: 0,
     paused: 1,
     draft: 1,
   });

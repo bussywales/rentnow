@@ -1,8 +1,7 @@
 import type { DashboardListing } from "@/lib/properties/host-dashboard";
-import { normalizePropertyStatus } from "@/lib/properties/status";
-import { isListingExpired } from "@/lib/properties/expiry";
+import { resolveListingApprovalState, type ListingApprovalState } from "@/lib/host/listing-approval";
 
-export type HostPropertiesStatusFilter = "all" | "live" | "pending" | "paused" | "draft";
+export type HostPropertiesStatusFilter = "all" | ListingApprovalState;
 export type HostPropertiesSort = "newest" | "updated";
 
 export type HostPropertiesManagerQuery = {
@@ -12,28 +11,7 @@ export type HostPropertiesManagerQuery = {
 };
 
 export function resolveManagerStatus(listing: DashboardListing): Exclude<HostPropertiesStatusFilter, "all"> {
-  const normalized = normalizePropertyStatus(listing.status ?? null);
-
-  if (normalized === "live" && isListingExpired(listing)) {
-    return "paused";
-  }
-
-  if (normalized === "pending") return "pending";
-  if (
-    normalized === "paused" ||
-    normalized === "paused_owner" ||
-    normalized === "paused_occupied" ||
-    normalized === "expired" ||
-    normalized === "rejected"
-  ) {
-    return "paused";
-  }
-
-  if (normalized === "draft" || normalized === "changes_requested") {
-    return "draft";
-  }
-
-  return "live";
+  return resolveListingApprovalState(listing);
 }
 
 function normalizeSearch(value: string) {
@@ -102,6 +80,8 @@ export function countByManagerStatus(listings: DashboardListing[]) {
       all: 0,
       live: 0,
       pending: 0,
+      changes_requested: 0,
+      rejected: 0,
       paused: 0,
       draft: 0,
     } as Record<HostPropertiesStatusFilter, number>
