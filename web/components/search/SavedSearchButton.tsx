@@ -42,7 +42,7 @@ export function SavedSearchButton({ filters, savedSearchesHref }: Props) {
 
   useEffect(() => {
     if (!toastVisible) return;
-    const timer = setTimeout(() => setToastVisible(false), 4000);
+    const timer = setTimeout(() => setToastVisible(false), 8000);
     return () => clearTimeout(timer);
   }, [toastVisible]);
 
@@ -82,7 +82,7 @@ export function SavedSearchButton({ filters, savedSearchesHref }: Props) {
     <div className="relative">
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
-          Follow this search
+          Follow search for alerts
         </Button>
         {error && <span className="text-xs text-rose-600">{error}</span>}
       </div>
@@ -90,7 +90,12 @@ export function SavedSearchButton({ filters, savedSearchesHref }: Props) {
         <div className="pointer-events-none fixed right-4 top-20 z-50 max-w-sm">
           <div className="pointer-events-auto rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-sm">
             <div className="flex items-start justify-between gap-3">
-              <p className="font-medium">Search followed.</p>
+              <div>
+                <p className="font-medium">Search followed.</p>
+                <p className="mt-1 text-xs text-emerald-800">
+                  New matches will appear in your saved searches so you can act faster.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setToastVisible(false)}
@@ -116,7 +121,7 @@ export function SavedSearchButton({ filters, savedSearchesHref }: Props) {
             <div className="space-y-2">
               <h3 className="text-lg font-semibold text-slate-900">Follow search</h3>
               <p className="text-sm text-slate-600">
-                Follow these filters to track new matches in your saved searches.
+                Save these filters and we&apos;ll keep matching new homes in your saved searches.
               </p>
             </div>
             <div className="mt-4 space-y-2">

@@ -43,6 +43,7 @@ import { INTENT_COOKIE_NAME, parseIntent, resolveIntent } from "@/lib/search-int
 import { MarketHubLink } from "@/components/market/MarketHubLink";
 import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
 import { ContinueBrowsingChip } from "@/components/viewed/ContinueBrowsingChip";
+import { getPropertyRequestQuickStartEntry } from "@/lib/requests/property-request-entry";
 import {
   buildClearFiltersHref,
   buildIntentHref,
@@ -393,6 +394,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
       : role === "agent" || role === "landlord"
       ? "/dashboard/saved-searches"
       : "/saved-searches";
+  const requestQuickStartEntry = getPropertyRequestQuickStartEntry(role);
   const [requestHeaders, marketSettings] = await Promise.all([
     headers(),
     getMarketSettings(),
@@ -911,11 +913,22 @@ export default async function PropertiesPage({ searchParams }: Props) {
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2.5 text-sm text-slate-700 shadow-sm">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Saved searches</p>
-          <p className="text-sm text-slate-500">Save this filter set for alerts later.</p>
+        <div className="space-y-1">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">
+            Turn browsing into a plan
+          </p>
+          <p className="text-sm text-slate-500">
+            Follow this search for alerts, save homes to a shortlist, or post a request if none of these fit.
+          </p>
         </div>
-        <SavedSearchButton filters={filters} savedSearchesHref={savedSearchesHref} />
+        <div className="flex flex-wrap items-center gap-2">
+          <SavedSearchButton filters={filters} savedSearchesHref={savedSearchesHref} />
+          {requestQuickStartEntry ? (
+            <ButtonLink href={requestQuickStartEntry.href} size="sm" variant="secondary">
+              {requestQuickStartEntry.label}
+            </ButtonLink>
+          ) : null}
+        </div>
       </div>
 
       {showMarketHubSuggestions ? (

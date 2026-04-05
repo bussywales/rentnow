@@ -159,6 +159,11 @@ export function SaveButton({
         if (typeof payload?.saved === "boolean") {
           setSaved(payload.saved);
         }
+        setNotice(
+          nextSaved
+            ? "Saved to Favourites. Use Save to... to organise a shortlist."
+            : "Removed from Favourites."
+        );
       } catch (err) {
         setSaved(previousSaved);
         const message = err instanceof Error ? err.message : "Unable to update saved state";

@@ -147,6 +147,11 @@ export function PropertyCard({
     : isSaleIntent(listingIntent)
     ? "Enquire to buy"
     : "Request viewing";
+  const ctaSupportText = isShortlet
+    ? "Save it now or open the listing to confirm dates and booking details."
+    : isSaleIntent(listingIntent)
+      ? "Save it to your shortlist or open the listing to send a verified enquiry."
+      : "Save it for later or open the listing to request a viewing.";
   const cardHref = href || `/properties/${property.id}`;
   const normalizedCardHref = cardHref.trim();
   const showFastResponder = !!fastResponder;
@@ -361,25 +366,28 @@ export function PropertyCard({
       </div>
       {showCta && !compact && (
         <div className="border-t border-slate-100 px-4 py-3">
-          <Button
-            variant="secondary"
-            size="sm"
-            data-testid="property-card-cta"
-            onClick={() => {
-              const target = `${cardHref}#cta`;
-              const supabaseEnabled =
-                !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
-                !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-              const requiresAuth = supabaseEnabled && !viewerRole;
-              if (requiresAuth) {
-                window.location.href = `/auth/login?reason=auth&redirect=${encodeURIComponent(target)}`;
-                return;
-              }
-              window.location.href = target;
-            }}
-          >
-            {ctaLabel}
-          </Button>
+          <div className="space-y-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              data-testid="property-card-cta"
+              onClick={() => {
+                const target = `${cardHref}#cta`;
+                const supabaseEnabled =
+                  !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
+                  !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+                const requiresAuth = supabaseEnabled && !viewerRole;
+                if (requiresAuth) {
+                  window.location.href = `/auth/login?reason=auth&redirect=${encodeURIComponent(target)}`;
+                  return;
+                }
+                window.location.href = target;
+              }}
+            >
+              {ctaLabel}
+            </Button>
+            <p className="text-xs text-slate-500">{ctaSupportText}</p>
+          </div>
         </div>
       )}
     </div>

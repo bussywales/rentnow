@@ -15,6 +15,7 @@ import { RequestViewingCtaSection } from "@/components/viewings/RequestViewingCt
 import { TrustIdentityPill } from "@/components/trust/TrustIdentityPill";
 import { PropertySharePanel } from "@/components/properties/PropertySharePanel";
 import { Button } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/ButtonLink";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { getProfile } from "@/lib/auth";
 import { DEV_MOCKS, getApiBaseUrl, getCanonicalBaseUrl, getEnvPresence } from "@/lib/env";
@@ -64,6 +65,7 @@ import {
 import { CtaHashAnchorClient } from "@/components/properties/CtaHashAnchorClient";
 import { resolvePropertyDetailWithFallback } from "@/lib/properties/property-detail-resilience";
 import { BRAND_OG_SHARE_IMAGE } from "@/lib/brand";
+import { getPropertyRequestQuickStartEntry } from "@/lib/requests/property-request-entry";
 
 type Params = { id?: string };
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -671,6 +673,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
     ? `/properties/${property.id}?shared=${encodeURIComponent(sharedFlag)}`
     : `/properties/${property.id}`;
   const loginRedirect = `/auth/login?reason=auth&redirect=${encodeURIComponent(redirectPath)}`;
+  const requestQuickStartEntry = getPropertyRequestQuickStartEntry(
+    normalizeRole(currentUser?.role ?? null)
+  );
   const sizeLabel =
     typeof property.size_value === "number" && property.size_value > 0
       ? formatSizeLabel(property.size_value, property.size_unit)
@@ -910,6 +915,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               variant="button"
             />
           </div>
+          <p className="text-xs text-slate-500">
+            Save this home to revisit later or organise it into a shortlist from your collections.
+          </p>
         </div>
       </div>
 
@@ -1023,6 +1031,24 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                     timezoneLabel={timezoneText}
                   />
                 )}
+                {requestQuickStartEntry ? (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                    <p className="text-sm font-semibold text-slate-900">
+                      Not the right fit?
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Post what you need and let matching hosts respond with suitable homes.
+                    </p>
+                    <ButtonLink
+                      href={requestQuickStartEntry.href}
+                      size="sm"
+                      variant="secondary"
+                      className="mt-3"
+                    >
+                      {requestQuickStartEntry.label}
+                    </ButtonLink>
+                  </div>
+                ) : null}
               </div>
             </div>
           )}
@@ -1049,6 +1075,24 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                     listingIntent="buy"
                   />
                 )}
+                {requestQuickStartEntry ? (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                    <p className="text-sm font-semibold text-slate-900">
+                      Need a broader match?
+                    </p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Create a property request so hosts can reply with other homes that match your budget and location.
+                    </p>
+                    <ButtonLink
+                      href={requestQuickStartEntry.href}
+                      size="sm"
+                      variant="secondary"
+                      className="mt-3"
+                    >
+                      {requestQuickStartEntry.label}
+                    </ButtonLink>
+                  </div>
+                ) : null}
               </div>
             </div>
           )}
@@ -1099,6 +1143,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                   </Link>
                 </div>
               )}
+              <p className="mt-3 text-sm text-slate-600">
+                Send your questions here and keep replies in one thread so you can compare homes without losing context.
+              </p>
               <MessageThreadClient
                 propertyId={property.id}
                 recipientId={property.owner_id}
