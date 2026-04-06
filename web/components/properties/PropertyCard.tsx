@@ -34,6 +34,8 @@ import {
   resolveShortletNightlyPriceMinor,
 } from "@/lib/shortlet/discovery";
 import { pushViewedItem } from "@/lib/viewed";
+import { trackProductEvent } from "@/lib/analytics/product-events.client";
+import type { ProductAnalyticsEventProperties } from "@/lib/analytics/product-events";
 
 const BedIcon = () => (
   <svg
@@ -86,6 +88,8 @@ type Props = {
   fastResponder?: boolean;
   socialProof?: ListingSocialProof | null;
   prioritizeFirstImage?: boolean;
+  trackResultClick?: boolean;
+  analyticsProperties?: ProductAnalyticsEventProperties;
 };
 
 export function PropertyCard({
@@ -101,6 +105,8 @@ export function PropertyCard({
   fastResponder = false,
   socialProof = null,
   prioritizeFirstImage = false,
+  trackResultClick = false,
+  analyticsProperties,
 }: Props) {
   const { market } = useMarketPreference();
   const fallbackImage =
@@ -256,6 +262,15 @@ export function PropertyCard({
         const anchor = target?.closest("a");
         if (!anchor) return;
         if (!shouldTrackPropertyViewHref(anchor.getAttribute("href"))) return;
+        if (trackResultClick) {
+          trackProductEvent("result_clicked", {
+            ...analyticsProperties,
+            listingId: property.id,
+            listingStatus: property.status ?? undefined,
+            propertyType: property.listing_type ?? undefined,
+            intent: listingIntent,
+          });
+        }
         pushViewedItem({
           id: property.id,
           kind: isShortlet ? "shortlet" : "property",

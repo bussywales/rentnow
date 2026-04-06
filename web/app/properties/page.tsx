@@ -43,6 +43,7 @@ import { INTENT_COOKIE_NAME, parseIntent, resolveIntent } from "@/lib/search-int
 import { MarketHubLink } from "@/components/market/MarketHubLink";
 import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
 import { ContinueBrowsingChip } from "@/components/viewed/ContinueBrowsingChip";
+import { PropertiesBrowseAnalyticsTracker } from "@/components/analytics/PropertiesBrowseAnalyticsTracker";
 import { getPropertyRequestQuickStartEntry } from "@/lib/requests/property-request-entry";
 import {
   buildClearFiltersHref,
@@ -785,9 +786,41 @@ export default async function PropertiesPage({ searchParams }: Props) {
     requestedBedrooms !== null && !includeSimilarOptions && bedroomsMode === "exact";
   const hasOtherOptionsSection = exactOnlyMode && otherOptionProperties.length > 0;
   const showingLabel = exactOnlyMode ? "exact matches" : "homes";
+  const searchKey = buildSearchParams(resolvedSearchParams, { page: null }).toString() || "browse";
+  const shouldTrackSearch =
+    !!savedSearch ||
+    hasCategoryFilter ||
+    featuredOnly ||
+    !!createdAfter ||
+    hasActiveFilters(filters);
+  const shouldTrackFilters =
+    featuredOnly ||
+    !!createdAfter ||
+    hasCategoryFilter ||
+    hasActiveFilters(filters);
+  const searchSource = savedSearch ? "saved_search" : hasFilters ? "browse_filtered" : "browse";
+  const filterCount =
+    filterChips.length +
+    (featuredOnly ? 1 : 0) +
+    (createdAfter ? 1 : 0) +
+    (savedSearch ? 1 : 0);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 px-4">
+      <PropertiesBrowseAnalyticsTracker
+        searchKey={searchKey}
+        shouldTrackSearch={shouldTrackSearch}
+        shouldTrackFilters={shouldTrackFilters}
+        market={market.country}
+        role={role}
+        intent={filters.listingIntent ?? null}
+        city={filters.city ?? null}
+        area={null}
+        propertyType={filters.propertyType ?? null}
+        resultsCount={properties.length}
+        filterCount={filterCount}
+        searchSource={searchSource}
+      />
       {savedSearchNoticeNode}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -980,6 +1013,18 @@ export default async function PropertiesPage({ searchParams }: Props) {
                   viewport: "desktop",
                   index,
                 })}
+                trackResultClick
+                analyticsProperties={{
+                  market: market.country,
+                  role: role ?? undefined,
+                  intent: filters.listingIntent ?? undefined,
+                  city: property.city ?? undefined,
+                  area: property.neighbourhood ?? undefined,
+                  propertyType: property.listing_type ?? undefined,
+                  listingId: property.id,
+                  listingStatus: property.status ?? undefined,
+                  searchSource,
+                }}
               />
             </div>
           ))}
@@ -1016,6 +1061,18 @@ export default async function PropertiesPage({ searchParams }: Props) {
                     viewport: "desktop",
                     index,
                   })}
+                  trackResultClick
+                  analyticsProperties={{
+                    market: market.country,
+                    role: role ?? undefined,
+                    intent: filters.listingIntent ?? undefined,
+                    city: property.city ?? undefined,
+                    area: property.neighbourhood ?? undefined,
+                    propertyType: property.listing_type ?? undefined,
+                    listingId: property.id,
+                    listingStatus: property.status ?? undefined,
+                    searchSource,
+                  }}
                 />
               </div>
             ))}

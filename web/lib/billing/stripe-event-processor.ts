@@ -7,6 +7,7 @@ import {
   issueSubscriptionCreditsIfNeeded,
   upsertSubscriptionRecord,
 } from "@/lib/billing/subscription-credits.server";
+import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
 
 type ExistingPlan = {
   billing_source?: string | null;
@@ -397,6 +398,29 @@ export async function processStripeEvent(
             planTier: plan.tier,
             periodStart: currentPeriodStart,
             periodEnd: currentPeriodEnd,
+          });
+        }
+
+        if (planApplied) {
+          await logProductAnalyticsEvent({
+            eventName: "checkout_succeeded",
+            supabase: context.adminClient,
+            userId: profileId,
+            properties: {
+              market: session.metadata?.subscription_market_country ?? undefined,
+              role: session.metadata?.role ?? undefined,
+              planTier: result.planTier,
+              cadence:
+                session.metadata?.cadence === "monthly" || session.metadata?.cadence === "yearly"
+                  ? session.metadata.cadence
+                  : undefined,
+              billingSource: "stripe",
+              currency: subscription.currency?.toUpperCase() ?? undefined,
+              amount:
+                typeof session.amount_total === "number" ? session.amount_total / 100 : undefined,
+              provider: "stripe",
+              providerSubscriptionId: subscription.id,
+            },
           });
         }
         break;

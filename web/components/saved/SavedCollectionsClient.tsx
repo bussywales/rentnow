@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { buildCollectionWhatsAppShareUrl } from "@/lib/saved-collections/share";
+import { trackProductEvent } from "@/lib/analytics/product-events.client";
 
 type SavedCollectionCard = {
   id: string;
@@ -215,6 +216,9 @@ export function SavedCollectionsClient({ initialCollections, savedSearchesHref }
     if (!shareUrl) return;
     try {
       await navigator.clipboard.writeText(shareUrl);
+      trackProductEvent("shortlist_shared", {
+        shareChannel: "copy_link",
+      });
       setNotice("Share link copied.");
     } catch {
       setError("Unable to copy link.");
@@ -375,6 +379,11 @@ export function SavedCollectionsClient({ initialCollections, savedSearchesHref }
                   })}
                   target="_blank"
                   rel="noreferrer"
+                  onClick={() =>
+                    trackProductEvent("shortlist_shared", {
+                      shareChannel: "whatsapp",
+                    })
+                  }
                 >
                   <Button variant="secondary" size="sm">
                     WhatsApp

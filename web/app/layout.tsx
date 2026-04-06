@@ -9,6 +9,7 @@ import { MarketSwitchToast } from "@/components/market/MarketSwitchToast";
 import { OfflineIndicator } from "@/components/layout/OfflineIndicator";
 import { PwaServiceWorker } from "@/components/layout/PwaServiceWorker";
 import { SessionBootstrap } from "@/components/analytics/SessionBootstrap";
+import { ProductAnalyticsBootstrap } from "@/components/analytics/ProductAnalyticsBootstrap";
 import { LegalDisclaimerBanner } from "@/components/legal/LegalDisclaimerBanner";
 import { LegalAcceptanceModalGate } from "@/components/legal/LegalAcceptanceModalGate";
 import { SupportWidget } from "@/components/support/SupportWidget";
@@ -248,6 +249,9 @@ export default async function RootLayout({
               socialLinks={socialLinks}
             />
             <SessionBootstrap />
+            <ProductAnalyticsBootstrap
+              measurementId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? null}
+            />
             <LegalAcceptanceModalGate />
             <Suspense fallback={null}>
               <ToastNotice />

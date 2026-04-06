@@ -7,11 +7,12 @@ import { leadCreateSchema } from "@/lib/leads/lead-schema";
 import { logFailure } from "@/lib/observability";
 import { ensureSessionCookie } from "@/lib/analytics/session.server";
 import { isUuid, logPropertyEvent } from "@/lib/analytics/property-events.server";
+import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
 import { isClientPagePublished } from "@/lib/agents/client-pages";
 import { insertLeadAttribution } from "@/lib/leads/lead-attribution";
 import { createLeadThreadAndMessage } from "@/lib/leads/lead-create.server";
 import { requireLegalAcceptance } from "@/lib/legal/guard.server";
-import { isSaleIntent } from "@/lib/listing-intents";
+import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
 
 const routeLabel = "/api/leads";
 
@@ -96,7 +97,7 @@ export async function POST(request: Request) {
 
   const { data: property, error: propertyError } = await supabase
     .from("properties")
-    .select("id, owner_id, title, is_approved, is_active, listing_intent")
+    .select("id, owner_id, title, city, listing_type, status, is_approved, is_active, listing_intent")
     .eq("id", parsed.data.property_id)
     .maybeSingle();
 
@@ -196,6 +197,21 @@ export async function POST(request: Request) {
     message: leadResult.message,
   });
   const sessionKey = ensureSessionCookie(request, response);
+  await logProductAnalyticsEvent({
+    eventName: "contact_submitted",
+    request,
+    supabase,
+    userId: auth.user.id,
+    userRole: role,
+    properties: {
+      role,
+      intent: normalizeListingIntent(property.listing_intent) ?? undefined,
+      city: property.city ?? undefined,
+      propertyType: property.listing_type ?? undefined,
+      listingId: property.id,
+      listingStatus: property.status ?? undefined,
+    },
+  });
   void logPropertyEvent({
     supabase,
     propertyId: property.id,

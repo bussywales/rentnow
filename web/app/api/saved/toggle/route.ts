@@ -5,6 +5,7 @@ import {
   setListingInDefaultCollection,
   toggleListingInDefaultCollection,
 } from "@/lib/saved-collections.server";
+import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
 
 const routeLabel = "/api/saved/toggle";
 
@@ -64,6 +65,16 @@ export async function postSavedToggleResponse(
         .eq("user_id", auth.user.id)
         .eq("property_id", payload.listingId);
     }
+
+    await logProductAnalyticsEvent({
+      eventName: result.saved ? "listing_save_clicked" : "listing_unsave_clicked",
+      request,
+      supabase: auth.supabase,
+      userId: auth.user.id,
+      properties: {
+        listingId: payload.listingId,
+      },
+    });
 
     return NextResponse.json({
       ok: true,

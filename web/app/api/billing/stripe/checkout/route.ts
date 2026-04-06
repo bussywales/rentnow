@@ -10,6 +10,7 @@ import { getMarketSettings } from "@/lib/market/market.server";
 import { resolveMarketFromRequest } from "@/lib/market/market";
 import { resolveSubscriptionPlanQuote } from "@/lib/billing/subscription-pricing";
 import { loadSubscriptionPriceBookRows } from "@/lib/billing/subscription-price-book.repository";
+import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
 
 const routeLabel = "/api/billing/stripe/checkout";
 
@@ -182,6 +183,25 @@ export async function POST(request: Request) {
     role: auth.role,
     tier: payload.tier,
     cadence: payload.cadence,
+  });
+
+  await logProductAnalyticsEvent({
+    eventName: "checkout_started",
+    request,
+    supabase: auth.supabase,
+    userId: auth.user.id,
+    userRole: auth.role,
+    properties: {
+      market: market.country,
+      role: auth.role,
+      planTier: payload.tier,
+      cadence: payload.cadence,
+      billingSource: "stripe",
+      currency: resolvedQuote.currency ?? undefined,
+      amount:
+        typeof resolvedQuote.amountMinor === "number" ? resolvedQuote.amountMinor / 100 : undefined,
+      provider: "stripe",
+    },
   });
 
   if (!session.url) {

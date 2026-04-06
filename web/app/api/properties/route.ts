@@ -29,6 +29,7 @@ import { computeExpiryAt } from "@/lib/properties/expiry";
 import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 import { requireLegalAcceptance } from "@/lib/legal/guard.server";
 import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
+import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
 import {
   resolveRentalTypeForListingIntent,
   resolveShortletPersistenceInput,
@@ -461,6 +462,25 @@ export async function POST(request: Request) {
           };
         })
       );
+    }
+
+    if (propertyId) {
+      await logProductAnalyticsEvent({
+        eventName: "listing_created",
+        request,
+        supabase,
+        userId: user.id,
+        userRole: role,
+        properties: {
+          market: country_code ?? country ?? undefined,
+          role,
+          intent: normalized.listing_intent ?? undefined,
+          city: normalized.city,
+          propertyType: normalized.listing_type ?? undefined,
+          listingId: propertyId,
+          listingStatus: normalizedStatus,
+        },
+      });
     }
 
     return NextResponse.json({ id: propertyId });

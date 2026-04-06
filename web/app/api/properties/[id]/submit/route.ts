@@ -23,6 +23,7 @@ import {
   formatListingPropertyTypeLabel,
   notifyAdminsOfListingReviewSubmission,
 } from "@/lib/admin/listing-review-notifications.server";
+import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
 
 export const dynamic = "force-dynamic";
 
@@ -390,6 +391,23 @@ export async function postPropertySubmitResponse(
       { status: 500 }
     );
   }
+
+  await logProductAnalyticsEvent({
+    eventName: autoApproveEnabled ? "listing_published_live" : "listing_submitted_for_review",
+    request,
+    supabase,
+    userId: auth.user.id,
+    userRole: role,
+    properties: {
+      market: listing.country_code ?? undefined,
+      role,
+      intent: listing.listing_intent ?? undefined,
+      city: listing.city ?? undefined,
+      propertyType: listing.listing_type ?? listing.rental_type ?? undefined,
+      listingId: propertyId,
+      listingStatus: nextStatus,
+    },
+  });
 
   if (autoApproveEnabled) {
     await deps.logPropertyEvent({

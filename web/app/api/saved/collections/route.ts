@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireUser } from "@/lib/authz";
+import { getUserRole, requireUser } from "@/lib/authz";
 import {
   createCollectionForOwner,
   ensureDefaultCollection,
   listCollectionsForOwner,
 } from "@/lib/saved-collections.server";
+import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
 
 const routeLabel = "/api/saved/collections";
 
@@ -60,10 +61,21 @@ export async function POST(request: Request) {
       ownerUserId: auth.user.id,
       title: payload.title,
     });
+    const role = await getUserRole(auth.supabase, auth.user.id);
 
     const collections = await listCollectionsForOwner({
       supabase: auth.supabase,
       ownerUserId: auth.user.id,
+    });
+    await logProductAnalyticsEvent({
+      eventName: "shortlist_created",
+      request,
+      supabase: auth.supabase,
+      userId: auth.user.id,
+      userRole: role,
+      properties: {
+        shareChannel: "saved_collections",
+      },
     });
     const createdSummary = collections.find((collection) => collection.id === created.id) || null;
     return NextResponse.json({ ok: true, collection: createdSummary, collections });

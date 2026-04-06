@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -15,6 +15,7 @@ import {
   type PropertyRequestIntent,
   type PropertyRequestOwnerWriteStatus,
 } from "@/lib/requests/property-requests";
+import { trackProductEvent } from "@/lib/analytics/product-events.client";
 
 type Props = {
   initialRequest?: PropertyRequest | null;
@@ -109,6 +110,18 @@ export function PropertyRequestFormClient({ initialRequest = null }: Props) {
   const saveActionLabel = currentStatus === "open" ? "Save changes" : "Save draft";
 
   const marketOptions = useMemo(() => MARKET_OPTIONS, []);
+
+  useEffect(() => {
+    if (initialRequest) return;
+    trackProductEvent("property_request_started", {
+      market: form.marketCode,
+      intent: form.intent,
+      city: form.city || undefined,
+      area: form.area || undefined,
+      propertyType: form.propertyType || undefined,
+      requestStatus: "draft",
+    }, { dedupeKey: "property-request-started:new" });
+  }, [form.area, form.city, form.intent, form.marketCode, form.propertyType, initialRequest]);
 
   function handleMarketChange(nextCountry: string) {
     const option = marketOptions.find((entry) => entry.country === nextCountry) ?? marketOptions[0];

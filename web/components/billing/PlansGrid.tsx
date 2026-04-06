@@ -11,6 +11,7 @@ import {
 } from "@/lib/billing/subscription-plan-cards";
 import type { SubscriptionPlanPricingSet } from "@/lib/billing/subscription-pricing.types";
 import { resolveYearlySavingsLabel } from "@/lib/billing/subscription-pricing";
+import { trackProductEvent } from "@/lib/analytics/product-events.client";
 
 type Cadence = "monthly" | "yearly";
 
@@ -84,6 +85,24 @@ export function PlansGrid({
   const cadenceLabel = cadence === "monthly" ? "Billed monthly" : "Billed yearly";
 
   const startCheckout = async (tier: PlanTier) => {
+    const selectedPlan = SUBSCRIPTION_PLAN_CARDS.find(
+      (plan) => plan.tier === tier && (plan.role ? plan.role === currentRole : true)
+    );
+    const selectedPricing =
+      selectedPlan?.tier === "free" ? null : pricingByPlanKey[selectedPlan?.key ?? ""]?.[cadence] ?? null;
+    trackProductEvent("plan_selected", {
+      market: marketCountry,
+      role: currentRole ?? undefined,
+      planTier: tier,
+      cadence,
+      billingSource,
+      currency: selectedPricing?.currency ?? undefined,
+      amount:
+        typeof selectedPricing?.amountMinor === "number"
+          ? selectedPricing.amountMinor / 100
+          : undefined,
+      provider: "stripe",
+    });
     setLoadingKey(tier);
     setError(null);
     try {
@@ -110,6 +129,24 @@ export function PlansGrid({
   };
 
   const startProviderCheckout = async (provider: "paystack" | "flutterwave", tier: PlanTier) => {
+    const selectedPlan = SUBSCRIPTION_PLAN_CARDS.find(
+      (plan) => plan.tier === tier && (plan.role ? plan.role === currentRole : true)
+    );
+    const selectedPricing =
+      selectedPlan?.tier === "free" ? null : pricingByPlanKey[selectedPlan?.key ?? ""]?.[cadence] ?? null;
+    trackProductEvent("plan_selected", {
+      market: marketCountry,
+      role: currentRole ?? undefined,
+      planTier: tier,
+      cadence,
+      billingSource,
+      currency: selectedPricing?.currency ?? undefined,
+      amount:
+        typeof selectedPricing?.amountMinor === "number"
+          ? selectedPricing.amountMinor / 100
+          : undefined,
+      provider,
+    });
     setLoadingKey(`${provider}:${tier}`);
     setError(null);
     setNotice(null);

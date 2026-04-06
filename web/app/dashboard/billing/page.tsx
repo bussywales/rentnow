@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { PlansGrid } from "@/components/billing/PlansGrid";
 import { PaymentModeBadge } from "@/components/billing/PaymentModeBadge";
+import { ProductEventTracker } from "@/components/analytics/ProductEventTracker";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { getProfile } from "@/lib/auth";
 import { getUserRole } from "@/lib/authz";
@@ -269,6 +270,16 @@ export default async function BillingPage({ searchParams }: { searchParams?: Sea
 
   return (
     <div className="space-y-6">
+      <ProductEventTracker
+        eventName="billing_page_viewed"
+        dedupeKey={`billing:${profile.id}:${billingSource}:${effectivePlanTier}`}
+        properties={{
+          market: market.country,
+          role: normalizedRole,
+          planTier: effectivePlanTier,
+          billingSource,
+        }}
+      />
       {portalReturned ? (
         <div className="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
           <p className="font-semibold">Returned from Stripe billing portal.</p>

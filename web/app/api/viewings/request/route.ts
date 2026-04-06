@@ -17,6 +17,8 @@ import {
 import { getContactExchangeMode } from "@/lib/settings/app-settings.server";
 import { ensureSessionCookie } from "@/lib/analytics/session.server";
 import { logPropertyEvent } from "@/lib/analytics/property-events.server";
+import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
+import { normalizeListingIntent } from "@/lib/listing-intents";
 
 const routeLabel = "/api/viewings/request";
 
@@ -169,7 +171,7 @@ async function handleViewingRequest(request: Request, handlerLabel: "request" | 
   try {
     const { data: property, error: propertyError } = await supabase
       .from("properties")
-      .select("id, is_approved, is_active, timezone")
+      .select("id, city, listing_type, listing_intent, status, is_approved, is_active, timezone")
       .eq("id", payload.propertyId)
       .maybeSingle();
 
@@ -261,6 +263,21 @@ async function handleViewingRequest(request: Request, handlerLabel: "request" | 
     });
     res.headers.set("x-viewings-handler", handlerLabel);
     const sessionKey = ensureSessionCookie(request, res);
+    await logProductAnalyticsEvent({
+      eventName: "viewing_request_submitted",
+      request,
+      supabase,
+      userId: auth.user.id,
+      userRole: auth.role,
+      properties: {
+        role: auth.role,
+        intent: normalizeListingIntent(property.listing_intent) ?? undefined,
+        city: property.city ?? undefined,
+        propertyType: property.listing_type ?? undefined,
+        listingId: property.id,
+        listingStatus: property.status ?? undefined,
+      },
+    });
     void logPropertyEvent({
       supabase,
       propertyId: payload.propertyId,

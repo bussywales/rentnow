@@ -17,6 +17,7 @@ import {
   type PropertyRequestRecord,
 } from "@/lib/requests/property-requests";
 import { notifyHostsOfPublishedPropertyRequest } from "@/lib/requests/property-request-alerts.server";
+import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
 
 export const dynamic = "force-dynamic";
 
@@ -243,6 +244,22 @@ export async function postPropertyRequestsResponse(
 
   const item = mapPropertyRequestRecord(data);
   if (item.status === "open" && item.publishedAt) {
+    await logProductAnalyticsEvent({
+      eventName: "property_request_published",
+      request,
+      supabase,
+      userId: auth.user.id,
+      userRole: creatorRole,
+      properties: {
+        market: item.marketCode,
+        role: creatorRole,
+        intent: item.intent,
+        city: item.city ?? undefined,
+        area: item.area ?? undefined,
+        propertyType: item.propertyType ?? undefined,
+        requestStatus: item.status,
+      },
+    });
     deps.notifyPublishedRequest(item).catch((notifyError) => {
       console.error("[property-requests] publish alert failed", {
         requestId: item.id,

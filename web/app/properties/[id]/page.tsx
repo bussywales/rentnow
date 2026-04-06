@@ -66,6 +66,7 @@ import { CtaHashAnchorClient } from "@/components/properties/CtaHashAnchorClient
 import { resolvePropertyDetailWithFallback } from "@/lib/properties/property-detail-resilience";
 import { BRAND_OG_SHARE_IMAGE } from "@/lib/brand";
 import { getPropertyRequestQuickStartEntry } from "@/lib/requests/property-request-entry";
+import { ProductEventTracker } from "@/components/analytics/ProductEventTracker";
 
 type Params = { id?: string };
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -760,6 +761,20 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-8 px-4">
+      <ProductEventTracker
+        eventName="listing_viewed"
+        dedupeKey={`listing-viewed:${property.id}`}
+        properties={{
+          market: market.country,
+          role: normalizeRole(currentUser?.role ?? null) ?? undefined,
+          intent: listingIntent,
+          city: property.city ?? undefined,
+          area: property.neighbourhood ?? undefined,
+          propertyType: property.listing_type ?? undefined,
+          listingId: property.id,
+          listingStatus: property.status ?? undefined,
+        }}
+      />
       <CtaHashAnchorClient targetId="cta" topOffsetPx={104} />
       {backHref && (
         <Link
