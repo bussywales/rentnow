@@ -106,6 +106,70 @@ void test("subscription price matrix surfaces market gaps and runtime fallback s
   assert.match(entry.diagnostics.join(" | "), /Runtime fallback/);
 });
 
+void test("subscription price matrix marks canonical cross-currency markets without calling them runtime fallback", () => {
+  const [entry] = buildSubscriptionPriceMatrixEntries({
+    canonicalRows: [
+      {
+        id: "ca-agent-monthly",
+        product_area: "subscriptions",
+        role: "agent",
+        tier: "pro",
+        cadence: "monthly",
+        market_country: "CA",
+        currency: "GBP",
+        amount_minor: 4999,
+        provider: "stripe",
+        provider_price_ref: "price_1SkqghIrMBE5QKLYnMjdVunO",
+        active: true,
+        fallback_eligible: false,
+        effective_at: "2026-04-06T17:30:00Z",
+        ends_at: null,
+        display_order: 30,
+        badge: "Interim",
+        operator_notes: null,
+        created_at: "2026-04-06T17:30:00Z",
+        updated_at: "2026-04-06T17:30:00Z",
+        updated_by: null,
+      },
+    ],
+    runtimeQuotes: [
+      {
+        marketCountry: "CA",
+        marketCurrency: "CAD",
+        role: "agent",
+        tier: "pro",
+        cadence: "monthly",
+        quote: {
+          status: "ready",
+          source: "canonical",
+          provider: "stripe",
+          providerMode: "live",
+          currency: "GBP",
+          amountMinor: 4999,
+          displayPrice: "£49.99",
+          cadence: "monthly",
+          marketCountry: "CA",
+          marketCurrency: "CAD",
+          marketLabel: "Canada (CA$)",
+          marketAligned: false,
+          fallbackApplied: false,
+          fallbackMessage: null,
+          unavailableReason: null,
+          resolutionKey: "SUBSCRIPTION_PRICE_BOOK:ca-agent-monthly",
+          priceId: "price_1SkqghIrMBE5QKLYnMjdVunO",
+        },
+      },
+    ],
+  });
+
+  assert.equal(entry.marketGap, false);
+  assert.equal(entry.runtimeFallback, false);
+  assert.equal(entry.checkoutMatchesCanonical, true);
+  assert.match(entry.diagnostics.join(" | "), /Canonical runtime/);
+  assert.match(entry.diagnostics.join(" | "), /Cross-currency canonical/);
+  assert.doesNotMatch(entry.diagnostics.join(" | "), /Runtime fallback/);
+});
+
 void test("subscription price matrix marks aligned canonical rows cleanly", () => {
   const [entry] = buildSubscriptionPriceMatrixEntries({
     canonicalRows: [

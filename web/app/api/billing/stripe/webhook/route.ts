@@ -10,10 +10,27 @@ import { logFailure, logStripeWebhookApplied } from "@/lib/observability";
 
 const routeLabel = "/api/billing/stripe/webhook";
 
+function extractStripeEventMarket(event: Stripe.Event) {
+  const eventObject = event.data.object as { metadata?: Stripe.Metadata | null };
+  const metadata = eventObject?.metadata;
+  const marketCountryRaw = metadata?.subscription_market_country || null;
+  const marketCurrencyRaw = metadata?.subscription_market_currency || null;
+  const marketCountry =
+    typeof marketCountryRaw === "string" && /^[A-Z]{2}$/i.test(marketCountryRaw)
+      ? marketCountryRaw.toUpperCase()
+      : null;
+  const marketCurrency =
+    typeof marketCurrencyRaw === "string" && /^[A-Z]{3}$/i.test(marketCurrencyRaw)
+      ? marketCurrencyRaw.toUpperCase()
+      : null;
+  return { marketCountry, marketCurrency };
+}
+
 async function recordStripeWebhookEvent(
   adminClient: ReturnType<typeof createServiceRoleClient>,
   event: Stripe.Event
 ) {
+  const market = extractStripeEventMarket(event);
   const adminDb = adminClient as unknown as {
     from: (table: string) => {
       insert: (values: Record<string, unknown>) => Promise<{ error: { code?: string } | null }>;
@@ -26,6 +43,8 @@ async function recordStripeWebhookEvent(
       event_type: event.type,
       status: "received",
       mode: event.livemode ? "live" : "test",
+      subscription_market_country: market.marketCountry,
+      subscription_market_currency: market.marketCurrency,
     });
   return parseWebhookInsertError(error as { code?: string } | null);
 }
@@ -110,6 +129,7 @@ export async function POST(request: Request) {
   const stripe = getStripeClient(stripeConfig.secretKey);
 
   try {
+    const market = extractStripeEventMarket(event);
     const outcome = await processStripeEvent(
       {
         adminClient,
@@ -137,6 +157,8 @@ export async function POST(request: Request) {
       stripe_customer_id: outcome.customerId,
       stripe_subscription_id: outcome.subscriptionId,
       stripe_price_id: outcome.priceId,
+      subscription_market_country: market.marketCountry,
+      subscription_market_currency: market.marketCurrency,
     });
 
     logStripeWebhookApplied({

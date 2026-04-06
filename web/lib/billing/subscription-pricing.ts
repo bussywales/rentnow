@@ -80,7 +80,7 @@ function findCurrentCanonicalRow(input: QuoteInput) {
 }
 
 function shouldEnforceCanonicalRow(row: SubscriptionPriceBookRow | null) {
-  return row?.market_country === "GB" && row.provider === "stripe";
+  return row?.provider === "stripe";
 }
 
 function resolveMarketLocale(country: string) {
@@ -366,4 +366,24 @@ export function resolveYearlySavingsLabel(pricing: SubscriptionPlanPricingSet) {
   if (yearlyFromMonthly <= 0 || pricing.yearly.amountMinor >= yearlyFromMonthly) return null;
   const discount = Math.round(((yearlyFromMonthly - pricing.yearly.amountMinor) / yearlyFromMonthly) * 100);
   return discount > 0 ? `Save ${discount}%` : null;
+}
+
+export function describeSubscriptionMarketCharge(pricing: SubscriptionPlanPricingView | null) {
+  if (!pricing || pricing.status !== "ready" || pricing.marketAligned) return null;
+  if (pricing.source !== "canonical") {
+    return {
+      tone: "warning" as const,
+      title: "Fallback pricing is active for this market.",
+      body:
+        pricing.fallbackMessage ||
+        `Checkout will charge in ${pricing.currency || "the configured billing currency"} until a market-aligned Stripe price is linked.`,
+    };
+  }
+
+  return {
+    tone: "info" as const,
+    title: `${pricing.marketLabel} checkout is configured in ${pricing.currency}.`,
+    body:
+      "Stripe checkout for this market is intentional, but the charge currency differs from the market currency. Card issuers may apply exchange rates or additional fees.",
+  };
 }

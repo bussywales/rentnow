@@ -171,6 +171,9 @@ export function buildSubscriptionPriceMatrixEntries(input: {
     const diagnostics: string[] = [];
     if (marketGap) diagnostics.push("Market gap");
     if (runtime.quote.source === "canonical") diagnostics.push("Canonical runtime");
+    if (canonicalRow && runtime.quote.source === "canonical" && !runtime.quote.marketAligned) {
+      diagnostics.push("Cross-currency canonical");
+    }
     if (runtime.quote.fallbackApplied) diagnostics.push("Runtime fallback");
     if (missingProviderRef) diagnostics.push("Missing provider ref");
     if (canonicalRow && !checkoutMatchesCanonical) diagnostics.push("Checkout mismatch");

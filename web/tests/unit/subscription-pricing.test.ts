@@ -324,6 +324,66 @@ void test("canonical UK pricing blocks linked Stripe refs when they contradict c
   assert.match(quote.unavailableReason || "", /does not match canonical UK pricing/);
 });
 
+void test("canonical Canada pricing is explicit even when Stripe charges in GBP", async () => {
+  const quote = await resolveSubscriptionPlanQuote({
+    role: "agent",
+    tier: "pro",
+    cadence: "monthly",
+    market: { country: "CA", currency: "CAD" },
+    canonicalRows: [
+      {
+        id: "ca-agent-monthly",
+        product_area: "subscriptions",
+        role: "agent",
+        tier: "pro",
+        cadence: "monthly",
+        market_country: "CA",
+        currency: "GBP",
+        amount_minor: 4999,
+        provider: "stripe",
+        provider_price_ref: "price_1SkqghIrMBE5QKLYnMjdVunO",
+        active: true,
+        fallback_eligible: false,
+        effective_at: "2026-04-06T17:30:00Z",
+        ends_at: null,
+        display_order: 30,
+        badge: "Interim",
+        operator_notes: null,
+        created_at: "2026-04-06T17:30:00Z",
+        updated_at: "2026-04-06T17:30:00Z",
+        updated_by: null,
+      },
+    ],
+    stripe: {
+      enabled: true,
+      mode: "live",
+      secretKey: "sk_live_mock",
+    },
+    paystack: {
+      enabled: false,
+      mode: "test",
+    },
+    flutterwave: {
+      enabled: false,
+      mode: "test",
+    },
+    stripePriceLoader: async (_secretKey, priceId) => {
+      if (priceId === "price_1SkqghIrMBE5QKLYnMjdVunO") {
+        return { currency: "GBP", amountMinor: 4999 };
+      }
+      return null;
+    },
+  });
+
+  assert.equal(quote.status, "ready");
+  assert.equal(quote.source, "canonical");
+  assert.equal(quote.provider, "stripe");
+  assert.equal(quote.currency, "GBP");
+  assert.equal(quote.marketAligned, false);
+  assert.equal(quote.fallbackApplied, false);
+  assert.equal(quote.priceId, "price_1SkqghIrMBE5QKLYnMjdVunO");
+});
+
 void test("yearly savings are computed only when pricing stays in one currency", () => {
   const label = resolveYearlySavingsLabel({
     monthly: {

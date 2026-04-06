@@ -122,6 +122,51 @@ void test("resolvePlanFromStripeAsync falls back to canonical price-book mapping
   assert.equal(plan.priceId, "price_1TGlYzPjtZ0fKtkBRTYNfytj");
 });
 
+void test("resolvePlanFromStripeAsync uses subscription market metadata to disambiguate shared Stripe price refs", async () => {
+  const subscription = {
+    items: {
+      data: [
+        {
+          price: { id: "price_1SlJ5oIrMBE5QKLYNyx9zRsk" },
+        },
+      ],
+    },
+    metadata: {
+      profile_id: "tenant-ca-123",
+      subscription_market_country: "CA",
+      subscription_market_currency: "CAD",
+    },
+  } as Stripe.Subscription;
+
+  const plan = await resolvePlanFromStripeAsync(subscription, null, {
+    loadPlanByPriceId: async (priceId, metadata) =>
+      priceId === "price_1SlJ5oIrMBE5QKLYNyx9zRsk" &&
+      metadata?.subscription_market_country === "CA"
+        ? {
+            role: "tenant",
+            tier: "tenant_pro",
+            cadence: "monthly",
+            priceId,
+            currency: "GBP",
+          }
+        : priceId === "price_1SlJ5oIrMBE5QKLYNyx9zRsk"
+        ? {
+            role: "tenant",
+            tier: "tenant_pro",
+            cadence: "monthly",
+            priceId,
+            currency: "GBP",
+          }
+        : null,
+  });
+
+  assert.equal(plan.profileId, "tenant-ca-123");
+  assert.equal(plan.role, "tenant");
+  assert.equal(plan.tier, "tenant_pro");
+  assert.equal(plan.cadence, "monthly");
+  assert.equal(plan.priceId, "price_1SlJ5oIrMBE5QKLYNyx9zRsk");
+});
+
 void test("parseWebhookInsertError treats duplicate event ids as idempotent", () => {
   const result = parseWebhookInsertError({ code: "23505" });
   assert.equal(result.duplicate, true);

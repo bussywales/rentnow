@@ -10,7 +10,10 @@ import {
   getSubscriptionPlanCardKeyForRole,
 } from "@/lib/billing/subscription-plan-cards";
 import type { SubscriptionPlanPricingSet } from "@/lib/billing/subscription-pricing.types";
-import { resolveYearlySavingsLabel } from "@/lib/billing/subscription-pricing";
+import {
+  describeSubscriptionMarketCharge,
+  resolveYearlySavingsLabel,
+} from "@/lib/billing/subscription-pricing";
 import { trackProductEvent } from "@/lib/analytics/product-events.client";
 
 type Cadence = "monthly" | "yearly";
@@ -81,6 +84,7 @@ export function PlansGrid({
   const activePlanKey = getSubscriptionPlanCardKeyForRole(currentRole);
   const activePricingSet = activePlanKey ? pricingByPlanKey[activePlanKey] ?? null : null;
   const activeQuote = activePricingSet?.[cadence] ?? null;
+  const marketChargeDisclosure = describeSubscriptionMarketCharge(activeQuote);
 
   const cadenceLabel = cadence === "monthly" ? "Billed monthly" : "Billed yearly";
 
@@ -298,10 +302,16 @@ export function PlansGrid({
         </div>
       ) : null}
 
-      {!marketDrifted && activeQuote?.fallbackApplied && activeQuote.fallbackMessage ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <p className="font-semibold">Fallback pricing is active for this market.</p>
-          <p className="mt-1">{activeQuote.fallbackMessage}</p>
+      {!marketDrifted && marketChargeDisclosure ? (
+        <div
+          className={`rounded-2xl px-4 py-3 text-sm ${
+            marketChargeDisclosure.tone === "warning"
+              ? "border border-amber-200 bg-amber-50 text-amber-900"
+              : "border border-cyan-200 bg-cyan-50 text-cyan-900"
+          }`}
+        >
+          <p className="font-semibold">{marketChargeDisclosure.title}</p>
+          <p className="mt-1">{marketChargeDisclosure.body}</p>
         </div>
       ) : null}
 

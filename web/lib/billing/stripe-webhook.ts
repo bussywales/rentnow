@@ -25,6 +25,11 @@ export type ResolvedStripePlan = {
   priceId: string | null;
 };
 
+type StripePlanMarketMetadata = {
+  marketCountry: string | null;
+  marketCurrency: string | null;
+};
+
 export function requireCheckoutMetadata(metadata?: Stripe.Metadata | null) {
   const profileId = metadata?.user_id || metadata?.profile_id || null;
   const tierRaw = metadata?.plan_tier || metadata?.tier || null;
@@ -70,6 +75,20 @@ export function extractPlanMetadata(metadata?: Stripe.Metadata | null): StripePl
   };
 }
 
+function extractMarketMetadata(metadata?: Stripe.Metadata | null): StripePlanMarketMetadata {
+  const marketCountryRaw = metadata?.subscription_market_country || null;
+  const marketCurrencyRaw = metadata?.subscription_market_currency || null;
+  const marketCountry =
+    typeof marketCountryRaw === "string" && /^[A-Z]{2}$/i.test(marketCountryRaw)
+      ? marketCountryRaw.toUpperCase()
+      : null;
+  const marketCurrency =
+    typeof marketCurrencyRaw === "string" && /^[A-Z]{3}$/i.test(marketCurrencyRaw)
+      ? marketCurrencyRaw.toUpperCase()
+      : null;
+  return { marketCountry, marketCurrency };
+}
+
 export function getSubscriptionPriceId(subscription: Stripe.Subscription) {
   const item = subscription.items?.data?.[0];
   if (!item) return null;
@@ -79,12 +98,12 @@ export function getSubscriptionPriceId(subscription: Stripe.Subscription) {
   return item.price?.id || null;
 }
 
-async function loadStripePlanByPriceId(priceId: string) {
+async function loadStripePlanByPriceId(priceId: string, metadata?: Stripe.Metadata | null) {
   const envMatch = getStripePlanByPriceId(priceId);
   if (envMatch) return envMatch;
 
   const canonicalRows = await loadSubscriptionPriceBookRowsByProviderPriceRef("stripe", priceId);
-  const canonicalRow = selectCurrentCanonicalStripePlanRow(canonicalRows);
+  const canonicalRow = selectCurrentCanonicalStripePlanRow(canonicalRows, metadata);
   if (!canonicalRow) return null;
 
   return {
@@ -96,7 +115,19 @@ async function loadStripePlanByPriceId(priceId: string) {
   };
 }
 
-export function selectCurrentCanonicalStripePlanRow(rows: SubscriptionPriceBookRow[]) {
+export function selectCurrentCanonicalStripePlanRow(
+  rows: SubscriptionPriceBookRow[],
+  metadata?: Stripe.Metadata | null
+) {
+  const { marketCountry, marketCurrency } = extractMarketMetadata(metadata);
+  if (marketCountry) {
+    const countryRows = rows.filter((row) => row.market_country === marketCountry);
+    if (countryRows.length) return selectCurrentCanonicalRow(countryRows);
+  }
+  if (marketCurrency) {
+    const currencyRows = rows.filter((row) => row.currency === marketCurrency);
+    if (currencyRows.length) return selectCurrentCanonicalRow(currencyRows);
+  }
   return selectCurrentCanonicalRow(rows);
 }
 
@@ -141,39 +172,43 @@ export async function resolvePlanFromStripeAsync(
   subscription: Stripe.Subscription,
   fallbackMetadata?: Stripe.Metadata | null,
   options?: {
-    loadPlanByPriceId?: (priceId: string) => Promise<Awaited<ReturnType<typeof loadStripePlanByPriceId>>>;
+    loadPlanByPriceId?: (
+      priceId: string,
+      metadata?: Stripe.Metadata | null
+    ) => Promise<Awaited<ReturnType<typeof loadStripePlanByPriceId>>>;
   }
 ): Promise<ResolvedStripePlan> {
   const priceId = getSubscriptionPriceId(subscription);
+  const metadata = subscription.metadata || fallbackMetadata || undefined;
   const loadPlanByPriceId = options?.loadPlanByPriceId ?? loadStripePlanByPriceId;
-  const mapped = priceId ? await loadPlanByPriceId(priceId) : null;
-  const metadata = extractPlanMetadata(subscription.metadata || fallbackMetadata || undefined);
+  const mapped = priceId ? await loadPlanByPriceId(priceId, metadata) : null;
+  const planMetadata = extractPlanMetadata(metadata);
 
   if (mapped?.tier) {
     return {
-      profileId: metadata.profileId,
-      role: mapped.role ?? metadata.role,
-      cadence: mapped.cadence ?? metadata.cadence,
+      profileId: planMetadata.profileId,
+      role: mapped.role ?? planMetadata.role,
+      cadence: mapped.cadence ?? planMetadata.cadence,
       tier: mapped.tier,
       priceId,
     };
   }
   if (priceId) {
     return {
-      profileId: metadata.profileId,
-      role: metadata.role,
-      cadence: metadata.cadence,
+      profileId: planMetadata.profileId,
+      role: planMetadata.role,
+      cadence: planMetadata.cadence,
       tier: null,
       priceId,
     };
   }
-  if (metadata.tier) {
-    return { ...metadata, priceId: null };
+  if (planMetadata.tier) {
+    return { ...planMetadata, priceId: null };
   }
   return {
-    profileId: metadata.profileId,
-    role: metadata.role,
-    cadence: metadata.cadence,
+    profileId: planMetadata.profileId,
+    role: planMetadata.role,
+    cadence: planMetadata.cadence,
     tier: null,
     priceId: null,
   };

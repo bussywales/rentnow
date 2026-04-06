@@ -71,6 +71,8 @@ type StripeEventRow = {
   stripe_customer_id?: string | null;
   stripe_subscription_id?: string | null;
   stripe_price_id?: string | null;
+  subscription_market_country?: string | null;
+  subscription_market_currency?: string | null;
   processed_at?: string | null;
   replay_count?: number | null;
   last_replay_at?: string | null;
@@ -279,7 +281,7 @@ async function loadUserEvents({
   const { data, error } = await adminDb
     .from("stripe_webhook_events")
     .select(
-      "event_id, event_type, created_at, status, reason, mode, plan_tier, profile_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, processed_at, replay_count, last_replay_at, last_replay_status, last_replay_reason"
+      "event_id, event_type, created_at, status, reason, mode, plan_tier, profile_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, subscription_market_country, subscription_market_currency, processed_at, replay_count, last_replay_at, last_replay_status, last_replay_reason"
     )
     .order("created_at", { ascending: false })
     .limit(10)
@@ -461,7 +463,7 @@ async function loadEvents(params: SearchParams): Promise<{ events: StripeEventRo
   let eventsQuery = adminDb
     .from<StripeEventRow>("stripe_webhook_events")
     .select(
-      "event_id, event_type, created_at, status, reason, mode, plan_tier, profile_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, processed_at"
+      "event_id, event_type, created_at, status, reason, mode, plan_tier, profile_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, subscription_market_country, subscription_market_currency, processed_at"
     )
     .order("created_at", { ascending: false })
     .range(from, to);
@@ -1286,6 +1288,7 @@ export default async function AdminBillingPage({ searchParams }: { searchParams?
                     <th className="py-2 pr-3">Event</th>
                     <th className="py-2 pr-3">Mode</th>
                     <th className="py-2 pr-3">Profile</th>
+                    <th className="py-2 pr-3">Market</th>
                     <th className="py-2 pr-3">Price</th>
                     <th className="py-2 pr-3">Outcome</th>
                     <th className="py-2 pr-3">Replay</th>
@@ -1305,6 +1308,11 @@ export default async function AdminBillingPage({ searchParams }: { searchParams?
                       </td>
                       <td className="py-2 pr-3 text-xs text-slate-500">{event.mode || "—"}</td>
                       <td className="py-2 pr-3 text-xs text-slate-500">{event.profile_id || "—"}</td>
+                      <td className="py-2 pr-3 text-xs text-slate-500">
+                        {event.subscription_market_country
+                          ? `${event.subscription_market_country}${event.subscription_market_currency ? ` (${event.subscription_market_currency})` : ""}`
+                          : "—"}
+                      </td>
                       <td className="py-2 pr-3 text-xs text-slate-500">{maskIdentifier(event.stripe_price_id)}</td>
                       <td className="py-2 pr-3 text-xs text-slate-500">
                         <div>{event.status || "received"}</div>
@@ -1540,6 +1548,7 @@ export default async function AdminBillingPage({ searchParams }: { searchParams?
                   <th className="py-2 pr-3">Mode</th>
                   <th className="py-2 pr-3">Profile</th>
                   <th className="py-2 pr-3">Plan</th>
+                  <th className="py-2 pr-3">Market</th>
                   <th className="py-2 pr-3">Customer</th>
                   <th className="py-2 pr-3">Subscription</th>
                   <th className="py-2 pr-3">Price</th>
@@ -1561,6 +1570,11 @@ export default async function AdminBillingPage({ searchParams }: { searchParams?
                     <td className="py-2 pr-3 text-xs text-slate-500">{event.mode || "—"}</td>
                     <td className="py-2 pr-3 text-xs text-slate-500">{maskIdentifier(event.profile_id)}</td>
                     <td className="py-2 pr-3 text-xs text-slate-500">{event.plan_tier || "—"}</td>
+                    <td className="py-2 pr-3 text-xs text-slate-500">
+                      {event.subscription_market_country
+                        ? `${event.subscription_market_country}${event.subscription_market_currency ? ` (${event.subscription_market_currency})` : ""}`
+                        : "—"}
+                    </td>
                     <td className="py-2 pr-3 text-xs text-slate-500">{maskIdentifier(event.stripe_customer_id)}</td>
                     <td className="py-2 pr-3 text-xs text-slate-500">{maskIdentifier(event.stripe_subscription_id)}</td>
                     <td className="py-2 pr-3 text-xs text-slate-500">{maskIdentifier(event.stripe_price_id)}</td>

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { getPlanForTier, getTenantPlanForTier, type PlanTier } from "@/lib/plans";
 import type { SubscriptionPlanCardConfig } from "@/lib/billing/subscription-plan-cards";
 import type { SubscriptionPlanPricingView } from "@/lib/billing/subscription-pricing.types";
+import { describeSubscriptionMarketCharge } from "@/lib/billing/subscription-pricing";
 
 type Props = {
   plan: SubscriptionPlanCardConfig;
@@ -112,6 +113,7 @@ export function PlanCard({
       : plan.tier;
   const loadingLabel =
     pricing?.provider === "stripe" || !pricing?.provider ? "Redirecting..." : "Opening checkout...";
+  const marketChargeDisclosure = describeSubscriptionMarketCharge(pricing);
 
   return (
     <div
@@ -227,9 +229,17 @@ export function PlanCard({
         )}
       </div>
 
-      {plan.tier !== "free" && pricing?.fallbackApplied && pricing.fallbackMessage ? (
-        <p className={`mt-3 text-xs ${plan.highlight ? "text-white/80" : "text-amber-700"}`}>
-          {pricing.fallbackMessage}
+      {plan.tier !== "free" && marketChargeDisclosure ? (
+        <p
+          className={`mt-3 text-xs ${
+            plan.highlight
+              ? "text-white/80"
+              : marketChargeDisclosure.tone === "warning"
+              ? "text-amber-700"
+              : "text-cyan-700"
+          }`}
+        >
+          {marketChargeDisclosure.body}
         </p>
       ) : null}
 
