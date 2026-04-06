@@ -11,6 +11,7 @@ This document defines the first serious analytics layer for PropatyHub / RentNow
 
 ## Operational docs
 - QA runbook: `web/docs/runbooks/analytics-qa-runbook.md`
+- Checkout funnel QA: `web/docs/runbooks/analytics-checkout-funnel-qa.md`
 - Dashboard spec: `web/docs/runbooks/analytics-traction-dashboard-spec.md`
 - UTM convention: `web/docs/runbooks/utm-conventions.md`
 
@@ -18,6 +19,23 @@ This document defines the first serious analytics layer for PropatyHub / RentNow
 - GA4 page + event forwarding when `NEXT_PUBLIC_GA_MEASUREMENT_ID` is set.
 - First-party event capture in `public.product_analytics_events`.
 - UTM persistence in the `ph_attribution` cookie.
+
+## Production schema truth
+Use the real production column names when querying `public.product_analytics_events`:
+- `created_at`
+- `event_name`
+- `session_key`
+- `user_id`
+- `user_role`
+- `market`
+- `utm_source`
+- `utm_medium`
+- `utm_campaign`
+- `utm_content`
+- `page_path`
+- `properties`
+
+Do not guess alternatives such as `occurred_at`, `session_id`, `role`, `source`, `medium`, `campaign`, `content`, or `path`.
 
 ## Required env vars
 - `NEXT_PUBLIC_GA_MEASUREMENT_ID`
@@ -175,6 +193,12 @@ Billing:
 2. Pick a plan and confirm `plan_selected`.
 3. Start Stripe checkout and confirm `checkout_started`.
 4. Complete checkout in Stripe and confirm `checkout_succeeded` after webhook processing.
+
+Important checkout-funnel note:
+- `billing_page_viewed` and `plan_selected` are client-side intent signals.
+- `checkout_started` is emitted by the Stripe checkout API route after Stripe returns a Checkout Session URL.
+- `checkout_succeeded` is emitted from Stripe webhook processing and is the source-of-truth conversion event.
+- Admin replay should not create duplicate `checkout_succeeded` funnel rows.
 
 Host activation:
 1. Create a listing and confirm `listing_created`.

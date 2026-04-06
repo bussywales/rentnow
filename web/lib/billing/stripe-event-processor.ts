@@ -53,6 +53,10 @@ export type StripeEventProcessResult = {
   applied: boolean;
 };
 
+function shouldLogCheckoutSucceededAnalytics(context: StripeEventProcessContext) {
+  return context.route !== "/api/admin/billing/stripe/replay";
+}
+
 function toIso(seconds: number | null | undefined) {
   if (!seconds || !Number.isFinite(seconds)) return null;
   return new Date(seconds * 1000).toISOString();
@@ -401,7 +405,7 @@ export async function processStripeEvent(
           });
         }
 
-        if (planApplied) {
+        if (shouldLogCheckoutSucceededAnalytics(context)) {
           await logProductAnalyticsEvent({
             eventName: "checkout_succeeded",
             supabase: context.adminClient,
@@ -414,12 +418,13 @@ export async function processStripeEvent(
                 session.metadata?.cadence === "monthly" || session.metadata?.cadence === "yearly"
                   ? session.metadata.cadence
                   : undefined,
-              billingSource: "stripe",
+              billingSource: existingPlan?.billing_source ?? "stripe",
               currency: subscription.currency?.toUpperCase() ?? undefined,
               amount:
                 typeof session.amount_total === "number" ? session.amount_total / 100 : undefined,
               provider: "stripe",
               providerSubscriptionId: subscription.id,
+              sourceEventId: event.id,
             },
           });
         }

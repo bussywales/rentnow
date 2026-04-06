@@ -126,6 +126,9 @@ Expected properties where available:
 - `requestStatus`
 
 ## 7. Billing conversion QA
+Dedicated checkout funnel runbook:
+- `web/docs/runbooks/analytics-checkout-funnel-qa.md`
+
 1. Open `/tenant/billing` or `/dashboard/billing`.
 2. Confirm `billing_page_viewed`.
 3. Select a plan and confirm `plan_selected`.
@@ -144,6 +147,7 @@ Expected properties where available:
 
 Important:
 - `checkout_succeeded` is server-side and should be treated as the source of truth.
+- `checkout_succeeded` should be counted from the original webhook path, not from admin replay.
 - If `checkout_started` appears but `checkout_succeeded` does not, check billing ops before assuming conversion failed.
 
 ## 8. Host activation QA
@@ -187,14 +191,14 @@ Billing funnel:
 ```sql
 select
   event_name,
-  role,
+  user_role,
   market,
   count(*) as events
 from public.product_analytics_events
 where event_name in ('billing_page_viewed', 'plan_selected', 'checkout_started', 'checkout_succeeded')
   and created_at >= now() - interval '14 days'
 group by 1, 2, 3
-order by event_name, role, market;
+order by event_name, user_role, market;
 ```
 
 Host activation:

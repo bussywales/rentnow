@@ -2,6 +2,33 @@
 
 This is the first stakeholder and operator dashboard specification for PropatyHub / RentNow. It is intentionally practical: acquisition, demand, billing conversion, and host activation.
 
+## Production schema truth
+This spec is grounded in the live first-party schema for `public.product_analytics_events`.
+
+Use these real columns in reporting:
+- `created_at`
+- `event_name`
+- `session_key`
+- `user_id`
+- `user_role`
+- `market`
+- `utm_source`
+- `utm_medium`
+- `utm_campaign`
+- `utm_content`
+- `page_path`
+- `landing_path`
+- `plan_tier`
+- `cadence`
+- `billing_source`
+- `currency`
+- `amount`
+- `provider`
+- `provider_subscription_id`
+- `properties`
+
+Do not build reporting against guessed names like `occurred_at`, `session_id`, `role`, `source`, `medium`, `campaign`, `content`, or `path`.
+
 ## Audience
 - founders
 - growth / acquisition operators
@@ -107,6 +134,11 @@ Primary questions:
 - which market and plan/cadence combinations stall?
 - whether acquisition channels generate paid users, not just billing-page views
 
+Implementation note:
+- `billing_page_viewed` and `plan_selected` are client-intent events
+- `checkout_started` is emitted after Stripe Checkout Session creation
+- `checkout_succeeded` is webhook-sourced and should be treated as the source-of-truth conversion event
+
 ## Section 4. Host activation
 Purpose:
 - measure whether paid landlords and agents move into supply creation fast enough
@@ -170,6 +202,52 @@ Derived definitions:
 3. Billing conversion funnel
 4. Host activation funnel
 5. Efficiency / traction
+
+## Reporting build guidance
+
+### GA4
+Use GA4 for:
+- sessions
+- users
+- new users
+- source / medium / campaign trendlines
+- landing page performance
+- quick Realtime QA of custom events
+
+Do not rely on GA4 alone for deep billing reconciliation.
+
+### Looker Studio
+Use Looker Studio for the first stakeholder dashboard:
+- acquisition tables and trend charts
+- tenant demand funnel
+- billing conversion funnel
+- host activation funnel
+- efficiency rollups once ad spend is joined externally
+
+Primary source tables/fields:
+- `public.product_analytics_events`
+- `created_at`
+- `event_name`
+- `user_role`
+- `market`
+- `utm_source`
+- `utm_medium`
+- `utm_campaign`
+- `utm_content`
+- `page_path`
+- `landing_path`
+- `plan_tier`
+- `cadence`
+- `billing_source`
+- `amount`
+
+### SQL-backed reporting
+Use SQL-backed reporting where GA4 / Looker Studio alone are not enough:
+- paid-to-listing-created
+- paid-to-listing-live
+- conversion joins from `checkout_succeeded` to host activation events
+- campaign efficiency metrics joined to external spend
+- operator-grade reconciliation of successful Stripe checkouts against analytics rows
 
 ## Minimum charts / tables
 Acquisition:

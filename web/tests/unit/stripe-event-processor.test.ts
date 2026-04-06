@@ -29,6 +29,7 @@ function createAdminClient(state: {
     billingNotes: state.billingNotes ?? null,
     upsertedPlan: null as Record<string, unknown> | null,
     upsertedBillingNotes: null as Record<string, unknown> | null,
+    analyticsEvents: [] as Record<string, unknown>[],
   };
 
   const client = {
@@ -108,6 +109,15 @@ function createAdminClient(state: {
                 };
               },
             };
+          },
+        };
+      }
+
+      if (table === "product_analytics_events") {
+        return {
+          insert: async (values: Record<string, unknown>) => {
+            store.analyticsEvents.push(values);
+            return { error: null };
           },
         };
       }
@@ -192,6 +202,15 @@ void test("active manual override still blocks Stripe takeover during webhook pr
   assert.equal(result.reason, "manual_override");
   assert.equal(adminClient.__store.upsertedPlan, null);
   assert.equal(adminClient.__store.upsertedBillingNotes, null);
+  assert.equal(adminClient.__store.analyticsEvents.length, 1);
+  assert.equal(adminClient.__store.analyticsEvents[0]?.event_name, "checkout_succeeded");
+  assert.equal(adminClient.__store.analyticsEvents[0]?.billing_source, "manual");
+  assert.equal(adminClient.__store.analyticsEvents[0]?.provider_subscription_id, "sub_live_123");
+  assert.equal(
+    (adminClient.__store.analyticsEvents[0]?.properties as { sourceEventId?: string } | undefined)
+      ?.sourceEventId,
+    "evt_auto_takeover_123"
+  );
 });
 
 void test("expired manual override allows Stripe takeover and appends audit note", async () => {
@@ -230,4 +249,44 @@ void test("expired manual override allows Stripe takeover and appends audit note
   assert.match(adminClient.__store.billingNotes ?? "", /Automatic Stripe takeover after expired manual override/);
   assert.match(adminClient.__store.billingNotes ?? "", /source_event=evt_auto_takeover_123/);
   assert.match(adminClient.__store.billingNotes ?? "", /stripe_subscription_id=sub_live_123/);
+  assert.equal(adminClient.__store.analyticsEvents.length, 1);
+  assert.equal(adminClient.__store.analyticsEvents[0]?.event_name, "checkout_succeeded");
+  assert.equal(adminClient.__store.analyticsEvents[0]?.provider_subscription_id, "sub_live_123");
+  assert.equal(
+    (adminClient.__store.analyticsEvents[0]?.properties as { sourceEventId?: string } | undefined)
+      ?.sourceEventId,
+    "evt_auto_takeover_123"
+  );
+});
+
+void test("admin replay does not emit duplicate checkout success analytics", async () => {
+  const adminClient = createAdminClient({
+    existingPlan: {
+      billing_source: "stripe",
+      plan_tier: "tenant_pro",
+      valid_until: "2027-02-15T08:00:00.000Z",
+      stripe_subscription_id: "sub_live_123",
+      stripe_status: "active",
+      stripe_price_id: "price_tenant_monthly",
+      stripe_current_period_end: "2027-02-15T08:00:00.000Z",
+    },
+  });
+
+  const result = await processStripeEvent(
+    {
+      adminClient: adminClient as never,
+      stripe: {
+        subscriptions: {
+          retrieve: async () => createStripeSubscription(),
+        },
+      } as never,
+      route: "/api/admin/billing/stripe/replay",
+      startTime: Date.now(),
+    },
+    createCheckoutCompletedEvent("11111111-1111-4111-8111-111111111111")
+  );
+
+  assert.equal(result.status, "ignored");
+  assert.equal(result.reason, "duplicate_update");
+  assert.equal(adminClient.__store.analyticsEvents.length, 0);
 });

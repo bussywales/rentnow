@@ -73,6 +73,7 @@ export const productAnalyticsPropertiesSchema = z
     shareChannel: z.string().trim().min(1).max(80).optional().nullable(),
     provider: z.string().trim().min(1).max(40).optional().nullable(),
     providerSubscriptionId: z.string().trim().min(1).max(255).optional().nullable(),
+    sourceEventId: z.string().trim().min(1).max(255).optional().nullable(),
     requestStatus: z.string().trim().min(1).max(80).optional().nullable(),
   });
 
