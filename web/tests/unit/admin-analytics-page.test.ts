@@ -43,6 +43,14 @@ void test("admin analytics page includes admin guard and empty state copy", () =
     contents.includes("marketplace, Explore, Explore V2, and host analytics"),
     "expected host analytics in analytics hub helper copy"
   );
+  assert.ok(
+    contents.includes("Analytics QA and reporting"),
+    "expected analytics QA guidance panel heading"
+  );
+  assert.ok(
+    contents.includes("/help/admin/analytics"),
+    "expected link to analytics guide from admin analytics page"
+  );
 
   const navPath = path.join(process.cwd(), "components", "admin", "AdminAnalyticsSectionNav.tsx");
   const navContents = fs.readFileSync(navPath, "utf8");

@@ -9,6 +9,11 @@ This document defines the first serious analytics layer for PropatyHub / RentNow
 - Measure host activation after payment.
 - Keep event naming disciplined so reporting remains usable.
 
+## Operational docs
+- QA runbook: `web/docs/runbooks/analytics-qa-runbook.md`
+- Dashboard spec: `web/docs/runbooks/analytics-traction-dashboard-spec.md`
+- UTM convention: `web/docs/runbooks/utm-conventions.md`
+
 ## Stack
 - GA4 page + event forwarding when `NEXT_PUBLIC_GA_MEASUREMENT_ID` is set.
 - First-party event capture in `public.product_analytics_events`.

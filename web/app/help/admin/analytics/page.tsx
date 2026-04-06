@@ -28,6 +28,22 @@ export default function AnalyticsHelpPage() {
       </section>
 
       <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-slate-900">Analytics QA checklist</h2>
+        <HelpStepList
+          steps={[
+            "Confirm the GA4 tag loads and page views appear in GA4 Realtime.",
+            "Open a tagged campaign URL and confirm UTMs persist after route changes.",
+            "Verify at least one custom event from each core family: search, tenant intent, billing, and host activation.",
+            "Check direct / unattributed traffic before trusting paid-channel reporting.",
+          ]}
+        />
+        <HelpCallout variant="info" title="Use both GA4 and first-party events">
+          GA4 Realtime is useful for quick checks, but the first-party event log is the fallback source of truth when a
+          custom event looks delayed or filtered in GA4.
+        </HelpCallout>
+      </section>
+
+      <section className="space-y-4">
         <h2 className="text-lg font-semibold text-slate-900">Events and signals tracked</h2>
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -53,6 +69,47 @@ export default function AnalyticsHelpPage() {
               <li>Viewing requests — scheduled intent.</li>
             </ul>
           </div>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-slate-900">First traction dashboards</h2>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-900">Acquisition and tenant demand</h3>
+            <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-slate-600">
+              <li>Sessions, users, new users by source / medium / campaign.</li>
+              <li>Landing pages by campaign.</li>
+              <li>`search_performed` to `listing_viewed` to high-intent action.</li>
+              <li>Direct / unattributed traffic watch.</li>
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-900">Billing and host activation</h3>
+            <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-slate-600">
+              <li>`billing_page_viewed` to `checkout_succeeded`.</li>
+              <li>Conversion by role and market.</li>
+              <li>Paid host to `listing_created`, `listing_submitted_for_review`, and `listing_published_live`.</li>
+              <li>Paid traffic that produces real supply, not just billing clicks.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-slate-900">UTM discipline</h2>
+        <p className="text-sm text-slate-600">
+          Keep source naming platform-specific, medium naming standardized, and campaign naming stable across creative
+          variants. Use content for creative or audience differences, not campaign identity.
+        </p>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <ul className="list-disc space-y-2 pl-5 text-sm text-slate-600">
+            <li>Use `facebook` with `paid_social` for Facebook ads.</li>
+            <li>Use `instagram` with `social` for organic social posts.</li>
+            <li>Use `newsletter` with `email` for email campaigns.</li>
+            <li>Use `whatsapp` with `referral` for WhatsApp sharing.</li>
+            <li>Avoid custom medium spellings like `paid-social` or `paidsocial`.</li>
+          </ul>
         </div>
       </section>
 

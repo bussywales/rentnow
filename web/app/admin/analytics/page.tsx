@@ -162,6 +162,28 @@ export default async function AdminAnalyticsPage() {
         </div>
       </section>
 
+      <section className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4 shadow-sm" data-testid="admin-analytics-qa-guidance">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-slate-900">Analytics QA and reporting</h2>
+            <p className="text-sm text-slate-700">
+              Before trusting campaign performance, confirm GA4 tag presence, UTM preservation, page views, and core
+              funnel events in Realtime and the first-party event log.
+            </p>
+            <p className="text-xs text-slate-600">
+              Watch direct / unattributed traffic closely during paid pushes. Spikes there usually mean weak tagging or
+              landing-link drift.
+            </p>
+          </div>
+          <Link
+            href="/help/admin/analytics"
+            className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400"
+          >
+            Open analytics guide
+          </Link>
+        </div>
+      </section>
+
       {!diag.supabaseReady && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Supabase is not configured; analytics are unavailable.
