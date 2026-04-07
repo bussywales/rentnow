@@ -41,6 +41,10 @@ export default function AnalyticsHelpPage() {
           GA4 Realtime is useful for quick checks, but the first-party event log is the fallback source of truth when a
           custom event looks delayed or filtered in GA4.
         </HelpCallout>
+        <p className="text-sm text-slate-600">
+          Use GA4 for acquisition and session reporting. Use first-party product events for funnel, billing, and host
+          activation truth. Do not treat them as interchangeable sources.
+        </p>
       </section>
 
       <section className="space-y-4">

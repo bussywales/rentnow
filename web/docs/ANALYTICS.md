@@ -13,6 +13,7 @@ This document defines the first serious analytics layer for PropatyHub / RentNow
 - QA runbook: `web/docs/runbooks/analytics-qa-runbook.md`
 - Checkout funnel QA: `web/docs/runbooks/analytics-checkout-funnel-qa.md`
 - Dashboard spec: `web/docs/runbooks/analytics-traction-dashboard-spec.md`
+- Reporting assembly plan: `web/docs/runbooks/analytics-reporting-assembly-plan.md`
 - UTM convention: `web/docs/runbooks/utm-conventions.md`
 
 ## Stack

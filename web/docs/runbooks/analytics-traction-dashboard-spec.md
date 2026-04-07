@@ -190,9 +190,9 @@ Derived definitions:
   - `contact_submitted`
   - `viewing_request_submitted`
 - paid landlord:
-  - `checkout_succeeded` where `role = landlord`
+  - `checkout_succeeded` where `user_role = landlord`
 - paid agent:
-  - `checkout_succeeded` where `role = agent`
+  - `checkout_succeeded` where `user_role = agent`
 - live listing:
   - `listing_published_live`
 
