@@ -429,11 +429,20 @@ Naming conventions:
 ## 5. Minimum SQL / derived reporting needs
 
 Do not build a warehouse yet.
-Build only these minimum reporting views when direct charts stop being enough.
+The minimum reporting layer now exists as three views in the `reporting` schema.
 
 ### View 1: `reporting.checkout_funnel_daily`
 Purpose:
 - daily billing funnel by role / market / cadence / campaign
+
+Source tables:
+- `public.product_analytics_events`
+
+Filters:
+- `event_name in ('billing_page_viewed', 'plan_selected', 'checkout_started', 'checkout_succeeded')`
+
+Join logic:
+- none
 
 Suggested grain:
 - day
@@ -451,12 +460,30 @@ Measures:
 - `checkout_started_count`
 - `checkout_succeeded_count`
 
+Known caveats:
+- `billing_page_viewed_count` and `plan_selected_count` are intent counts
+- `checkout_succeeded_count` is the trustworthy billing-conversion count
+
 ### View 2: `reporting.paid_host_activation_daily`
 Purpose:
 - paid-host activation from checkout to listing activity
 
+Source tables:
+- `public.product_analytics_events`
+
+Filters:
+- base checkout set:
+  - `event_name = 'checkout_succeeded'`
+  - `user_id is not null`
+  - `user_role in ('landlord', 'agent')`
+- activation events:
+  - `event_name in ('listing_created', 'listing_submitted_for_review', 'listing_published_live')`
+
+Join logic:
+- first successful paid checkout per `(user_id, user_role)`
+- first host activation timestamps after that checkout for the same `(user_id, user_role)`
+
 Suggested grain:
-- paid host `user_id`
 - paid date
 - `user_role`
 - `market`
@@ -470,9 +497,25 @@ Measures / flags:
 - `created_within_7d`
 - `live_within_14d`
 
+Known caveats:
+- this is intentionally first-checkout based, not every renewal or replayed billing event
+- hosts who paid before analytics went live will not be reconstructed here retroactively
+
 ### View 3: `reporting.campaign_conversion_daily`
 Purpose:
 - source / medium / campaign summary across tenant demand, billing, and host activation
+
+Source tables:
+- `public.product_analytics_events`
+
+Filters:
+- event set limited to:
+  - tenant demand
+  - billing funnel
+  - host activation events
+
+Join logic:
+- none
 
 Suggested grain:
 - day
@@ -488,6 +531,10 @@ Measures:
 - paid landlords
 - paid agents
 - live listings attributed by first-touch session fields where available
+
+Known caveats:
+- unattributed rows remain visible as null UTM dimensions
+- this is event-attribution reporting, not a full session model
 
 ## 6. Stakeholder vs operator split
 
