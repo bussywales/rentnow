@@ -1,0 +1,68 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  doesProviderAreaMatchRequest,
+  filterEligibleMoveReadyProviders,
+  type MoveReadyProviderRecord,
+} from "@/lib/services/move-ready.server";
+
+void test("provider area matching requires exact market and respects optional city and area coverage", () => {
+  assert.equal(
+    doesProviderAreaMatchRequest(
+      { market_code: "NG", city: "Lagos", area: null },
+      { category: "end_of_tenancy_cleaning", marketCode: "NG", city: "Lagos", area: "Lekki" }
+    ),
+    true
+  );
+  assert.equal(
+    doesProviderAreaMatchRequest(
+      { market_code: "NG", city: "Abuja", area: null },
+      { category: "end_of_tenancy_cleaning", marketCode: "NG", city: "Lagos", area: "Lekki" }
+    ),
+    false
+  );
+  assert.equal(
+    doesProviderAreaMatchRequest(
+      { market_code: "GB", city: null, area: null },
+      { category: "end_of_tenancy_cleaning", marketCode: "NG", city: "Lagos", area: "Lekki" }
+    ),
+    false
+  );
+});
+
+void test("eligible provider filtering stays narrow to approved active providers with the right category and area", () => {
+  const providers: MoveReadyProviderRecord[] = [
+    {
+      id: "11111111-1111-1111-1111-111111111111",
+      business_name: "Ready Clean",
+      contact_name: "Ada",
+      email: "ada@example.com",
+      phone: null,
+      verification_state: "approved",
+      provider_status: "active",
+      move_ready_provider_categories: [{ category: "end_of_tenancy_cleaning" }],
+      move_ready_provider_areas: [{ market_code: "NG", city: "Lagos", area: null }],
+    },
+    {
+      id: "22222222-2222-2222-2222-222222222222",
+      business_name: "Paused Fumigator",
+      contact_name: "Bola",
+      email: "bola@example.com",
+      phone: null,
+      verification_state: "approved",
+      provider_status: "paused",
+      move_ready_provider_categories: [{ category: "fumigation_pest_control" }],
+      move_ready_provider_areas: [{ market_code: "NG", city: "Lagos", area: null }],
+    },
+  ];
+
+  const eligible = filterEligibleMoveReadyProviders(providers, {
+    category: "end_of_tenancy_cleaning",
+    marketCode: "NG",
+    city: "Lagos",
+    area: "Lekki",
+  });
+
+  assert.equal(eligible.length, 1);
+  assert.equal(eligible[0]?.business_name, "Ready Clean");
+});

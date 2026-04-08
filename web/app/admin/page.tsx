@@ -241,6 +241,12 @@ export default async function AdminOverviewPage() {
             )}
           </Link>
           <Link
+            href="/admin/services"
+            className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
+          >
+            Move &amp; Ready Services
+          </Link>
+          <Link
             href="/admin/analytics"
             className="inline-flex items-center justify-center rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
           >

@@ -41,6 +41,7 @@ import type { ChecklistItem } from "@/lib/checklists/role-checklists";
 import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
 import { HostGettingStartedSection } from "@/components/host/HostGettingStartedSection";
 import { HostListingsFeed } from "@/components/host/HostListingsFeed";
+import { ProductEventTracker } from "@/components/analytics/ProductEventTracker";
 import {
   listHostShortletBookings,
   listHostShortletEarnings,
@@ -573,6 +574,17 @@ export default async function DashboardHome({ searchParams }: PageProps) {
           className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
           data-testid="host-home-activation-summary"
         >
+          <ProductEventTracker
+            eventName="service_entrypoint_viewed"
+            dedupeKey={`move-ready-entrypoint:host-overview:${hostUserId ?? "anon"}`}
+            properties={{
+              role: role ?? undefined,
+              requesterRole: role ?? undefined,
+              entrypointSource: "host_overview",
+              market: properties[0]?.country_code ?? undefined,
+              pagePath: "/host",
+            }}
+          />
           <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr_1fr]">
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -671,6 +683,20 @@ export default async function DashboardHome({ searchParams }: PageProps) {
                     <li key={line}>• {line}</li>
                   ))}
                 </ul>
+              </div>
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-sm font-semibold text-slate-900">Need this property ready for the next tenant or guest?</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Request vetted help for cleaning, fumigation, or minor repairs without leaving the host workflow.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Link href="/host/services/new?entrypoint=host_overview">
+                    <Button size="sm">Get property-prep help</Button>
+                  </Link>
+                  <Link href="/host/services">
+                    <Button size="sm" variant="secondary">View prep requests</Button>
+                  </Link>
+                </div>
               </div>
             </div>
           </div>

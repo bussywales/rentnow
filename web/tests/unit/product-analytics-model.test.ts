@@ -27,6 +27,15 @@ test('product analytics event names stay constrained to the approved funnel set'
     'listing_created',
     'listing_submitted_for_review',
     'listing_published_live',
+    'service_entrypoint_viewed',
+    'service_request_started',
+    'service_request_submitted',
+    'service_request_matched',
+    'service_request_unmatched',
+    'provider_lead_sent',
+    'provider_lead_accepted',
+    'provider_lead_declined',
+    'provider_response_submitted',
   ]);
 });
 
@@ -36,6 +45,7 @@ test('event family mapping stays stable', () => {
   assert.equal(getProductAnalyticsEventFamily('property_request_published'), 'tenant_intent');
   assert.equal(getProductAnalyticsEventFamily('checkout_succeeded'), 'billing');
   assert.equal(getProductAnalyticsEventFamily('listing_published_live'), 'host_activation');
+  assert.equal(getProductAnalyticsEventFamily('service_request_submitted'), 'move_ready_services');
 });
 
 test('normalizeProductAnalyticsProperties drops unknown properties', () => {

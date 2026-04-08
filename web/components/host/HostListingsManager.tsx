@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/components/ui/cn";
 import { HostFeaturedStrip } from "@/components/host/HostFeaturedStrip";
 import { HostListingsMasonryGrid } from "@/components/host/HostListingsMasonryGrid";
+import { ProductEventTracker } from "@/components/analytics/ProductEventTracker";
 import { buildListingApprovalGuidance } from "@/lib/host/listing-approval";
 import {
   filterAndSortHostProperties,
@@ -132,6 +133,14 @@ export function HostListingsManager({ listings, loadError = null }: Props) {
 
   return (
     <section className="space-y-4" data-testid="host-listings-manager">
+      <ProductEventTracker
+        eventName="service_entrypoint_viewed"
+        dedupeKey="move-ready-entrypoint:host-listings"
+        properties={{
+          entrypointSource: "host_listings",
+          pagePath: "/host/listings",
+        }}
+      />
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -140,9 +149,14 @@ export function HostListingsManager({ listings, loadError = null }: Props) {
               Portfolio first, with manager controls one tap away.
             </p>
           </div>
-          <Link href="/dashboard/properties/new">
-            <Button size="sm">New listing</Button>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/host/services/new?entrypoint=host_listings">
+              <Button size="sm" variant="secondary">Get property-prep help</Button>
+            </Link>
+            <Link href="/dashboard/properties/new">
+              <Button size="sm">New listing</Button>
+            </Link>
+          </div>
         </div>
 
         <div
