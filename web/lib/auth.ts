@@ -29,6 +29,15 @@ const EXPECTED_MISSING_SESSION_MARKERS = [
   "invalid jwt",
 ] as const;
 
+const AUTH_PROFILE_SELECT = [
+  "id",
+  "role",
+  "full_name",
+  "phone",
+  "preferred_contact",
+  "agent_slug",
+].join(", ");
+
 function shouldEmitAuthDiagnostics() {
   if (process.env.DEBUG_AUTH_NOISE === "1") return true;
   return process.env.NODE_ENV !== "production";
@@ -125,7 +134,7 @@ export async function getProfile(): Promise<Profile | null> {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("*")
+      .select(AUTH_PROFILE_SELECT)
       .eq("id", session.user.id)
       .maybeSingle();
 

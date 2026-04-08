@@ -61,7 +61,7 @@ export async function postPushSubscribeResponse(request: Request, deps: Subscrib
   const auth = await requireUserFn({ request, route: routeLabel, startTime });
   if (!auth.ok) return auth.response;
 
-  const rateLimit = checkRateLimit({
+  const rateLimit = await checkRateLimit({
     routeKey: "subscribe",
     userId: auth.user.id,
   });

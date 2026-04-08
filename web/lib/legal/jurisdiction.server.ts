@@ -47,7 +47,7 @@ function readSearchParam(
 async function defaultFetchProfile(supabase: SupabaseClient, userId: string) {
   const { data } = await supabase
     .from("profiles")
-    .select("*")
+    .select("jurisdiction, country, country_code")
     .eq("id", userId)
     .maybeSingle();
   return (data as ProfileLike | null) ?? null;

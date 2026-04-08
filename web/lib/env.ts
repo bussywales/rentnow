@@ -14,6 +14,12 @@ function normalizeBaseUrl(value?: string | null) {
 
 let loggedMissingPublicSiteUrl = false;
 
+function missingSiteUrlError() {
+  return new Error(
+    "[env] Missing SITE_URL or NEXT_PUBLIC_SITE_URL in production. Refusing to fall back to localhost."
+  );
+}
+
 export function getEnvPresence() {
   return {
     NEXT_PUBLIC_SITE_URL: !!process.env.NEXT_PUBLIC_SITE_URL,
@@ -55,13 +61,12 @@ export async function getApiBaseUrl() {
   if (envUrl) return envUrl;
 
   if (process.env.NODE_ENV === "production") {
+    const error = missingSiteUrlError();
     if (!loggedMissingPublicSiteUrl) {
-      console.error(
-        "[env] SITE_URL is missing in production; set it to https://www.propatyhub.com. Falling back to relative API URLs."
-      );
+      console.error(error.message);
       loggedMissingPublicSiteUrl = true;
     }
-    return "http://localhost:3000";
+    throw error;
   }
 
   return "http://localhost:3000";
@@ -70,6 +75,15 @@ export async function getApiBaseUrl() {
 export async function getSiteUrl(options?: { allowFallback?: boolean }) {
   const envUrl = resolveConfiguredSiteUrl();
   if (envUrl) return envUrl;
+
+  if (process.env.NODE_ENV === "production") {
+    const error = missingSiteUrlError();
+    if (!loggedMissingPublicSiteUrl) {
+      console.error(error.message);
+      loggedMissingPublicSiteUrl = true;
+    }
+    throw error;
+  }
 
   if (options?.allowFallback === false) return "";
 

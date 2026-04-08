@@ -104,7 +104,7 @@ export async function postExploreAnalyticsIngestResponse(
     return buildConsentResponse();
   }
 
-  const rateLimit = checkRateLimit({ userId: auth.user.id });
+  const rateLimit = await checkRateLimit({ userId: auth.user.id });
   if (!rateLimit.allowed) {
     return NextResponse.json(
       {

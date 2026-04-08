@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getSiteUrl } from "@/lib/env";
+import { getApiBaseUrl, getSiteUrl } from "@/lib/env";
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -34,9 +34,21 @@ void test("getSiteUrl falls back to NEXT_PUBLIC_SITE_URL then VERCEL_URL", async
 
 void test("getSiteUrl falls back to localhost when nothing configured", async () => {
   resetEnv();
+  process.env.NODE_ENV = "test";
   delete process.env.SITE_URL;
   delete process.env.NEXT_PUBLIC_SITE_URL;
   delete process.env.VERCEL_URL;
   const url = await getSiteUrl();
   assert.equal(url, "http://localhost:3000");
+});
+
+void test("getSiteUrl and getApiBaseUrl fail hard in production when site url env is missing", async () => {
+  resetEnv();
+  process.env.NODE_ENV = "production";
+  delete process.env.SITE_URL;
+  delete process.env.NEXT_PUBLIC_SITE_URL;
+  delete process.env.VERCEL_URL;
+
+  await assert.rejects(() => getSiteUrl(), /Missing SITE_URL or NEXT_PUBLIC_SITE_URL in production/);
+  await assert.rejects(() => getApiBaseUrl(), /Missing SITE_URL or NEXT_PUBLIC_SITE_URL in production/);
 });

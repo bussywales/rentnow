@@ -39,7 +39,7 @@ void test("explore analytics ingest returns analytics_disabled when kill-switch 
         consentRequired: false,
         noticeEnabled: true,
       }),
-      checkExploreAnalyticsRateLimit: () =>
+      checkExploreAnalyticsRateLimit: async () =>
         ({
           allowed: true,
           retryAfterSeconds: 0,
@@ -74,7 +74,7 @@ void test("explore analytics ingest route allows tenant, agent, and landlord rol
         consentRequired: false,
         noticeEnabled: true,
       }),
-      checkExploreAnalyticsRateLimit: () =>
+      checkExploreAnalyticsRateLimit: async () =>
         ({
           allowed: true,
           retryAfterSeconds: 0,
@@ -106,7 +106,7 @@ void test("explore analytics ingest enforces consent header when consent_require
         consentRequired: true,
         noticeEnabled: true,
       }),
-      checkExploreAnalyticsRateLimit: () =>
+      checkExploreAnalyticsRateLimit: async () =>
         ({
           allowed: true,
           retryAfterSeconds: 0,
@@ -142,7 +142,7 @@ void test("explore analytics ingest validates payload shape and rejects unknown 
         consentRequired: false,
         noticeEnabled: true,
       }),
-      checkExploreAnalyticsRateLimit: () =>
+      checkExploreAnalyticsRateLimit: async () =>
         ({
           allowed: true,
           retryAfterSeconds: 0,
@@ -196,7 +196,7 @@ void test("explore analytics ingest stores allowed payload when enabled", async 
         consentRequired: true,
         noticeEnabled: true,
       }),
-      checkExploreAnalyticsRateLimit: () =>
+      checkExploreAnalyticsRateLimit: async () =>
         ({
           allowed: true,
           retryAfterSeconds: 0,
@@ -252,7 +252,7 @@ void test("explore analytics ingest accepts all explore-v2 events in the shared 
           consentRequired: true,
           noticeEnabled: true,
         }),
-        checkExploreAnalyticsRateLimit: () =>
+        checkExploreAnalyticsRateLimit: async () =>
           ({
             allowed: true,
             retryAfterSeconds: 0,

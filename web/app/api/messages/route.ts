@@ -28,6 +28,7 @@ import {
   sanitizeMessageContent,
 } from "@/lib/messaging/contact-exchange";
 import { getContactExchangeMode } from "@/lib/settings/app-settings.server";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import type { Message } from "@/lib/types";
 import { isListingPubliclyVisible } from "@/lib/properties/expiry";
 
@@ -337,14 +338,17 @@ export async function POST(request: Request) {
       return permissionErrorResponse(code);
     }
 
-    const rateLimit = checkMessagingRateLimit({
+    const adminClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
+    const adminRateLimitClient = adminClient as unknown as UntypedAdminClient | null;
+    const rateLimit = await checkMessagingRateLimit({
       senderId: auth.user.id,
       recipientId: payload.recipient_id,
       propertyId: payload.property_id,
+      client: adminRateLimitClient,
     });
 
     if (!rateLimit.allowed) {
-      if (hasServiceRoleEnv()) {
+      if (adminClient) {
         const config = getMessagingRateLimitConfig();
         const threadKey = buildThrottleThreadKey({
           propertyId: payload.property_id,
@@ -352,7 +356,6 @@ export async function POST(request: Request) {
           senderId: auth.user.id,
         });
         try {
-          const adminClient = createServiceRoleClient();
           const row = buildThrottleTelemetryRow({
             actorProfileId: auth.user.id,
             threadKey,

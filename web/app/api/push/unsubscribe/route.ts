@@ -42,7 +42,7 @@ export async function postPushUnsubscribeResponse(request: Request, deps: Unsubs
   const auth = await requireUserFn({ request, route: routeLabel, startTime });
   if (!auth.ok) return auth.response;
 
-  const rateLimit = checkRateLimit({
+  const rateLimit = await checkRateLimit({
     routeKey: "unsubscribe",
     userId: auth.user.id,
   });

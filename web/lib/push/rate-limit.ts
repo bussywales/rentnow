@@ -1,3 +1,7 @@
+import { enforceSharedRateLimit } from "@/lib/security/shared-rate-limit";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
+
 export type PushRateLimitRouteKey = "subscribe" | "unsubscribe";
 
 export type PushRateLimitDecision = {
@@ -8,71 +12,28 @@ export type PushRateLimitDecision = {
   resetAt: number;
 };
 
-type PushRateLimitState = {
-  count: number;
-  resetAt: number;
-};
-
 const WINDOW_SECONDS = 10 * 60;
 const MAX_REQUESTS = 10;
 
-type PushRateLimitStore = Map<string, PushRateLimitState>;
-
-const globalStore = globalThis as typeof globalThis & {
-  __pushRateLimitStore?: PushRateLimitStore;
-};
-
-function getStore() {
-  if (!globalStore.__pushRateLimitStore) {
-    globalStore.__pushRateLimitStore = new Map();
-  }
-  return globalStore.__pushRateLimitStore;
-}
-
-export function checkPushRateLimit(input: {
+export async function checkPushRateLimit(input: {
   routeKey: PushRateLimitRouteKey;
   userId: string;
+  client?: UntypedAdminClient | null;
   now?: number;
-}): PushRateLimitDecision {
-  const now = input.now ?? Date.now();
-  const windowMs = WINDOW_SECONDS * 1000;
-  const key = `${input.routeKey}:${input.userId}`;
-  const store = getStore();
-  const existing = store.get(key);
-
-  if (!existing || now >= existing.resetAt) {
-    store.set(key, { count: 1, resetAt: now + windowMs });
-    return {
-      allowed: true,
-      retryAfterSeconds: 0,
-      remaining: MAX_REQUESTS - 1,
-      limit: MAX_REQUESTS,
-      resetAt: now + windowMs,
-    };
-  }
-
-  if (existing.count >= MAX_REQUESTS) {
-    return {
-      allowed: false,
-      retryAfterSeconds: Math.max(1, Math.ceil((existing.resetAt - now) / 1000)),
-      remaining: 0,
-      limit: MAX_REQUESTS,
-      resetAt: existing.resetAt,
-    };
-  }
-
-  existing.count += 1;
-  store.set(key, existing);
-
-  return {
-    allowed: true,
-    retryAfterSeconds: 0,
-    remaining: Math.max(0, MAX_REQUESTS - existing.count),
-    limit: MAX_REQUESTS,
-    resetAt: existing.resetAt,
-  };
+}): Promise<PushRateLimitDecision> {
+  const client =
+    input.client ?? (hasServiceRoleEnv() ? (createServiceRoleClient() as unknown as UntypedAdminClient) : null);
+  return enforceSharedRateLimit({
+    client,
+    routeKey: `push_${input.routeKey}`,
+    scopeKey: `user:${input.userId}`,
+    isAuthenticated: true,
+    windowSeconds: WINDOW_SECONDS,
+    maxRequests: MAX_REQUESTS,
+    now: input.now,
+  });
 }
 
 export function resetPushRateLimitForTests() {
-  getStore().clear();
+  // no-op retained for test compatibility; shared limiter reset lives in lib/security/shared-rate-limit
 }

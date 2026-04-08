@@ -6,6 +6,7 @@ import {
   serializeRequestChangesPayload,
   validateRequestChangesPayload,
 } from "@/lib/admin/admin-review-rubric";
+import { logApprovalAction } from "@/lib/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     /* ignore logging failures */
   }
 
-  console.log("[admin-review] request_changes", { propertyId: id, actorId: user.id, at: now, reasons: rejection_reason });
+  logApprovalAction({
+    request: req,
+    route: "/api/admin/properties/[id]/request-changes",
+    actorId: user.id,
+    propertyId: id,
+    action: "reject",
+    reasonProvided: true,
+  });
   return NextResponse.json({ ok: true, id, status: "changes_requested" });
 }

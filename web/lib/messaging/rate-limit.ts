@@ -1,4 +1,7 @@
 import type { MessagingPermissionCode } from "@/lib/messaging/permissions";
+import { enforceSharedRateLimit } from "@/lib/security/shared-rate-limit";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 type RateLimiterOptions = {
   windowSeconds: number;
@@ -12,6 +15,7 @@ export type RateLimitDecision = {
   remaining: number;
   limit: number;
   resetAt: number;
+  source?: "db" | "memory";
 };
 
 export type RateLimitEvent = {
@@ -153,15 +157,25 @@ export function getMessagingRateLimiter() {
   return store.limiter;
 }
 
-export function checkMessagingRateLimit(input: {
+export async function checkMessagingRateLimit(input: {
   senderId: string;
   recipientId?: string | null;
   propertyId?: string | null;
+  client?: UntypedAdminClient | null;
+  now?: number | Date;
 }) {
-  const limiter = getMessagingRateLimiter();
-  const keyParts = [input.senderId, input.propertyId ?? "unknown"];
-  const key = keyParts.join(":");
-  const decision = limiter.check(key);
+  const key = [input.senderId, input.propertyId ?? "unknown"].join(":");
+  const client =
+    input.client ?? (hasServiceRoleEnv() ? (createServiceRoleClient() as unknown as UntypedAdminClient) : null);
+  const decision = await enforceSharedRateLimit({
+    client,
+    routeKey: "messages_send",
+    scopeKey: key,
+    isAuthenticated: true,
+    windowSeconds: getConfig().windowSeconds,
+    maxRequests: getConfig().maxSends,
+    now: input.now,
+  });
 
   if (!decision.allowed) {
     recordRateLimitEvent({

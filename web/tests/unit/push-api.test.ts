@@ -203,7 +203,7 @@ void test("push subscribe returns 429 when rate limited", async () => {
         user: { id: "user-123" },
         supabase: { from: () => ({ upsert: () => createThenable({ error: null }) }) },
       }),
-      checkPushRateLimit: () => ({
+      checkPushRateLimit: async () => ({
         allowed: false,
         retryAfterSeconds: 60,
         remaining: 0,
@@ -232,7 +232,7 @@ void test("push unsubscribe returns 429 when rate limited", async () => {
         user: { id: "user-123" },
         supabase: { from: () => ({ delete: () => ({ eq: () => createThenable({ error: null }) }) }) },
       }),
-      checkPushRateLimit: () => ({
+      checkPushRateLimit: async () => ({
         allowed: false,
         retryAfterSeconds: 45,
         remaining: 0,
