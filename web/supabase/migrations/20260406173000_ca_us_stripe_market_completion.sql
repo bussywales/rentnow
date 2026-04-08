@@ -21,7 +21,7 @@ insert into public.subscription_price_book (
   operator_notes
 )
 select
-  seed.id,
+  seed.id::uuid,
   'subscriptions',
   seed.role,
   seed.tier,
