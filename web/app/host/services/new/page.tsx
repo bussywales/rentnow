@@ -99,15 +99,32 @@ export default async function HostMoveReadyNewPage({ searchParams }: Props) {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               Move &amp; Ready Services
             </p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800">
+                Pilot active
+              </span>
+              <span className="rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-800">
+                Limited capacity
+              </span>
+            </div>
             <h1 className="mt-1 text-3xl font-semibold text-slate-900">Get property-prep help</h1>
             <p className="mt-2 text-sm text-slate-600">
               Request vetted help for cleaning, fumigation, or minor repairs tied to the next tenant
               or guest. This is a lead-routing flow only.
             </p>
+            <p className="mt-2 text-sm text-slate-600">
+              If no vetted provider fits the request, it stays in manual operator follow-up instead of
+              pretending coverage exists.
+            </p>
           </div>
-          <Link href="/host/services" className="text-sm font-semibold text-sky-700">
-            View prep requests
-          </Link>
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <Link href="/host/services" className="text-sm font-semibold text-sky-700">
+              View prep requests
+            </Link>
+            <Link href="/help/host/services" className="text-sm font-semibold text-slate-700">
+              Pilot guide
+            </Link>
+          </div>
         </div>
       </section>
 

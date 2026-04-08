@@ -23,6 +23,29 @@ export default async function AdminMoveReadyServicesPage() {
         <p className="text-sm text-slate-600">
           Curated property-prep routing only. This is not a public services marketplace.
         </p>
+        <div className="flex flex-wrap gap-2 pt-1 text-xs">
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800">
+            Pilot active
+          </span>
+          <span className="rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-800">
+            Manual routing
+          </span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">
+            Limited capacity
+          </span>
+        </div>
+      </div>
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+        Keep the wedge narrow until the pilot scorecard passes. Do not expand to tenant requests,
+        removals, scheduling, payments, or public provider discovery from this surface.
+        <div className="mt-3 flex flex-wrap gap-4">
+          <Link href="/help/admin/support-playbooks/move-ready-services" className="font-semibold underline">
+            Operator playbook
+          </Link>
+          <Link href="/help/host/services" className="font-semibold underline">
+            Host pilot guide
+          </Link>
+        </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <Link href="/admin/services/providers" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

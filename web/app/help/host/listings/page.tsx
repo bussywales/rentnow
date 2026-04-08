@@ -22,6 +22,7 @@ export default function HostListingsHelpPage() {
           <HelpRelatedLinks
             links={[
               { label: "Performance and insights", href: "/help/host/performance" },
+              { label: "Move & Ready Services pilot", href: "/help/host/services" },
               { label: "Contact support", href: "/support" },
             ]}
           />

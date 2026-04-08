@@ -62,3 +62,11 @@ If no provider matches, the request remains `unmatched`.
 - No tenant-facing services marketplace
 - No open provider self-signup
 - No generic trades expansion beyond the three launch categories
+
+## Pilot control documents
+
+- Operator pilot runbook: `docs/runbooks/move-ready-pilot-runbook.md`
+- Validation scorecard: `docs/runbooks/move-ready-validation-scorecard.md`
+- Stakeholder decision memo template: `docs/runbooks/move-ready-stakeholder-decision-memo.md`
+
+Use those three documents together. This rollout note is not enough on its own to approve expansion.

@@ -70,14 +70,30 @@ export default async function HostMoveReadyRequestsPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
               Move &amp; Ready Services
             </p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800">
+                Pilot active
+              </span>
+              <span className="rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-800">
+                Limited capacity
+              </span>
+            </div>
             <h1 className="mt-1 text-3xl font-semibold text-slate-900">Property-prep requests</h1>
             <p className="mt-2 text-sm text-slate-600">
               Review matched and unmatched requests. This is still a manually governed routing flow.
             </p>
+            <p className="mt-2 text-sm text-slate-600">
+              Unmatched requests stay visible for operator follow-up. They are not auto-closed or auto-rerouted.
+            </p>
           </div>
-          <Link href="/host/services/new">
-            <Button>New prep request</Button>
-          </Link>
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <Link href="/host/services/new">
+              <Button>New prep request</Button>
+            </Link>
+            <Link href="/help/host/services" className="text-sm font-semibold text-slate-700">
+              Read the pilot guide
+            </Link>
+          </div>
         </div>
       </section>
 
