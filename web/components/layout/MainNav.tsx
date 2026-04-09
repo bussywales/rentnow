@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { NavAuthClient } from "@/components/layout/NavAuthClient";
 import { NavLinksClient } from "@/components/layout/NavLinksClient";
@@ -116,12 +117,16 @@ export function MainNav({
   marketSelectorEnabled,
   initialAuthed = false,
   initialRole = null,
+  initialAccountName = null,
+  initialAccountAvatarUrl = null,
   socialLinks = [],
   hostAwaitingApprovalCount = 0,
 }: {
   marketSelectorEnabled: boolean;
   initialAuthed?: boolean;
   initialRole?: UserRole | "super_admin" | null;
+  initialAccountName?: string | null;
+  initialAccountAvatarUrl?: string | null;
   socialLinks?: BrandSocialLink[];
   hostAwaitingApprovalCount?: number;
 }) {
@@ -131,6 +136,14 @@ export function MainNav({
     isAuthed: initialAuthed,
     role,
   });
+  const accountLabel = initialAccountName?.trim() || "Account";
+  const accountInitials = accountLabel
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "AC";
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/95 backdrop-blur-lg shadow-[0_1px_10px_rgba(15,23,42,0.06)]">
@@ -153,9 +166,29 @@ export function MainNav({
           {initialAuthed ? (
             <Link
               href="/profile"
-              className="hidden rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 md:inline-flex"
+              aria-label="Open profile"
+              title={accountLabel}
+              className="hidden h-10 w-10 items-center justify-center rounded-full border border-slate-200/90 bg-white text-sm font-semibold text-slate-700 shadow-[0_2px_12px_rgba(15,23,42,0.05)] transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 md:inline-flex"
             >
-              Profile
+              <span className="sr-only">Profile</span>
+              {initialAccountAvatarUrl ? (
+                <span className="relative block h-9 w-9 overflow-hidden rounded-full">
+                  <Image
+                    src={initialAccountAvatarUrl}
+                    alt=""
+                    fill
+                    sizes="36px"
+                    className="object-cover"
+                  />
+                </span>
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,rgba(125,211,252,0.32),rgba(226,232,240,0.95)_72%)] text-[11px] uppercase tracking-[0.16em] text-slate-700"
+                >
+                  {accountInitials}
+                </span>
+              )}
             </Link>
           ) : null}
           <NavAuthClient initialAuthed={initialAuthed} />

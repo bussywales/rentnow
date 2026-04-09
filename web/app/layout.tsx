@@ -135,6 +135,8 @@ export default async function RootLayout({
   let supportPrefillRole: string | null = null;
   let navInitialAuthed = false;
   let navInitialRole: "super_admin" | "tenant" | "landlord" | "agent" | "admin" | null = null;
+  let navInitialAccountName: string | null = null;
+  let navInitialAccountAvatarUrl: string | null = null;
   let socialLinks: BrandSocialLink[] = [];
   let settingsMap = new Map<string, unknown>();
 
@@ -153,12 +155,15 @@ export default async function RootLayout({
         supportPrefillEmail = user.email ?? null;
         const { data: profile } = await supabase
           .from("profiles")
-          .select("full_name,role")
+          .select("full_name,display_name,business_name,avatar_url,role")
           .eq("id", user.id)
           .maybeSingle();
         supportPrefillName = profile?.full_name ?? null;
         supportPrefillRole = normalizeRole(profile?.role);
         navInitialRole = normalizeRole(profile?.role) as typeof navInitialRole;
+        navInitialAccountName =
+          profile?.display_name ?? profile?.business_name ?? profile?.full_name ?? user.email ?? null;
+        navInitialAccountAvatarUrl = profile?.avatar_url ?? null;
       }
     } catch {
       // Keep support prefill optional if auth or settings resolution fails.
@@ -246,6 +251,8 @@ export default async function RootLayout({
               marketSelectorEnabled={marketSettings.selectorEnabled}
               initialAuthed={navInitialAuthed}
               initialRole={navInitialRole}
+              initialAccountName={navInitialAccountName}
+              initialAccountAvatarUrl={navInitialAccountAvatarUrl}
               socialLinks={socialLinks}
             />
             <SessionBootstrap />
