@@ -51,6 +51,10 @@ void test("admin analytics page includes admin guard and empty state copy", () =
     contents.includes("/help/admin/analytics"),
     "expected link to analytics guide from admin analytics page"
   );
+  assert.ok(
+    contents.includes("/help/admin/analytics/stakeholder-dashboard"),
+    "expected link to stakeholder dashboard definitions from admin analytics page"
+  );
 
   const navPath = path.join(process.cwd(), "components", "admin", "AdminAnalyticsSectionNav.tsx");
   const navContents = fs.readFileSync(navPath, "utf8");

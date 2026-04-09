@@ -98,6 +98,10 @@ export default function AnalyticsHelpPage() {
             </ul>
           </div>
         </div>
+        <HelpCallout variant="info" title="Need a stakeholder-safe explanation?">
+          Use the dashboard definitions page when you need to explain what each metric means without walking through the
+          dashboard live.
+        </HelpCallout>
       </section>
 
       <section className="space-y-4">
@@ -254,6 +258,7 @@ export default function AnalyticsHelpPage() {
         <h2 className="text-lg font-semibold text-slate-900">Related links</h2>
         <HelpRelatedLinks
           links={[
+            { label: "Stakeholder dashboard definitions", href: "/help/admin/analytics/stakeholder-dashboard" },
             { label: "Featured listings", href: "/help/admin/listings/featured" },
             { label: "Listings statuses", href: "/help/admin/listings/statuses" },
             { label: "Support playbooks", href: "/help/admin/support-playbooks" },

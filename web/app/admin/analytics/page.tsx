@@ -175,12 +175,20 @@ export default async function AdminAnalyticsPage() {
               landing-link drift.
             </p>
           </div>
-          <Link
-            href="/help/admin/analytics"
-            className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400"
-          >
-            Open analytics guide
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/help/admin/analytics"
+              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400"
+            >
+              Open analytics guide
+            </Link>
+            <Link
+              href="/help/admin/analytics/stakeholder-dashboard"
+              className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400"
+            >
+              Dashboard definitions
+            </Link>
+          </div>
         </div>
       </section>
 
