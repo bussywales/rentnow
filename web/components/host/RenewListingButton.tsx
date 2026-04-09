@@ -27,8 +27,12 @@ export function RenewListingButton({
       const res = await fetch(`/api/properties/${propertyId}/renew`, {
         method: "POST",
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        if (data?.resumeUrl || data?.billingUrl) {
+          router.push((data?.resumeUrl as string) || (data?.billingUrl as string));
+          return;
+        }
         setError(data?.error || "Could not renew listing");
         return;
       }

@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
@@ -5,8 +6,7 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { dispatchSavedSearchAlerts } from "@/lib/alerts/tenant-alerts";
 import { getUserRole, requireOwnership, requireUser } from "@/lib/authz";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
-import { getPlanUsage } from "@/lib/plan-enforcement";
-import { logFailure, logPlanLimitHit } from "@/lib/observability";
+import { logFailure } from "@/lib/observability";
 import { getListingAccessResult } from "@/lib/role-access";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { computeExpiryAt } from "@/lib/properties/expiry";
@@ -15,6 +15,12 @@ import { hasPinnedLocation } from "@/lib/properties/validation";
 import { cleanNullableString } from "@/lib/strings";
 import { isPausedStatus, normalizePropertyStatus } from "@/lib/properties/status";
 import { requireLegalAcceptance } from "@/lib/legal/guard.server";
+import { getPaygConfig } from "@/lib/billing/payg";
+import { consumeListingCredit, issueTrialCreditsIfEligible } from "@/lib/billing/listing-credits.server";
+import {
+  buildListingMonetizationResumeUrl,
+  ensureListingPublishEntitlement,
+} from "@/lib/billing/listing-publish-entitlement.server";
 
 export const dynamic = "force-dynamic";
 
@@ -48,8 +54,10 @@ export type ListingStatusDeps = {
   getListingAccessResult: typeof getListingAccessResult;
   hasActiveDelegation: typeof hasActiveDelegation;
   getAppSettingBool: typeof getAppSettingBool;
-  getPlanUsage: typeof getPlanUsage;
   getListingExpiryDays: typeof getListingExpiryDays;
+  getPaygConfig: typeof getPaygConfig;
+  consumeListingCredit: typeof consumeListingCredit;
+  issueTrialCreditsIfEligible: typeof issueTrialCreditsIfEligible;
   dispatchSavedSearchAlerts: typeof dispatchSavedSearchAlerts;
   logFailure: typeof logFailure;
 };
@@ -64,8 +72,10 @@ const defaultDeps: ListingStatusDeps = {
   getListingAccessResult,
   hasActiveDelegation,
   getAppSettingBool,
-  getPlanUsage,
   getListingExpiryDays,
+  getPaygConfig,
+  consumeListingCredit,
+  issueTrialCreditsIfEligible,
   dispatchSavedSearchAlerts,
   logFailure,
 };
@@ -201,43 +211,63 @@ export async function postPropertyStatusResponse(
 
   const willActivate = isReactivateRequest && !listing.is_active;
   if (willActivate && role !== "admin") {
-    const usage = await deps.getPlanUsage({
-      supabase,
-      ownerId: listing.owner_id,
-      serviceClient: adminClient,
-      excludeId: propertyId,
-    });
-    if (usage.error) {
-      deps.logFailure({
-        request,
-        route: routeLabel,
-        status: 500,
-        startTime,
-        error: new Error(usage.error),
-      });
-      return NextResponse.json({ error: usage.error }, { status: 500 });
+    if (!adminClient) {
+      return NextResponse.json({ error: "Service role not configured" }, { status: 503 });
     }
-    if (usage.activeCount >= usage.plan.maxListings) {
-      logPlanLimitHit({
-        request,
-        route: routeLabel,
-        actorId: auth.user.id,
+    const idempotencyKey = crypto.randomUUID();
+    const ownerRole = listing.owner_id !== auth.user.id && role === "agent" ? "landlord" : role;
+    const entitlement = await ensureListingPublishEntitlement(
+      {
+        adminClient,
         ownerId: listing.owner_id,
+        ownerRole,
+        requesterRole: role,
+        listingId: propertyId,
+        idempotencyKey,
+      },
+      {
+        getPaygConfig: deps.getPaygConfig,
+        consumeListingCredit: deps.consumeListingCredit,
+        issueTrialCreditsIfEligible: deps.issueTrialCreditsIfEligible,
+      }
+    );
+    if (!entitlement.ok && entitlement.reason !== "SERVER_ERROR") {
+      const resumeUrl = buildListingMonetizationResumeUrl({
         propertyId,
-        planTier: usage.plan.tier,
-        maxListings: usage.plan.maxListings,
-        activeCount: usage.activeCount,
-        source: usage.source,
+        reason: entitlement.reason,
+        context: "reactivation",
+        amount: entitlement.amount,
+        currency: entitlement.currency,
       });
+      if (entitlement.reason === "BILLING_REQUIRED") {
+        return NextResponse.json(
+          {
+            error: "Free posting limit reached. Choose a plan before reactivating this listing.",
+            reason: entitlement.reason,
+            billingUrl: entitlement.billingUrl,
+            resumeUrl,
+            idempotencyKey: entitlement.idempotencyKey,
+          },
+          { status: 409 }
+        );
+      }
       return NextResponse.json(
         {
-          error: "Plan limit reached",
-          code: "plan_limit_reached",
-          maxListings: usage.plan.maxListings,
-          activeCount: usage.activeCount,
-          planTier: usage.plan.tier,
+          error: "Free posting limit reached. Payment is required before reactivating this listing.",
+          reason: entitlement.reason,
+          amount: entitlement.amount,
+          currency: entitlement.currency,
+          billingUrl: entitlement.billingUrl,
+          resumeUrl,
+          idempotencyKey: entitlement.idempotencyKey,
         },
-        { status: 409 }
+        { status: 402 }
+      );
+    }
+    if (!entitlement.ok) {
+      return NextResponse.json(
+        { error: entitlement.error || "Unable to verify listing entitlement." },
+        { status: 500 }
       );
     }
   }

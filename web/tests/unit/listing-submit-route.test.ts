@@ -109,6 +109,65 @@ void test("submit returns payment required when no credits", async () => {
   assert.equal(res.status, 402);
   const json = await res.json();
   assert.equal(json.reason, "PAYMENT_REQUIRED");
+  assert.equal(json.billingUrl, "/dashboard/billing#plans");
+  assert.match(String(json.resumeUrl ?? ""), /monetization=payment_required/);
+});
+
+void test("expired listing resubmission still requires payment when no entitlement exists", async () => {
+  const listing: ListingRow = {
+    id: "prop1",
+    owner_id: "owner",
+    status: "expired",
+    submitted_at: "2026-04-01T00:00:00.000Z",
+  };
+  const { supabase } = buildSupabaseStub(listing);
+  const typedSupabase = supabase as ReturnType<
+    ListingSubmitDeps["createServerSupabaseClient"]
+  >;
+
+  const deps: ListingSubmitDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => true,
+    createServerSupabaseClient: async () => typedSupabase,
+    createServiceRoleClient: () =>
+      typedSupabase as ReturnType<ListingSubmitDeps["createServiceRoleClient"]>,
+    requireUser: async () =>
+      ({
+        ok: true,
+        user: { id: "owner" } as User,
+        supabase: typedSupabase,
+      }) as Awaited<ReturnType<ListingSubmitDeps["requireUser"]>>,
+    getUserRole: async () => "landlord",
+    getListingAccessResult: () => ({ ok: true }),
+    hasActiveDelegation: async () => false,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => ({ ok: false, reason: "NO_CREDITS" }),
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
+    getAppSettingBool: async () => false,
+    getListingExpiryDays: async () => 90,
+    requireLegalAcceptance: async () => ({ ok: true, status: {} }) as Awaited<
+      ReturnType<ListingSubmitDeps["requireLegalAcceptance"]>
+    >,
+    logPropertyEvent: async () => ({ ok: true, data: {} }),
+    resolveEventSessionKey: () => null,
+    logFailure: () => undefined,
+  };
+
+  const res = await postPropertySubmitResponse(
+    makeRequest({ idempotencyKey: "idem-renew" }),
+    "prop1",
+    deps
+  );
+  assert.equal(res.status, 402);
+  const json = await res.json();
+  assert.equal(json.reason, "PAYMENT_REQUIRED");
+  assert.match(String(json.resumeUrl ?? ""), /monetization_context=renewal/);
 });
 
 void test("submit blocks shortlet listing when nightly price is missing", async () => {

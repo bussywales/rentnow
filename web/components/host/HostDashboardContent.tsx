@@ -89,6 +89,11 @@ type StatusResponse = {
   is_active?: boolean | null;
   is_approved?: boolean | null;
   expires_at?: string | null;
+  reason?: string | null;
+  billingUrl?: string | null;
+  resumeUrl?: string | null;
+  amount?: number | null;
+  currency?: string | null;
   error?: string;
 };
 
@@ -842,6 +847,12 @@ export function HostDashboardContent({
         body: JSON.stringify(payload),
       });
       const data = (await res.json().catch(() => ({}))) as StatusResponse;
+      if (!res.ok && (data?.resumeUrl || data?.billingUrl)) {
+        window.location.assign(
+          (data?.resumeUrl as string) || (data?.billingUrl as string) || "/dashboard/billing#plans"
+        );
+        return { ok: false as const, redirected: true as const };
+      }
       if (!res.ok) {
         throw new Error(data?.error || `Request failed (${res.status})`);
       }
@@ -871,7 +882,7 @@ export function HostDashboardContent({
   const handleReactivateConfirm = async () => {
     if (!reactivateTarget) return;
     const result = await submitStatusChange(reactivateTarget, { status: "live" });
-    if (result.ok) setReactivateTarget(null);
+    if (result.ok || result.redirected) setReactivateTarget(null);
   };
 
   return (

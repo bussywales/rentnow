@@ -149,6 +149,15 @@ type Props = {
   requireLocationPinForPublish?: boolean;
 };
 
+type ListingMonetizationQueryReason = "payment_required" | "billing_required";
+type ListingMonetizationQueryContext = "submission" | "renewal" | "reactivation";
+
+function resolveMonetizationContextLabel(context: ListingMonetizationQueryContext | null) {
+  if (context === "renewal") return "renewal";
+  if (context === "reactivation") return "reactivation";
+  return "submission";
+}
+
 const rentalTypes: { label: string; value: RentalType }[] = [
   { label: "Short-let", value: "short_let" },
   { label: "Long-term", value: "long_term" },
@@ -286,6 +295,8 @@ export function PropertyStepper({
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const monetizationReason = searchParams?.get("monetization");
+  const monetizationContext = searchParams?.get("monetization_context");
   const normalizedInitialStepId: StepId = useMemo(() => {
     if (typeof initialStep === "string") {
       return normalizeStepParam(initialStep);
@@ -443,8 +454,27 @@ export function PropertyStepper({
   const [paywallError, setPaywallError] = useState<string | null>(null);
   const submitKeyRef = useRef<string | null>(null);
   const resumeAttemptedRef = useRef(false);
+  const monetizationGatePrimedRef = useRef(false);
   const listingQualityGuidanceTrackedRef = useRef(false);
   const listingQualityGuidanceBaselineRef = useRef<ListingQualityGuidanceTelemetry | null>(null);
+  const monetizationQueryReason: ListingMonetizationQueryReason | null =
+    monetizationReason === "payment_required" || monetizationReason === "billing_required"
+      ? monetizationReason
+      : null;
+  const monetizationQueryContext: ListingMonetizationQueryContext | null =
+    monetizationContext === "renewal" ||
+    monetizationContext === "reactivation" ||
+    monetizationContext === "submission"
+      ? monetizationContext
+      : null;
+  const monetizationAmount = Number(searchParams?.get("monetization_amount") || "");
+  const monetizationCurrency = searchParams?.get("monetization_currency") || "NGN";
+  const monetizationGateActive = steps[stepIndex]?.id === "submit" && !!monetizationQueryReason;
+  const monetizationNeedsPayment = monetizationQueryReason === "payment_required";
+  const monetizationActionLabel = resolveMonetizationContextLabel(monetizationQueryContext);
+  const monetizationGateMessage = monetizationNeedsPayment
+    ? `Free posting limit reached. Choose a plan or pay once before ${monetizationActionLabel}.`
+    : `Free posting limit reached. Choose a plan before ${monetizationActionLabel}.`;
 
   useEffect(() => {
     if (!propertyId || typeof window === "undefined") return;
@@ -2865,6 +2895,36 @@ export function PropertyStepper({
     });
   }, [markSubmitted, propertyId, router, searchParams, startSaving, submitListing]);
 
+  useEffect(() => {
+    if (!propertyId || !monetizationGateActive || !monetizationNeedsPayment) return;
+    if (monetizationGatePrimedRef.current) return;
+    monetizationGatePrimedRef.current = true;
+    if (Number.isFinite(monetizationAmount) && monetizationAmount > 0) {
+      setPaywallAmount(monetizationAmount);
+    }
+    setPaywallCurrency(monetizationCurrency);
+    setPaywallError(null);
+    setPaywallOpen(true);
+  }, [
+    monetizationAmount,
+    monetizationCurrency,
+    monetizationGateActive,
+    monetizationNeedsPayment,
+    propertyId,
+  ]);
+
+  const openBillingPlans = useCallback(() => {
+    router.push("/dashboard/billing#plans");
+  }, [router]);
+
+  const closeListingPaywall = useCallback(() => {
+    setPaywallOpen(false);
+    setPaywallError(null);
+    if (monetizationGateActive) {
+      router.push("/dashboard");
+    }
+  }, [monetizationGateActive, router]);
+
   const beginPaygCheckout = useCallback(async () => {
     if (!propertyId) return;
     setPaywallError(null);
@@ -4991,6 +5051,36 @@ export function PropertyStepper({
       )}
 
       <div className="flex flex-col gap-2">
+        {monetizationGateActive && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p className="font-semibold">Payment required before {monetizationActionLabel}</p>
+            <p className="mt-1">{monetizationGateMessage}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button size="sm" onClick={openBillingPlans}>
+                Continue to billing
+              </Button>
+              {monetizationNeedsPayment && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    if (Number.isFinite(monetizationAmount) && monetizationAmount > 0) {
+                      setPaywallAmount(monetizationAmount);
+                    }
+                    setPaywallCurrency(monetizationCurrency);
+                    setPaywallError(null);
+                    setPaywallOpen(true);
+                  }}
+                >
+                  Pay for this listing only
+                </Button>
+              )}
+              <Button size="sm" variant="secondary" onClick={() => router.push("/dashboard")}>
+                Save and exit
+              </Button>
+            </div>
+          </div>
+        )}
         <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Button
             variant="ghost"
@@ -5017,14 +5107,14 @@ export function PropertyStepper({
         open={paywallOpen && paywallAmount !== null}
         amount={paywallAmount ?? 0}
         currency={paywallCurrency}
-        onClose={() => {
-          setPaywallOpen(false);
-          setPaywallError(null);
-        }}
+        onClose={closeListingPaywall}
         onPay={beginPaygCheckout}
-        onPlans={() => router.push("/pricing")}
+        onPlans={openBillingPlans}
         loading={paywallLoading}
         error={paywallError}
+        preferPlans
+        billingOnly={monetizationGateActive && !monetizationNeedsPayment}
+        closeLabel="Save and exit"
       />
     </div>
   );

@@ -1,0 +1,31 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+const stepperPath = path.join(
+  process.cwd(),
+  "components",
+  "properties",
+  "PropertyStepper.tsx"
+);
+const renewButtonPath = path.join(
+  process.cwd(),
+  "components",
+  "host",
+  "RenewListingButton.tsx"
+);
+
+void test("property stepper routes blocked listing flows to billing and explicit save/exit copy", () => {
+  const source = readFileSync(stepperPath, "utf8");
+  assert.match(source, /Continue to billing/);
+  assert.match(source, /Save and exit/);
+  assert.match(source, /\/dashboard\/billing#plans/);
+  assert.doesNotMatch(source, /router\.push\(\"\/pricing\"\)/);
+});
+
+void test("renew listing button forwards blocked responses into the monetization resume path", () => {
+  const source = readFileSync(renewButtonPath, "utf8");
+  assert.match(source, /data\?\.resumeUrl/);
+  assert.match(source, /router\.push/);
+});

@@ -7,6 +7,11 @@ import { getListingAccessResult } from "@/lib/role-access";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { getPaygConfig } from "@/lib/billing/payg";
 import { consumeListingCredit, issueTrialCreditsIfEligible } from "@/lib/billing/listing-credits.server";
+import {
+  buildListingMonetizationResumeUrl,
+  ensureListingPublishEntitlement,
+  type ListingMonetizationContext,
+} from "@/lib/billing/listing-publish-entitlement.server";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
 import { hasPinnedLocation } from "@/lib/properties/validation";
@@ -54,6 +59,12 @@ type ListingRow = {
   rental_type?: string | null;
   listing_type?: string | null;
 };
+
+function resolveSubmitMonetizationContext(status?: string | null): ListingMonetizationContext {
+  if (status === "expired") return "renewal";
+  if (status === "paused_owner" || status === "paused_occupied") return "reactivation";
+  return "submission";
+}
 
 export type ListingSubmitDeps = {
   hasServerSupabaseEnv: typeof hasServerSupabaseEnv;
@@ -265,42 +276,38 @@ export async function postPropertySubmitResponse(
   if (!ownerName && listing.owner_id === auth.user.id) {
     ownerName = auth.user.user_metadata?.full_name ?? auth.user.user_metadata?.name ?? null;
   }
-  const shouldConsumeCredit = !listing.submitted_at;
-  if (shouldConsumeCredit && role !== "admin") {
+  if (role !== "admin") {
     if (!adminClient) {
       return NextResponse.json(
         { error: "Service role not configured", code: "SERVER_ERROR" },
         { status: 503 }
       );
     }
-    const paygConfig = await deps.getPaygConfig();
-    let creditResult = await deps.consumeListingCredit({
-      client: adminClient,
-      userId: ownerId,
-      listingId: propertyId,
-      idempotencyKey,
-    });
-
-    if (!creditResult.ok && creditResult.reason === "NO_CREDITS") {
-      const trialCredits =
-        ownerRole === "agent" ? paygConfig.trialAgentCredits : paygConfig.trialLandlordCredits;
-      if (trialCredits > 0) {
-        await deps.issueTrialCreditsIfEligible({
-          client: adminClient,
-          userId: ownerId,
-          role: ownerRole,
-          credits: trialCredits,
-        });
-        creditResult = await deps.consumeListingCredit({
-          client: adminClient,
-          userId: ownerId,
-          listingId: propertyId,
-          idempotencyKey,
-        });
+    const monetizationContext = resolveSubmitMonetizationContext(listing.status);
+    const entitlement = await ensureListingPublishEntitlement(
+      {
+        adminClient,
+        ownerId,
+        ownerRole,
+        requesterRole: role,
+        listingId: propertyId,
+        idempotencyKey,
+      },
+      {
+        getPaygConfig: deps.getPaygConfig,
+        consumeListingCredit: deps.consumeListingCredit,
+        issueTrialCreditsIfEligible: deps.issueTrialCreditsIfEligible,
       }
-    }
+    );
 
-    if (!creditResult.ok && creditResult.reason === "NO_CREDITS") {
+    if (!entitlement.ok && entitlement.reason !== "SERVER_ERROR") {
+      const resumeUrl = buildListingMonetizationResumeUrl({
+        propertyId,
+        reason: entitlement.reason,
+        context: monetizationContext,
+        amount: entitlement.amount,
+        currency: entitlement.currency,
+      });
       await deps.logPropertyEvent({
         supabase,
         propertyId,
@@ -308,31 +315,44 @@ export async function postPropertySubmitResponse(
         actorUserId: auth.user.id,
         actorRole: role,
         sessionKey,
-        meta: { ownerId },
+        meta: { ownerId, context: monetizationContext, reason: entitlement.reason },
       });
-      if (!paygConfig.enabled) {
+      if (entitlement.reason === "BILLING_REQUIRED") {
         return NextResponse.json(
-          { ok: false, reason: "PAYG_DISABLED", error: "PAYG is disabled." },
+          {
+            ok: false,
+            reason: entitlement.reason,
+            error: "Free posting limit reached. Choose a plan before submitting this listing.",
+            billingUrl: entitlement.billingUrl,
+            resumeUrl,
+            idempotencyKey: entitlement.idempotencyKey,
+          },
           { status: 409 }
         );
       }
       return NextResponse.json(
         {
           ok: false,
-          reason: "PAYMENT_REQUIRED",
-          amount: paygConfig.amount,
-          currency: paygConfig.currency,
-          idempotencyKey,
+          reason: entitlement.reason,
+          error: "Free posting limit reached. Payment is required before submitting this listing.",
+          amount: entitlement.amount,
+          currency: entitlement.currency,
+          billingUrl: entitlement.billingUrl,
+          resumeUrl,
+          idempotencyKey: entitlement.idempotencyKey,
         },
         { status: 402 }
       );
     }
 
-    if (!creditResult.ok && creditResult.reason === "NOT_OWNER") {
-      return NextResponse.json({ error: "Forbidden", code: "NOT_OWNER" }, { status: 403 });
+    if (!entitlement.ok) {
+      return NextResponse.json(
+        { error: entitlement.error || "Unable to verify listing entitlement.", code: "SERVER_ERROR" },
+        { status: 500 }
+      );
     }
 
-    if (creditResult.ok && creditResult.consumed) {
+    if (entitlement.consumed) {
       await deps.logPropertyEvent({
         supabase,
         propertyId,
@@ -340,7 +360,7 @@ export async function postPropertySubmitResponse(
         actorUserId: auth.user.id,
         actorRole: role,
         sessionKey,
-        meta: { source: creditResult.source ?? null },
+        meta: { source: entitlement.source ?? null, context: monetizationContext },
       });
     }
   }

@@ -152,10 +152,10 @@ void test("owner can pause listing", async () => {
   >;
   const deps: ListingStatusDeps = {
     hasServerSupabaseEnv: () => true,
-    hasServiceRoleEnv: () => false,
+    hasServiceRoleEnv: () => true,
     createServerSupabaseClient: async () => supabase,
     createServiceRoleClient: () =>
-      ({} as ReturnType<ListingStatusDeps["createServiceRoleClient"]>),
+      (supabase as unknown as ReturnType<ListingStatusDeps["createServiceRoleClient"]>),
     requireUser: async () =>
       ({
         ok: true,
@@ -166,12 +166,16 @@ void test("owner can pause listing", async () => {
     getListingAccessResult: () => ({ ok: true }),
     hasActiveDelegation: async () => false,
     getAppSettingBool: async () => false,
-    getPlanUsage: async () => ({
-      activeCount: 0,
-      plan: { maxListings: 10, tier: "starter" },
-      source: "plan",
-    }),
     getListingExpiryDays: async () => 90,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => ({ ok: true, consumed: false, alreadyConsumed: true, source: "payg", creditId: null, idempotencyKey: "idem" }),
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
     dispatchSavedSearchAlerts: async () => ({ ok: true }),
     logFailure: () => undefined,
   };
@@ -205,10 +209,10 @@ void test("owner can reactivate listing", async () => {
   >;
   const deps: ListingStatusDeps = {
     hasServerSupabaseEnv: () => true,
-    hasServiceRoleEnv: () => false,
+    hasServiceRoleEnv: () => true,
     createServerSupabaseClient: async () => supabase,
     createServiceRoleClient: () =>
-      ({} as ReturnType<ListingStatusDeps["createServiceRoleClient"]>),
+      (supabase as unknown as ReturnType<ListingStatusDeps["createServiceRoleClient"]>),
     requireUser: async () =>
       ({
         ok: true,
@@ -219,12 +223,16 @@ void test("owner can reactivate listing", async () => {
     getListingAccessResult: () => ({ ok: true }),
     hasActiveDelegation: async () => false,
     getAppSettingBool: async () => false,
-    getPlanUsage: async () => ({
-      activeCount: 0,
-      plan: { maxListings: 10, tier: "starter" },
-      source: "plan",
-    }),
     getListingExpiryDays: async () => 30,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => ({ ok: true, consumed: false, alreadyConsumed: true, source: "payg", creditId: null, idempotencyKey: "idem" }),
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
     dispatchSavedSearchAlerts: async () => ({ ok: true }),
     logFailure: () => undefined,
   };
@@ -277,12 +285,16 @@ void test("tenant cannot update listing status", async () => {
     }),
     hasActiveDelegation: async () => false,
     getAppSettingBool: async () => false,
-    getPlanUsage: async () => ({
-      activeCount: 0,
-      plan: { maxListings: 10, tier: "starter" },
-      source: "plan",
-    }),
     getListingExpiryDays: async () => 30,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => ({ ok: true, consumed: false, alreadyConsumed: true, source: "payg", creditId: null, idempotencyKey: "idem" }),
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
     dispatchSavedSearchAlerts: async () => ({ ok: true }),
     logFailure: () => undefined,
   };
@@ -293,4 +305,62 @@ void test("tenant cannot update listing status", async () => {
     deps
   );
   assert.equal(res.status, 403);
+});
+
+void test("reactivation returns payment required when no listing entitlement exists", async () => {
+  const capture = { updatePayload: null as Record<string, unknown> | null };
+  const listing: ListingRow = {
+    id: "prop1",
+    owner_id: "owner",
+    status: "paused_owner",
+    is_active: false,
+    is_approved: true,
+    latitude: 1,
+    longitude: 2,
+  };
+
+  const supabase = buildSupabaseStub(listing, capture) as ReturnType<
+    ListingStatusDeps["createServerSupabaseClient"]
+  >;
+  const deps: ListingStatusDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => true,
+    createServerSupabaseClient: async () => supabase,
+    createServiceRoleClient: () =>
+      (supabase as unknown as ReturnType<ListingStatusDeps["createServiceRoleClient"]>),
+    requireUser: async () =>
+      ({
+        ok: true,
+        user: { id: "owner" } as User,
+        supabase,
+      }) as Awaited<ReturnType<ListingStatusDeps["requireUser"]>>,
+    getUserRole: async () => "landlord",
+    getListingAccessResult: () => ({ ok: true }),
+    hasActiveDelegation: async () => false,
+    getAppSettingBool: async () => false,
+    getListingExpiryDays: async () => 30,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => ({ ok: false, reason: "NO_CREDITS" }),
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
+    dispatchSavedSearchAlerts: async () => ({ ok: true }),
+    logFailure: () => undefined,
+  };
+
+  const res = await postPropertyStatusResponse(
+    makeRequest({ status: "live" }),
+    "prop1",
+    deps
+  );
+  assert.equal(res.status, 402);
+  const body = await res.json();
+  assert.equal(body.reason, "PAYMENT_REQUIRED");
+  assert.equal(body.billingUrl, "/dashboard/billing#plans");
+  assert.match(String(body.resumeUrl ?? ""), /monetization_context=reactivation/);
+  assert.equal(capture.updatePayload, null);
 });
