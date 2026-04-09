@@ -4,6 +4,8 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { MoveReadyRequestForm } from "@/components/services/MoveReadyRequestForm";
 import { ProductEventTracker } from "@/components/analytics/ProductEventTracker";
 import { getProfile } from "@/lib/auth";
+import { readActingAsFromCookies } from "@/lib/acting-as.server";
+import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { MARKET_COOKIE_NAME, readCookieValueFromHeader, resolveMarketFromRequest } from "@/lib/market/market";
@@ -65,11 +67,23 @@ export default async function HostMoveReadyNewPage({ searchParams }: Props) {
   });
 
   const client = createServiceRoleClient();
+  let propertyOwnerId = profile.id;
+  if (profile.role === "agent") {
+    const actingAs = await readActingAsFromCookies();
+    if (actingAs && actingAs !== profile.id) {
+      const allowed = await hasActiveDelegation(client, profile.id, actingAs);
+      if (allowed) {
+        propertyOwnerId = actingAs;
+      }
+    }
+  }
   const { data } = await client
     .from("properties")
     .select("id,title,city,location_label,country_code")
-    .eq("owner_id", profile.id)
+    .eq("owner_id", propertyOwnerId)
     .order("updated_at", { ascending: false });
+
+  const helpHref = profile.role === "agent" ? "/help/agent/services" : "/help/host/services";
 
   const properties = ((data ?? []) as HostPropertyOptionRow[]).map((row) => ({
     id: row.id,
@@ -109,8 +123,9 @@ export default async function HostMoveReadyNewPage({ searchParams }: Props) {
             </div>
             <h1 className="mt-1 text-3xl font-semibold text-slate-900">Get property-prep help</h1>
             <p className="mt-2 text-sm text-slate-600">
-              Request vetted help for cleaning, fumigation, or minor repairs tied to the next tenant
-              or guest. This is a lead-routing flow only.
+              Request vetted help for cleaning, fumigation, or minor repairs tied to the next tenant,
+              guest, or relist. This is a lead-routing flow only for landlord, host, and agent
+              workflows.
             </p>
             <p className="mt-2 text-sm text-slate-600">
               If no vetted provider fits the request, it stays in manual operator follow-up instead of
@@ -121,7 +136,7 @@ export default async function HostMoveReadyNewPage({ searchParams }: Props) {
             <Link href="/host/services" className="text-sm font-semibold text-sky-700">
               View prep requests
             </Link>
-            <Link href="/help/host/services" className="text-sm font-semibold text-slate-700">
+            <Link href={helpHref} className="text-sm font-semibold text-slate-700">
               Pilot guide
             </Link>
           </div>

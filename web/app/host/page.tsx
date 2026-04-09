@@ -687,7 +687,8 @@ export default async function DashboardHome({ searchParams }: PageProps) {
               <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                 <p className="text-sm font-semibold text-slate-900">Need this property ready for the next tenant or guest?</p>
                 <p className="mt-1 text-sm text-slate-600">
-                  Request vetted help for cleaning, fumigation, or minor repairs without leaving the host workflow.
+                  Request vetted help for cleaning, fumigation, or minor repairs without leaving your
+                  landlord, host, or agent workflow.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Link href="/host/services/new?entrypoint=host_overview">

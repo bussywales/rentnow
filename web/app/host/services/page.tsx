@@ -53,6 +53,8 @@ export default async function HostMoveReadyRequestsPage() {
     );
   }
 
+  const helpHref = profile.role === "agent" ? "/help/agent/services" : "/help/host/services";
+
   const client = createServiceRoleClient();
   const { data } = await client
     .from("move_ready_requests")
@@ -80,7 +82,8 @@ export default async function HostMoveReadyRequestsPage() {
             </div>
             <h1 className="mt-1 text-3xl font-semibold text-slate-900">Property-prep requests</h1>
             <p className="mt-2 text-sm text-slate-600">
-              Review matched and unmatched requests. This is still a manually governed routing flow.
+              Review matched and unmatched requests for landlord, host, or agent portfolios. This is
+              still a manually governed routing flow.
             </p>
             <p className="mt-2 text-sm text-slate-600">
               Unmatched requests stay visible for operator follow-up. They are not auto-closed or auto-rerouted.
@@ -90,7 +93,7 @@ export default async function HostMoveReadyRequestsPage() {
             <Link href="/host/services/new">
               <Button>New prep request</Button>
             </Link>
-            <Link href="/help/host/services" className="text-sm font-semibold text-slate-700">
+            <Link href={helpHref} className="text-sm font-semibold text-slate-700">
               Read the pilot guide
             </Link>
           </div>
@@ -130,7 +133,7 @@ export default async function HostMoveReadyRequestsPage() {
         ))}
         {requests.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-8 text-sm text-slate-500">
-            No property-prep requests yet. Start from a host workflow when a property needs cleaning,
+            No property-prep requests yet. Start from your workspace when a property needs cleaning,
             fumigation, or minor repairs.
           </div>
         ) : null}

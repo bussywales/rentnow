@@ -9,7 +9,7 @@ export default function HostServicesHelpPage() {
   return (
     <HelpPageShell
       title="Move & Ready Services pilot"
-      subtitle="How the host property-prep pilot works, what it covers, and what it does not do yet."
+      subtitle="How the landlord, host, and agent property-prep pilot works, what it covers, and what it does not do yet."
       breadcrumbs={[
         { label: "Help Centre", href: "/help" },
         { label: "Host services" },
@@ -18,8 +18,8 @@ export default function HostServicesHelpPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-slate-900">What this pilot is for</h2>
         <p className="text-sm text-slate-600">
-          Use this flow when a listing needs end-of-tenancy cleaning, fumigation, or minor repairs
-          before the next tenant or guest.
+          Use this flow when a listing or delegated portfolio property needs end-of-tenancy cleaning,
+          fumigation, or minor repairs before the next tenant or guest.
         </p>
         <HelpCallout variant="info" title="This is a limited pilot">
           Move &amp; Ready Services is a vetted lead-routing pilot. It is not a booking engine or a
@@ -32,6 +32,7 @@ export default function HostServicesHelpPage() {
         <HelpStepList
           steps={[
             "Start from the host overview or listings manager and open Get property-prep help.",
+            "Agents can use the same narrow flow from the workspace sidebar or overview cards.",
             "Choose one of the three pilot categories and submit a short request.",
             "Ops routes the request only to vetted providers approved for the category and area.",
             "Providers respond through a secure link. You will see whether the request was matched or still needs manual follow-up.",
@@ -71,6 +72,7 @@ export default function HostServicesHelpPage() {
         links={[
           { label: "Open property-prep requests", href: "/host/services" },
           { label: "Start a prep request", href: "/host/services/new" },
+          { label: "Agent guide", href: "/help/agent/services" },
           { label: "Host listings help", href: "/help/host/listings" },
         ]}
       />

@@ -22,7 +22,7 @@ export default function MoveReadyServicesPlaybookPage() {
         <h2 className="text-lg font-semibold text-slate-900">When to use this playbook</h2>
         <p className="text-sm text-slate-600">
           Use this playbook when reviewing Move &amp; Ready pilot requests, provider readiness, or
-          weekly pilot scorecards.
+          weekly pilot scorecards across landlord, host, and agent requesters.
         </p>
         <HelpCallout variant="warn" title="Keep the wedge narrow">
           Do not use this pilot to justify tenant requester expansion, removals, payments, or a public

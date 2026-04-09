@@ -13,11 +13,13 @@ void test("host move ready surfaces carry pilot copy and help links", () => {
 
   assert.ok(newPage.includes("Pilot active"));
   assert.ok(newPage.includes("Limited capacity"));
-  assert.ok(newPage.includes('href="/help/host/services"'));
+  assert.ok(newPage.includes('"/help/agent/services"'));
+  assert.ok(newPage.includes("landlord, host, and agent"));
 
   assert.ok(listPage.includes("Pilot active"));
   assert.ok(listPage.includes("Limited capacity"));
   assert.ok(listPage.includes("operator follow-up"));
+  assert.ok(listPage.includes("landlord, host, or agent portfolios"));
 });
 
 void test("admin services hub warns against scope creep and links to playbook", () => {

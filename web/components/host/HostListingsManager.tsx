@@ -146,7 +146,7 @@ export function HostListingsManager({ listings, loadError = null }: Props) {
           <div>
             <h1 className="text-2xl font-semibold text-slate-900">Listings</h1>
             <p className="text-sm text-slate-600">
-              Portfolio first, with manager controls one tap away.
+              Portfolio first, with manager controls and property-prep support one tap away.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

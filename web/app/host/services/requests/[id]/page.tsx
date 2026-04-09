@@ -81,6 +81,7 @@ export default async function HostMoveReadyRequestDetailPage({ params, searchPar
       />
     );
   }
+  const helpHref = profile.role === "agent" ? "/help/agent/services" : "/help/host/services";
 
   const { id } = await params;
   const resolvedSearch = searchParams ? await searchParams : {};
@@ -176,11 +177,16 @@ export default async function HostMoveReadyRequestDetailPage({ params, searchPar
               Only routed providers show here. Unmatched requests remain manual until an operator routes them.
             </p>
           </div>
-          <Link href="/host/services">
-            <Button variant="secondary" size="sm">
-              Back to requests
-            </Button>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/host/services">
+              <Button variant="secondary" size="sm">
+                Back to requests
+              </Button>
+            </Link>
+            <Link href={helpHref} className="inline-flex items-center text-sm font-semibold text-slate-700">
+              Pilot guide
+            </Link>
+          </div>
         </div>
         <div className="mt-4 space-y-4">
           {leads.map((lead) => (

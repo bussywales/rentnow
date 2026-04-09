@@ -18,6 +18,7 @@ void test("workspace sidebar model includes required persistent host links", () 
 
   assert.match(source, /href: "\/host"/);
   assert.match(source, /href: "\/host\/listings"/);
+  assert.match(source, /href: "\/host\/services"/);
   assert.match(source, /href: "\/requests"/);
   assert.match(source, /href: "\/host\/bookings"/);
   assert.match(source, /href: "\/host\/calendar"/);

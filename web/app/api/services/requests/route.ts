@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/authz";
+import { readActingAsFromRequest } from "@/lib/acting-as";
+import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { logFailure } from "@/lib/observability";
 import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
 import {
@@ -24,6 +26,8 @@ type CreateRequestDeps = {
   hasServiceRoleEnv: () => boolean;
   createServiceRoleClient: typeof createServiceRoleClient;
   requireRole: typeof requireRole;
+  readActingAsFromRequest: typeof readActingAsFromRequest;
+  hasActiveDelegation: typeof hasActiveDelegation;
   sendMoveReadyLeadEmail: typeof sendMoveReadyLeadEmail;
   logProductAnalyticsEvent: typeof logProductAnalyticsEvent;
   now: () => Date;
@@ -33,6 +37,8 @@ const defaultDeps: CreateRequestDeps = {
   hasServiceRoleEnv,
   createServiceRoleClient,
   requireRole,
+  readActingAsFromRequest,
+  hasActiveDelegation,
   sendMoveReadyLeadEmail,
   logProductAnalyticsEvent,
   now: () => new Date(),
@@ -151,10 +157,21 @@ export async function postMoveReadyServiceRequestResponse(
   const payload = parsed.data;
   const client = deps.createServiceRoleClient();
   const nowIso = deps.now().toISOString();
+  let propertyOwnerId = auth.user.id;
+
+  if (auth.role === "agent") {
+    const actingAs = deps.readActingAsFromRequest(request);
+    if (actingAs && actingAs !== auth.user.id) {
+      const allowed = await deps.hasActiveDelegation(client, auth.user.id, actingAs);
+      if (allowed) {
+        propertyOwnerId = actingAs;
+      }
+    }
+  }
 
   let property: PropertyRow | null = null;
   if (payload.propertyId) {
-    property = await loadOwnedProperty(client, payload.propertyId, auth.user.id);
+    property = await loadOwnedProperty(client, payload.propertyId, propertyOwnerId);
     if (!property) {
       return NextResponse.json({ error: "Property not found for this account." }, { status: 404 });
     }
