@@ -42,6 +42,18 @@ export default function StakeholderDashboardDefinitionsPage() {
         </HelpCallout>
       </section>
 
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-slate-900">Where these stats come from</h2>
+        <p className="text-sm text-slate-600">
+          GA4 means Google Analytics 4, Google&apos;s analytics platform. In this dashboard, it is mainly used for traffic
+          and acquisition metrics such as sessions, users, landing pages, traffic sources, and campaigns.
+        </p>
+        <p className="text-sm text-slate-600">
+          Internal event tracking is used for product, billing, and activation metrics such as high-intent actions,
+          successful checkouts, paid landlords, paid agents, and live listings.
+        </p>
+      </section>
+
       <section className="space-y-4">
         <h2 className="text-lg font-semibold text-slate-900">Core executive metrics</h2>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

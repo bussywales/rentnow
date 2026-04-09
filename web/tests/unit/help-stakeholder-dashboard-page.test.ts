@@ -9,6 +9,8 @@ void test("stakeholder dashboard definitions page explains core metrics and cave
   const html = renderToStaticMarkup(React.createElement(StakeholderDashboardDefinitionsPage));
 
   assert.ok(html.includes("Stakeholder dashboard definitions"));
+  assert.ok(html.includes("Where these stats come from"));
+  assert.ok(html.includes("GA4 means Google Analytics 4"));
   assert.ok(html.includes("Core executive metrics"));
   assert.ok(html.includes("Sessions"));
   assert.ok(html.includes("High-Intent Actions"));
