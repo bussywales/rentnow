@@ -159,6 +159,11 @@ export function buildSubscriptionPriceMatrixEntries(input: {
     });
     const marketGap = !canonicalRow;
     const missingProviderRef = !!canonicalRow && !canonicalRow.provider_price_ref;
+    const localCurrencyStripePending = Boolean(
+      canonicalRow &&
+        canonicalRow.provider === "stripe" &&
+        canonicalRow.currency !== runtime.marketCurrency
+    );
 
     const checkoutMatchesCanonical = Boolean(
       canonicalRow &&
@@ -170,6 +175,7 @@ export function buildSubscriptionPriceMatrixEntries(input: {
 
     const diagnostics: string[] = [];
     if (marketGap) diagnostics.push("Market gap");
+    if (localCurrencyStripePending) diagnostics.push("Local-currency Stripe pending");
     if (runtime.quote.source === "canonical") diagnostics.push("Canonical runtime");
     if (canonicalRow && runtime.quote.source === "canonical" && !runtime.quote.marketAligned) {
       diagnostics.push("Cross-currency canonical");

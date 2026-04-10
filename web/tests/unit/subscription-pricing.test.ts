@@ -96,8 +96,9 @@ void test("subscription pricing surfaces explicit unavailable state when no safe
   });
 
   assert.equal(quote.status, "unavailable");
-  assert.equal(quote.source, "legacy");
-  assert.match(quote.unavailableReason || "", /CAD/);
+  assert.equal(quote.source, "canonical");
+  assert.match(quote.unavailableReason || "", /Canada \(CA\$\)/);
+  assert.match(quote.unavailableReason || "", /subscription pricing is missing/);
 });
 
 void test("canonical UK pricing resolves through the linked Stripe recurring price", async () => {
@@ -321,10 +322,10 @@ void test("canonical UK pricing blocks linked Stripe refs when they contradict c
 
   assert.equal(quote.status, "unavailable");
   assert.equal(quote.source, "canonical");
-  assert.match(quote.unavailableReason || "", /does not match canonical UK pricing/);
+  assert.match(quote.unavailableReason || "", /does not match canonical United Kingdom/);
 });
 
-void test("canonical Canada pricing is explicit even when Stripe charges in GBP", async () => {
+void test("canonical Canada pricing is unavailable until a local CAD Stripe price is linked", async () => {
   const quote = await resolveSubscriptionPlanQuote({
     role: "agent",
     tier: "pro",
@@ -375,13 +376,44 @@ void test("canonical Canada pricing is explicit even when Stripe charges in GBP"
     },
   });
 
-  assert.equal(quote.status, "ready");
+  assert.equal(quote.status, "unavailable");
   assert.equal(quote.source, "canonical");
-  assert.equal(quote.provider, "stripe");
-  assert.equal(quote.currency, "GBP");
-  assert.equal(quote.marketAligned, false);
-  assert.equal(quote.fallbackApplied, false);
-  assert.equal(quote.priceId, "price_1SkqghIrMBE5QKLYnMjdVunO");
+  assert.match(quote.unavailableReason || "", /Local CAD Stripe pricing is still being configured/);
+});
+
+void test("canonical Canada pricing does not fall back to legacy GBP Stripe env prices when canonical rows are missing", async () => {
+  process.env.STRIPE_PRICE_AGENT_MONTHLY = "price_agent_monthly_gbp";
+
+  const quote = await resolveSubscriptionPlanQuote({
+    role: "agent",
+    tier: "pro",
+    cadence: "monthly",
+    market: { country: "CA", currency: "CAD" },
+    canonicalRows: [],
+    stripe: {
+      enabled: true,
+      mode: "live",
+      secretKey: "sk_live_mock",
+    },
+    paystack: {
+      enabled: false,
+      mode: "test",
+    },
+    flutterwave: {
+      enabled: false,
+      mode: "test",
+    },
+    stripePriceLoader: async (_secretKey, priceId) => {
+      if (priceId === "price_agent_monthly_gbp") {
+        return { currency: "GBP", amountMinor: 4999 };
+      }
+      return null;
+    },
+  });
+
+  assert.equal(quote.status, "unavailable");
+  assert.equal(quote.source, "canonical");
+  assert.match(quote.unavailableReason || "", /Canonical Canada \(CA\$\) subscription pricing is missing/);
 });
 
 void test("yearly savings are computed only when pricing stays in one currency", () => {

@@ -106,7 +106,7 @@ void test("subscription price matrix surfaces market gaps and runtime fallback s
   assert.match(entry.diagnostics.join(" | "), /Runtime fallback/);
 });
 
-void test("subscription price matrix marks canonical cross-currency markets without calling them runtime fallback", () => {
+void test("subscription price matrix marks blocked local-currency Stripe markets without calling them runtime fallback", () => {
   const [entry] = buildSubscriptionPriceMatrixEntries({
     canonicalRows: [
       {
@@ -140,13 +140,13 @@ void test("subscription price matrix marks canonical cross-currency markets with
         tier: "pro",
         cadence: "monthly",
         quote: {
-          status: "ready",
+          status: "unavailable",
           source: "canonical",
-          provider: "stripe",
-          providerMode: "live",
-          currency: "GBP",
-          amountMinor: 4999,
-          displayPrice: "£49.99",
+          provider: null,
+          providerMode: null,
+          currency: null,
+          amountMinor: null,
+          displayPrice: "Unavailable",
           cadence: "monthly",
           marketCountry: "CA",
           marketCurrency: "CAD",
@@ -154,9 +154,9 @@ void test("subscription price matrix marks canonical cross-currency markets with
           marketAligned: false,
           fallbackApplied: false,
           fallbackMessage: null,
-          unavailableReason: null,
-          resolutionKey: "SUBSCRIPTION_PRICE_BOOK:ca-agent-monthly",
-          priceId: "price_1SkqghIrMBE5QKLYnMjdVunO",
+          unavailableReason: "Canada (CA$) billing is not available yet. Local CAD Stripe pricing is still being configured.",
+          resolutionKey: null,
+          priceId: null,
         },
       },
     ],
@@ -164,9 +164,9 @@ void test("subscription price matrix marks canonical cross-currency markets with
 
   assert.equal(entry.marketGap, false);
   assert.equal(entry.runtimeFallback, false);
-  assert.equal(entry.checkoutMatchesCanonical, true);
-  assert.match(entry.diagnostics.join(" | "), /Canonical runtime/);
-  assert.match(entry.diagnostics.join(" | "), /Cross-currency canonical/);
+  assert.equal(entry.checkoutMatchesCanonical, false);
+  assert.match(entry.diagnostics.join(" | "), /Local-currency Stripe pending/);
+  assert.match(entry.diagnostics.join(" | "), /Runtime unavailable/);
   assert.doesNotMatch(entry.diagnostics.join(" | "), /Runtime fallback/);
 });
 

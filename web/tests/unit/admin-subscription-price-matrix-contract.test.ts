@@ -40,4 +40,6 @@ void test("admin billing prices page is wired to the canonical matrix loader", (
   assert.match(source, /subscription_price_book/);
   assert.match(source, /Runtime checkout/);
   assert.match(source, /Checkout mismatches/);
+  assert.match(source, /Local-currency pending/);
+  assert.match(source, /CA\/US local-currency truth gate/);
 });

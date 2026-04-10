@@ -75,10 +75,19 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
       <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-slate-500">Canonical rows</p><p className="mt-2 text-2xl font-semibold text-slate-900">{summary.canonicalRows}</p></div>
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-amber-700">Market gaps</p><p className="mt-2 text-2xl font-semibold text-amber-900">{summary.marketGaps}</p></div>
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-rose-700">Local-currency pending</p><p className="mt-2 text-2xl font-semibold text-rose-900">{summary.localCurrencyPending}</p></div>
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-amber-700">Runtime fallbacks</p><p className="mt-2 text-2xl font-semibold text-amber-900">{summary.runtimeFallbacks}</p></div>
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-rose-700">Missing provider refs</p><p className="mt-2 text-2xl font-semibold text-rose-900">{summary.missingProviderRefs}</p></div>
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-rose-700">Checkout mismatches</p><p className="mt-2 text-2xl font-semibold text-rose-900">{summary.checkoutMismatches}</p></div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-slate-500">Superseded rows</p><p className="mt-2 text-2xl font-semibold text-slate-900">{summary.supersededRows}</p></div>
+      </section>
+
+      <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 shadow-sm">
+        <p className="text-sm font-semibold text-rose-900">CA/US local-currency truth gate</p>
+        <p className="mt-1 text-sm text-rose-800">
+          Canada and the United States should only show as ready when canonical Stripe rows are linked to real CAD/USD recurring prices.
+          Interim GBP-backed rows are intentionally treated as pending local-currency completion.
+        </p>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

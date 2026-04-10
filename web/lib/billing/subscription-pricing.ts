@@ -66,6 +66,7 @@ type QuoteInput = {
 
 const PROVIDER_PRIORITY: SubscriptionCheckoutProvider[] = ["stripe", "paystack", "flutterwave"];
 const stripePriceCache = new Map<string, Promise<{ currency: string; amountMinor: number } | null>>();
+const CANONICAL_STRIPE_MARKETS = new Set(["GB", "CA", "US"]);
 
 function findCurrentCanonicalRow(input: QuoteInput) {
   const matchingRows = (input.canonicalRows || []).filter(
@@ -88,6 +89,10 @@ function resolveMarketLocale(country: string) {
   if (country === "CA") return "en-CA";
   if (country === "US") return "en-US";
   return "en-NG";
+}
+
+function requiresCanonicalStripePricing(country: string) {
+  return CANONICAL_STRIPE_MARKETS.has(country);
 }
 
 async function fetchStripePriceSnapshot(secretKey: string, priceId: string) {
@@ -246,9 +251,17 @@ async function resolveCanonicalStripeQuote(
   if (!input.stripe.enabled || !input.stripe.secretKey) {
     return buildUnavailableQuote(
       input,
-      `Canonical UK subscription pricing is configured, but Stripe checkout is not available for ${formatMarketLabel(
+      `Canonical subscription pricing is configured, but Stripe checkout is not available for ${formatMarketLabel(
         input.market
       )}.`,
+      "canonical"
+    );
+  }
+
+  if (row.currency !== input.market.currency) {
+    return buildUnavailableQuote(
+      input,
+      `${formatMarketLabel(input.market)} billing is not available yet. Local ${input.market.currency} Stripe pricing is still being configured.`,
       "canonical"
     );
   }
@@ -258,7 +271,7 @@ async function resolveCanonicalStripeQuote(
   if (!canonicalPriceRef) {
     return buildUnavailableQuote(
       input,
-      `Canonical UK subscription pricing is missing a linked Stripe recurring price for ${row.role} ${row.cadence}.`,
+      `Canonical ${formatMarketLabel(input.market)} subscription pricing is missing a linked Stripe recurring price for ${row.role} ${row.cadence}.`,
       "canonical"
     );
   }
@@ -271,7 +284,9 @@ async function resolveCanonicalStripeQuote(
   if (!snapshot) {
     return buildUnavailableQuote(
       input,
-      `Linked Stripe recurring price ${canonicalPriceRef} could not be loaded for canonical UK pricing.`,
+      `Linked Stripe recurring price ${canonicalPriceRef} could not be loaded for canonical ${formatMarketLabel(
+        input.market
+      )} pricing.`,
       "canonical"
     );
   }
@@ -279,7 +294,9 @@ async function resolveCanonicalStripeQuote(
   if (snapshot.currency !== row.currency || snapshot.amountMinor !== row.amount_minor) {
     return buildUnavailableQuote(
       input,
-      `Linked Stripe recurring price ${canonicalPriceRef} does not match canonical UK pricing (${formatCurrencyMinor(
+      `Linked Stripe recurring price ${canonicalPriceRef} does not match canonical ${formatMarketLabel(
+        input.market
+      )} pricing (${formatCurrencyMinor(
         row.currency,
         row.amount_minor,
         {
@@ -317,10 +334,10 @@ export async function resolveSubscriptionPlanQuote(
   input: QuoteInput
 ): Promise<SubscriptionPlanPricingView> {
   const canonicalRow = findCurrentCanonicalRow(input);
-  if (input.market.country === "GB" && !canonicalRow) {
+  if (requiresCanonicalStripePricing(input.market.country) && !canonicalRow) {
     return buildUnavailableQuote(
       input,
-      `Canonical UK subscription pricing is missing for ${input.role} ${input.cadence}.`,
+      `Canonical ${formatMarketLabel(input.market)} subscription pricing is missing for ${input.role} ${input.cadence}.`,
       "canonical"
     );
   }

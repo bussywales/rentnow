@@ -317,7 +317,7 @@ export function PlansGrid({
 
       {!marketDrifted && activeQuote?.status === "unavailable" && activeQuote.unavailableReason ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-          <p className="font-semibold">Subscription checkout is unavailable in this market.</p>
+          <p className="font-semibold">Local-currency subscription checkout is not available in this market yet.</p>
           <p className="mt-1">{activeQuote.unavailableReason}</p>
         </div>
       ) : null}

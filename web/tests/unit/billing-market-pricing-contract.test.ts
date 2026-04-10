@@ -53,3 +53,11 @@ void test("billing page surfaces subscription lifecycle state and Stripe portal 
   assert.match(gridSource, /Lifecycle: \{lifecycleLabel\}/);
   assert.match(cardSource, /Manage subscription/);
 });
+
+void test("billing UI keeps local-currency pending copy explicit when a market is intentionally gated", () => {
+  const gridSource = read("components/billing/PlansGrid.tsx");
+  const cardSource = read("components/billing/PlanCard.tsx");
+
+  assert.match(gridSource, /Local-currency subscription checkout is not available in this market yet\./);
+  assert.match(cardSource, /Local pricing pending/);
+});

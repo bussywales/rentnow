@@ -52,6 +52,11 @@ export function PlanCard({
   onManage,
   requestUpgradeAction,
 }: Props) {
+  const localCurrencyPending = Boolean(
+    pricing?.status === "unavailable" &&
+      pricing.unavailableReason &&
+      /Local [A-Z]{3} Stripe pricing is still being configured/i.test(pricing.unavailableReason)
+  );
   const usageType = plan.usageType ?? "listings";
   const listingGate = usageType === "saved_searches" ? null : getPlanForTier(plan.tier);
   const tenantGate = usageType === "saved_searches" ? getTenantPlanForTier(plan.tier) : null;
@@ -193,6 +198,10 @@ export function PlanCard({
         ) : marketDrifted ? (
           <Button variant="secondary" disabled>
             Refresh pricing
+          </Button>
+        ) : localCurrencyPending ? (
+          <Button variant="secondary" disabled>
+            Local pricing pending
           </Button>
         ) : pricing?.status === "unavailable" ? (
           <Button variant="secondary" disabled>

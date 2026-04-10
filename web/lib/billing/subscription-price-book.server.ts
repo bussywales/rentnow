@@ -166,6 +166,7 @@ export async function loadAdminSubscriptionPriceMatrix(filters: AdminSubscriptio
   const summary = {
     canonicalRows: entries.filter((entry) => entry.canonicalRow).length,
     marketGaps: entries.filter((entry) => entry.marketGap).length,
+    localCurrencyPending: entries.filter((entry) => entry.diagnostics.includes("Local-currency Stripe pending")).length,
     runtimeFallbacks: entries.filter((entry) => entry.runtimeFallback).length,
     missingProviderRefs: entries.filter((entry) => entry.missingProviderRef).length,
     checkoutMismatches: entries.filter((entry) => entry.canonicalRow && !entry.checkoutMatchesCanonical).length,
