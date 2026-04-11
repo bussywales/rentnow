@@ -6,7 +6,7 @@ Validate whether a tightly scoped property-prep request-routing wedge creates re
 
 ## Pilot scope
 
-- Requesters: landlords and hosts only
+- Requesters: landlords, hosts, and agents only
 - Categories only:
   - end-of-tenancy cleaning
   - fumigation / pest control
@@ -27,7 +27,7 @@ Validate whether a tightly scoped property-prep request-routing wedge creates re
 
 ### Requester cohort
 
-- Existing landlords and hosts already active in the host workspace
+- Existing landlords, hosts, and agents already active in the host workspace
 - Prefer users with:
   - an active or recently paused listing
   - a relist, turnover, or guest-readiness need

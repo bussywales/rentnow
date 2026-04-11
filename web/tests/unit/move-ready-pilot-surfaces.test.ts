@@ -25,6 +25,7 @@ void test("host move ready surfaces carry pilot copy and help links", () => {
 void test("admin services hub warns against scope creep and links to playbook", () => {
   const adminPage = readAppFile("app", "admin", "services", "page.tsx");
   assert.ok(adminPage.includes("Keep the wedge narrow until the pilot scorecard passes."));
+  assert.ok(adminPage.includes("Pilot launch pack"));
   assert.ok(adminPage.includes("/help/admin/support-playbooks/move-ready-services"));
   assert.ok(adminPage.includes("/help/host/services"));
 });

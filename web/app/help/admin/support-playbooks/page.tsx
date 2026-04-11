@@ -17,7 +17,7 @@ const PLAYBOOK_LINKS = [
   { label: "Product updates", href: "/help/admin/support-playbooks/product-updates" },
   { label: "Analytics & events", href: "/help/admin/support-playbooks/analytics" },
   { label: "Featured scheduling", href: "/help/admin/support-playbooks/featured" },
-  { label: "Move & Ready Services", href: "/help/admin/support-playbooks/move-ready-services" },
+  { label: "Move & Ready pilot launch pack", href: "/help/admin/support-playbooks/move-ready-services" },
   { label: "Subscription pricing SOP", href: "/help/admin/support-playbooks/subscription-pricing" },
   { label: "Billing and payments sign-off", href: "/help/admin/support-playbooks/billing-payments-signoff" },
 ];

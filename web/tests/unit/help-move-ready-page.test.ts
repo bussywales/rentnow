@@ -31,10 +31,16 @@ void test("agent help surfaces move ready access without broadening scope", () =
   assert.ok(guideHtml.includes("Still a narrow pilot"));
 });
 
-void test("admin move ready playbook renders validation gates and escalation rules", () => {
+void test("admin move ready launch pack renders operator, provider, stakeholder, and feedback materials", () => {
   const html = renderToStaticMarkup(React.createElement(MoveReadyServicesPlaybookPage));
-  assert.ok(html.includes("Daily operator checklist"));
-  assert.ok(html.includes("Pilot validation gates"));
+  assert.ok(html.includes("Move &amp; Ready pilot launch pack"));
+  assert.ok(html.includes("Pilot launch overview"));
+  assert.ok(html.includes("landlords, hosts, and agents"));
+  assert.ok(html.includes("Operator daily run sheet"));
+  assert.ok(html.includes("Provider outreach / onboarding script"));
+  assert.ok(html.includes("Stakeholder / tester brief"));
+  assert.ok(html.includes("Feedback and weekly review template"));
+  assert.ok(html.includes("Success and stop rules"));
   assert.ok(html.includes("Escalate immediately when"));
-  assert.ok(html.includes("go / iterate / pause"));
+  assert.ok(html.includes("Admin services hub"));
 });

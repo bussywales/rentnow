@@ -40,7 +40,7 @@ export default async function AdminMoveReadyServicesPage() {
         removals, scheduling, payments, or public provider discovery from this surface.
         <div className="mt-3 flex flex-wrap gap-4">
           <Link href="/help/admin/support-playbooks/move-ready-services" className="font-semibold underline">
-            Operator playbook
+            Pilot launch pack
           </Link>
           <Link href="/help/host/services" className="font-semibold underline">
             Host pilot guide

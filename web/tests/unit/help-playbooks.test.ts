@@ -33,6 +33,7 @@ void test("support playbooks landing renders multiple links", () => {
   const matches = html.match(/support-playbooks\//g) ?? [];
   assert.ok(matches.length >= 6, "expected at least 6 playbook links");
   assert.ok(html.includes("/help/admin/support-playbooks/move-ready-services"));
+  assert.ok(html.includes("Move &amp; Ready pilot launch pack"));
   assert.ok(html.includes("/help/admin/support-playbooks/subscription-pricing"));
   assert.ok(html.includes("/help/admin/support-playbooks/billing-payments-signoff"));
   assert.ok(html.includes("Subscription pricing SOP"));
