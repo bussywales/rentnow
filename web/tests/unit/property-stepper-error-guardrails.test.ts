@@ -24,4 +24,16 @@ void test("property stepper maps internal errors to friendly copy", () => {
     contents.includes("Photo uploads are unavailable right now"),
     "expected friendly storage message"
   );
+  assert.ok(
+    contents.includes('renderFieldError("listing_type")'),
+    "expected listing_type field errors to render inline"
+  );
+  assert.ok(
+    contents.includes("Couldn’t save. Review the highlighted fields and try again."),
+    "expected save status to stop implying a connection failure for validation errors"
+  );
+  assert.ok(
+    contents.includes("message={saveStatusMessage}"),
+    "expected save status pill to receive contextual error copy"
+  );
 });

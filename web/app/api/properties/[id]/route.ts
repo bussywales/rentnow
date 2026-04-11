@@ -22,6 +22,7 @@ import {
   hasPinnedLocation,
 } from "@/lib/properties/validation";
 import { sanitizeImageMeta } from "@/lib/properties/image-meta";
+import { mapPropertyPersistenceError } from "@/lib/properties/persistence-errors";
 import { sanitizeExifMeta } from "@/lib/properties/image-exif";
 import {
   getDedupeWindowStart,
@@ -993,6 +994,7 @@ export async function PUT(
       .eq("id", id);
 
     if (updateError) {
+      const payload = mapPropertyPersistenceError(updateError.message);
       logFailure({
         request,
         route: routeLabel,
@@ -1000,10 +1002,7 @@ export async function PUT(
         startTime,
         error: new Error(updateError.message),
       });
-      return NextResponse.json(
-        { error: updateError.message },
-        { status: 400 }
-      );
+      return NextResponse.json(payload, { status: 400 });
     }
 
     if (imageUrls) {

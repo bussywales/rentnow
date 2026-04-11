@@ -22,6 +22,7 @@ import {
   hasPinnedLocation,
 } from "@/lib/properties/validation";
 import { sanitizeImageMeta } from "@/lib/properties/image-meta";
+import { mapPropertyPersistenceError } from "@/lib/properties/persistence-errors";
 import { sanitizeExifMeta } from "@/lib/properties/image-exif";
 import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
 import { cleanNullableString } from "@/lib/strings";
@@ -412,6 +413,7 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError) {
+      const payload = mapPropertyPersistenceError(insertError.message);
       logFailure({
         request,
         route: routeLabel,
@@ -419,10 +421,7 @@ export async function POST(request: Request) {
         startTime,
         error: new Error(insertError.message),
       });
-      return NextResponse.json(
-        { error: insertError.message },
-        { status: 400 }
-      );
+      return NextResponse.json(payload, { status: 400 });
     }
 
     const propertyId = property?.id;

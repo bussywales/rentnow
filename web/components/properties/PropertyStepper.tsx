@@ -3059,6 +3059,12 @@ export function PropertyStepper({
     ) : null;
   const hasFieldErrorsCurrent = Object.keys(currentFieldErrors).length > 0;
   const hasAnyFieldErrors = Object.keys(fieldErrors).length > 0;
+  const saveStatusMessage =
+    saveStatus === "error"
+      ? hasAnyFieldErrors
+        ? "Couldn’t save. Review the highlighted fields and try again."
+        : errorSummary ?? error ?? SAVE_STATUS_COPY.error
+      : null;
   const shouldShowErrorSummary =
     !!errorSummary && (hasFieldErrorsCurrent || !hasAnyFieldErrors);
 
@@ -3294,6 +3300,7 @@ export function PropertyStepper({
                   <p className="text-xs text-slate-500">
                     Helps tailor capacity and search relevance.
                   </p>
+                  {renderFieldError("listing_type")}
                 </div>
               </div>
             </section>
@@ -5045,7 +5052,11 @@ export function PropertyStepper({
                   ? SAVE_STATUS_COPY.submitted
                   : "Submit for approval"}
             </Button>
-            <SaveStatusPill status={saveStatus} onRetry={retrySave} />
+            <SaveStatusPill
+              status={saveStatus}
+              onRetry={retrySave}
+              message={saveStatusMessage}
+            />
           </div>
         </div>
       )}
@@ -5099,7 +5110,11 @@ export function PropertyStepper({
           </Button>
         </div>
         <div className="flex min-h-[18px] justify-end">
-          <SaveStatusPill status={saveStatus} onRetry={retrySave} />
+          <SaveStatusPill
+            status={saveStatus}
+            onRetry={retrySave}
+            message={saveStatusMessage}
+          />
         </div>
       </div>
 

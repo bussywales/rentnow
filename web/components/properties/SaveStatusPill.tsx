@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 type Props = {
   status: SaveStatus;
   onRetry?: () => void;
+  message?: string | null;
 };
 
 const tone: Record<SaveStatus, string> = {
@@ -16,9 +17,12 @@ const tone: Record<SaveStatus, string> = {
   submitted: "text-emerald-700",
 };
 
-export function SaveStatusPill({ status, onRetry }: Props) {
+export function SaveStatusPill({ status, onRetry, message }: Props) {
   if (status === "idle") return null;
-  const label = SAVE_STATUS_COPY[status as keyof typeof SAVE_STATUS_COPY] || "";
+  const label =
+    status === "error" && message
+      ? message
+      : SAVE_STATUS_COPY[status as keyof typeof SAVE_STATUS_COPY] || "";
   const isError = status === "error";
 
   return (
