@@ -1,10 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
-import type { SubscriptionPriceBookRow } from "@/lib/billing/subscription-price-book";
+import type {
+  SubscriptionPriceBookAuditLogRow,
+  SubscriptionPriceBookRow,
+} from "@/lib/billing/subscription-price-book";
 
 export const SUBSCRIPTION_PRICE_BOOK_SELECT =
-  "id,product_area,role,tier,cadence,market_country,currency,amount_minor,provider,provider_price_ref,active,fallback_eligible,effective_at,ends_at,display_order,badge,operator_notes,created_at,updated_at,updated_by";
+  "id,product_area,role,tier,cadence,market_country,currency,amount_minor,provider,provider_price_ref,active,fallback_eligible,effective_at,ends_at,display_order,badge,operator_notes,created_at,updated_at,updated_by,workflow_state,replaces_price_book_id";
+
+const SUBSCRIPTION_PRICE_BOOK_AUDIT_SELECT =
+  "id,price_book_id,market_country,role,tier,cadence,provider,event_type,actor_id,previous_snapshot,next_snapshot,created_at";
 
 async function createPriceBookClient(): Promise<SupabaseClient | null> {
   if (hasServiceRoleEnv()) return createServiceRoleClient();
@@ -44,4 +50,17 @@ export async function loadSubscriptionPriceBookRowsByProviderPriceRef(
     .order("updated_at", { ascending: false });
 
   return ((data ?? []) as SubscriptionPriceBookRow[]).filter(Boolean);
+}
+
+export async function loadSubscriptionPriceBookAuditLog(limit = 24) {
+  const client = await createPriceBookClient();
+  if (!client) return [] as SubscriptionPriceBookAuditLogRow[];
+
+  const { data } = await client
+    .from("subscription_price_book_audit_log")
+    .select(SUBSCRIPTION_PRICE_BOOK_AUDIT_SELECT)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  return ((data ?? []) as SubscriptionPriceBookAuditLogRow[]).filter(Boolean);
 }

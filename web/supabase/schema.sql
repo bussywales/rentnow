@@ -229,6 +229,8 @@ CREATE TABLE public.subscription_price_book (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_by UUID REFERENCES public.profiles (id) ON DELETE SET NULL,
+  workflow_state TEXT NOT NULL DEFAULT 'active',
+  replaces_price_book_id UUID REFERENCES public.subscription_price_book (id) ON DELETE SET NULL,
   CONSTRAINT subscription_price_book_product_area_check CHECK (product_area = 'subscriptions'),
   CONSTRAINT subscription_price_book_role_check CHECK (role IN ('tenant', 'landlord', 'agent')),
   CONSTRAINT subscription_price_book_tier_check CHECK (tier IN ('free', 'starter', 'pro', 'tenant_pro')),
@@ -237,6 +239,7 @@ CREATE TABLE public.subscription_price_book (
   CONSTRAINT subscription_price_book_currency_check CHECK (currency ~ '^[A-Z]{3}$'),
   CONSTRAINT subscription_price_book_provider_check CHECK (provider IN ('stripe', 'paystack', 'flutterwave')),
   CONSTRAINT subscription_price_book_amount_check CHECK (amount_minor >= 0),
+  CONSTRAINT subscription_price_book_workflow_state_check CHECK (workflow_state IN ('draft', 'active', 'archived')),
   CONSTRAINT subscription_price_book_role_tier_check CHECK (
     (role = 'tenant' AND tier IN ('free', 'tenant_pro'))
     OR (role IN ('landlord', 'agent') AND tier IN ('free', 'starter', 'pro'))
@@ -246,8 +249,30 @@ CREATE TABLE public.subscription_price_book (
 CREATE UNIQUE INDEX subscription_price_book_active_current_unique
   ON public.subscription_price_book (product_area, role, tier, cadence, market_country)
   WHERE active = true AND ends_at IS NULL;
+CREATE UNIQUE INDEX subscription_price_book_draft_current_unique
+  ON public.subscription_price_book (product_area, role, tier, cadence, market_country)
+  WHERE workflow_state = 'draft' AND ends_at IS NULL;
 CREATE INDEX subscription_price_book_market_idx ON public.subscription_price_book (market_country, role, cadence, active);
 CREATE INDEX subscription_price_book_provider_idx ON public.subscription_price_book (provider, active, fallback_eligible);
+CREATE INDEX subscription_price_book_workflow_idx ON public.subscription_price_book (workflow_state, market_country, role, cadence);
+
+CREATE TABLE public.subscription_price_book_audit_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  price_book_id UUID REFERENCES public.subscription_price_book (id) ON DELETE SET NULL,
+  market_country TEXT NOT NULL,
+  role TEXT NOT NULL,
+  tier TEXT NOT NULL,
+  cadence TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  event_type TEXT NOT NULL CHECK (event_type IN ('draft_created', 'draft_updated', 'published')),
+  actor_id UUID REFERENCES public.profiles (id) ON DELETE SET NULL,
+  previous_snapshot JSONB,
+  next_snapshot JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX subscription_price_book_audit_log_created_idx ON public.subscription_price_book_audit_log (created_at DESC);
+CREATE INDEX subscription_price_book_audit_log_lookup_idx ON public.subscription_price_book_audit_log (market_country, role, cadence);
 
 -- PRODUCT UPDATE READS
 CREATE TABLE public.product_update_reads (

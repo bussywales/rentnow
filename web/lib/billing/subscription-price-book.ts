@@ -6,6 +6,15 @@ import { formatCurrencyMinor } from "@/lib/money/multi-currency";
 
 export type SubscriptionPriceBookProductArea = "subscriptions";
 export type SubscriptionPriceBookProvider = SubscriptionCheckoutProvider;
+export type SubscriptionPriceWorkflowState = "draft" | "active" | "archived";
+export type SubscriptionPriceRowStatus =
+  | "active"
+  | "draft"
+  | "pending_publish"
+  | "missing_stripe_ref"
+  | "misaligned"
+  | "blocked"
+  | "archived";
 
 export type SubscriptionPriceBookRow = {
   id: string;
@@ -28,6 +37,23 @@ export type SubscriptionPriceBookRow = {
   created_at: string;
   updated_at: string;
   updated_by: string | null;
+  workflow_state?: SubscriptionPriceWorkflowState | null;
+  replaces_price_book_id?: string | null;
+};
+
+export type SubscriptionPriceBookAuditLogRow = {
+  id: string;
+  price_book_id: string | null;
+  market_country: string;
+  role: BillingRole;
+  tier: PlanTier;
+  cadence: BillingCadence;
+  provider: SubscriptionPriceBookProvider;
+  event_type: "draft_created" | "draft_updated" | "published";
+  actor_id: string | null;
+  previous_snapshot: Record<string, unknown> | null;
+  next_snapshot: Record<string, unknown>;
+  created_at: string;
 };
 
 export type SubscriptionPriceBookRuntimeQuote = {
@@ -66,6 +92,8 @@ export type SubscriptionPriceMatrixEntry = {
   runtimeFallback: boolean;
   supersededByNewerRow: boolean;
   diagnostics: string[];
+  canonicalWorkflowState: SubscriptionPriceWorkflowState;
+  controlStatus: SubscriptionPriceRowStatus;
 };
 
 const PRICE_BOOK_LOCALE_BY_COUNTRY: Record<string, string> = {
@@ -107,6 +135,15 @@ export function buildSubscriptionPriceBookKey(input: {
   return `${input.marketCountry}:${input.role}:${input.cadence}`;
 }
 
+export function normalizeSubscriptionPriceWorkflowState(
+  row: Pick<SubscriptionPriceBookRow, "workflow_state" | "active" | "ends_at">
+): SubscriptionPriceWorkflowState {
+  if (row.workflow_state === "draft" || row.workflow_state === "active" || row.workflow_state === "archived") {
+    return row.workflow_state;
+  }
+  return row.active && !row.ends_at ? "active" : "archived";
+}
+
 function resolvePriceBookLocale(country: string) {
   return PRICE_BOOK_LOCALE_BY_COUNTRY[country] || "en-GB";
 }
@@ -119,7 +156,9 @@ function formatCanonicalPrice(row: SubscriptionPriceBookRow | null) {
 }
 
 export function selectCurrentCanonicalRow(rows: SubscriptionPriceBookRow[]) {
-  const activeRows = rows.filter((row) => row.active && !row.ends_at);
+  const activeRows = rows.filter(
+    (row) => row.active && !row.ends_at && normalizeSubscriptionPriceWorkflowState(row) === "active"
+  );
   const sorted = (activeRows.length ? activeRows : rows).slice().sort((a, b) => {
     const effectiveDiff = Date.parse(b.effective_at) - Date.parse(a.effective_at);
     if (effectiveDiff !== 0) return effectiveDiff;
@@ -128,12 +167,37 @@ export function selectCurrentCanonicalRow(rows: SubscriptionPriceBookRow[]) {
   return sorted[0] || null;
 }
 
+export function deriveSubscriptionPriceControlStatus(input: {
+  workflowState: SubscriptionPriceWorkflowState;
+  marketGap: boolean;
+  missingProviderRef: boolean;
+  checkoutMatchesCanonical: boolean;
+  runtimeUnavailable: boolean;
+  diagnostics: string[];
+}) {
+  if (input.workflowState === "draft") {
+    if (input.missingProviderRef) return "missing_stripe_ref" as const;
+    if (input.diagnostics.includes("Checkout mismatch")) return "misaligned" as const;
+    if (input.runtimeUnavailable) return "blocked" as const;
+    return "pending_publish" as const;
+  }
+  if (input.workflowState === "archived") return "archived" as const;
+  if (input.marketGap) return "blocked" as const;
+  if (input.missingProviderRef) return "missing_stripe_ref" as const;
+  if (input.diagnostics.includes("Checkout mismatch")) return "misaligned" as const;
+  if (input.runtimeUnavailable) return "blocked" as const;
+  if (input.checkoutMatchesCanonical) return "active" as const;
+  return "blocked" as const;
+}
+
 export function buildSubscriptionPriceMatrixEntries(input: {
   canonicalRows: SubscriptionPriceBookRow[];
   runtimeQuotes: SubscriptionPriceBookRuntimeQuote[];
 }) {
   const rowsByKey = new Map<string, SubscriptionPriceBookRow[]>();
   for (const row of input.canonicalRows) {
+    const workflowState = normalizeSubscriptionPriceWorkflowState(row);
+    if (workflowState === "draft") continue;
     const key = buildSubscriptionPriceBookKey({
       marketCountry: row.market_country,
       role: row.role,
@@ -158,7 +222,7 @@ export function buildSubscriptionPriceMatrixEntries(input: {
       currency: runtime.marketCurrency,
     });
     const marketGap = !canonicalRow;
-    const missingProviderRef = !!canonicalRow && !canonicalRow.provider_price_ref;
+    const missingProviderRef = !!canonicalRow && canonicalRow.provider === "stripe" && !canonicalRow.provider_price_ref;
     const localCurrencyStripePending = Boolean(
       canonicalRow &&
         canonicalRow.provider === "stripe" &&
@@ -185,6 +249,18 @@ export function buildSubscriptionPriceMatrixEntries(input: {
     if (canonicalRow && !checkoutMatchesCanonical) diagnostics.push("Checkout mismatch");
     if (supersededByNewerRow) diagnostics.push("Superseded row history");
     if (runtime.quote.status === "unavailable") diagnostics.push("Runtime unavailable");
+
+    const canonicalWorkflowState = canonicalRow
+      ? normalizeSubscriptionPriceWorkflowState(canonicalRow)
+      : "active";
+    const controlStatus = deriveSubscriptionPriceControlStatus({
+      workflowState: canonicalWorkflowState,
+      marketGap,
+      missingProviderRef,
+      checkoutMatchesCanonical,
+      runtimeUnavailable: runtime.quote.status === "unavailable",
+      diagnostics,
+    });
 
     return {
       key,
@@ -213,6 +289,8 @@ export function buildSubscriptionPriceMatrixEntries(input: {
       runtimeFallback: runtime.quote.fallbackApplied,
       supersededByNewerRow,
       diagnostics,
+      canonicalWorkflowState,
+      controlStatus,
     } satisfies SubscriptionPriceMatrixEntry;
   });
 }

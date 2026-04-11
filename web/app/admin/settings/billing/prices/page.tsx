@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerAuthUser } from "@/lib/auth/server-session";
-import { loadAdminSubscriptionPriceMatrix, parseAdminSubscriptionPriceMatrixFilters } from "@/lib/billing/subscription-price-book.server";
+import { parseAdminSubscriptionPriceMatrixFilters } from "@/lib/billing/subscription-price-book.server";
 import { SUBSCRIPTION_PRICE_BOOK_FILTER_OPTIONS } from "@/lib/billing/subscription-price-book";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { loadAdminSubscriptionPricingControlPlane } from "@/lib/billing/subscription-price-control-plane.server";
+import AdminSubscriptionPricingControlPlane from "@/components/admin/AdminSubscriptionPricingControlPlane";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +34,19 @@ function fallbackLabel(enabled: boolean) {
   return enabled ? "Yes" : "No";
 }
 
+function statusTone(status: string) {
+  if (status === "active" || status === "pending_publish") {
+    return "bg-emerald-50 text-emerald-700";
+  }
+  if (status === "missing_stripe_ref" || status === "misaligned") {
+    return "bg-amber-50 text-amber-700";
+  }
+  if (status === "blocked") {
+    return "bg-rose-50 text-rose-700";
+  }
+  return "bg-slate-100 text-slate-600";
+}
+
 export default async function AdminBillingPricesPage({ searchParams }: Props) {
   if (!hasServerSupabaseEnv()) {
     return <div className="p-6 text-sm text-slate-600">Supabase is not configured.</div>;
@@ -49,20 +64,25 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
 
   const resolvedParams = searchParams ? await searchParams : {};
   const filters = parseAdminSubscriptionPriceMatrixFilters(resolvedParams);
-  const { entries, summary, providerModes } = await loadAdminSubscriptionPriceMatrix(filters);
+  const { entries, summary, providerModes, drafts, activity } = await loadAdminSubscriptionPricingControlPlane(filters);
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8" data-testid="admin-billing-prices-page">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Admin</p>
-          <h1 className="text-3xl font-semibold text-slate-900">Subscription price matrix</h1>
+          <h1 className="text-3xl font-semibold text-slate-900">Subscription pricing control plane</h1>
           <p className="max-w-3xl text-sm text-slate-600">
-            Canonical subscription pricing truth from <code>subscription_price_book</code>, compared against the current runtime checkout resolver.
-            This is read-only groundwork for admin-owned pricing.
+            PropatyHub canonical subscription pricing is the source of truth. Stripe price objects are execution references. Draft changes here first, then publish a new live canonical state only when the row is safe.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link
+            href="/help/admin/support-playbooks/subscription-pricing"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-300"
+          >
+            Pricing playbook
+          </Link>
           <Link
             href="/admin/settings/billing"
             className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-300"
@@ -72,10 +92,11 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-8">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-slate-500">Canonical rows</p><p className="mt-2 text-2xl font-semibold text-slate-900">{summary.canonicalRows}</p></div>
+        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-sky-700">Draft rows</p><p className="mt-2 text-2xl font-semibold text-sky-900">{summary.draftRows}</p></div>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-emerald-700">Publish-ready drafts</p><p className="mt-2 text-2xl font-semibold text-emerald-900">{summary.publishReadyDrafts}</p></div>
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-amber-700">Market gaps</p><p className="mt-2 text-2xl font-semibold text-amber-900">{summary.marketGaps}</p></div>
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-rose-700">Local-currency pending</p><p className="mt-2 text-2xl font-semibold text-rose-900">{summary.localCurrencyPending}</p></div>
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-amber-700">Runtime fallbacks</p><p className="mt-2 text-2xl font-semibold text-amber-900">{summary.runtimeFallbacks}</p></div>
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-rose-700">Missing provider refs</p><p className="mt-2 text-2xl font-semibold text-rose-900">{summary.missingProviderRefs}</p></div>
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-rose-700">Checkout mismatches</p><p className="mt-2 text-2xl font-semibold text-rose-900">{summary.checkoutMismatches}</p></div>
@@ -83,10 +104,9 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
-        <p className="text-sm font-semibold text-slate-900">Canonical Stripe alignment</p>
+        <p className="text-sm font-semibold text-slate-900">Canonical pricing operating model</p>
         <p className="mt-1 text-sm text-slate-700">
-          Canonical Stripe markets should resolve with market-aligned recurring prices. If the local-currency pending count rises above zero,
-          a canonical Stripe market still needs a matching local-currency recurring price linked before checkout should be treated as ready.
+          Publish creates a new canonical active row. It does not edit a live Stripe amount in place. Old live rows remain as history, draft rows stay isolated until they are complete, and a Stripe-backed publish only succeeds when the linked recurring price matches the canonical amount and currency.
         </p>
       </section>
 
@@ -97,6 +117,8 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
           <span className="rounded-full bg-slate-100 px-3 py-1">Flutterwave {formatProviderMode(providerModes.flutterwaveMode)}</span>
         </div>
       </section>
+
+      <AdminSubscriptionPricingControlPlane drafts={drafts} activity={activity} activeEntries={entries} />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <form method="get" action="/admin/settings/billing/prices" className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
@@ -152,7 +174,7 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
               <option value="no">No</option>
             </select>
           </label>
-          <div className="md:col-span-3 xl:col-span-6 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 md:col-span-3 xl:col-span-6">
             <button type="submit" className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-sky-700">Apply filters</button>
             <Link href="/admin/settings/billing/prices" className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-300">Reset</Link>
           </div>
@@ -170,6 +192,7 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
                 <th className="px-4 py-3">Canonical</th>
                 <th className="px-4 py-3">Provider</th>
                 <th className="px-4 py-3">Provider ref</th>
+                <th className="px-4 py-3">State</th>
                 <th className="px-4 py-3">Active</th>
                 <th className="px-4 py-3">Fallback eligible</th>
                 <th className="px-4 py-3">Updated</th>
@@ -180,7 +203,7 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
             <tbody className="divide-y divide-slate-200">
               {entries.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-sm text-slate-500">No rows match the current filter set.</td>
+                  <td colSpan={12} className="px-4 py-8 text-center text-sm text-slate-500">No rows match the current filter set.</td>
                 </tr>
               ) : (
                 entries.map((entry) => (
@@ -199,9 +222,7 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
                         <>
                           <div className="font-semibold text-slate-900">{entry.canonicalDisplayPrice}</div>
                           <div className="text-xs text-slate-500">{entry.canonicalRow.currency}</div>
-                          {entry.canonicalRow.operator_notes ? (
-                            <div className="mt-1 text-[11px] text-slate-500">{entry.canonicalRow.operator_notes}</div>
-                          ) : null}
+                          {entry.canonicalRow.operator_notes ? <div className="mt-1 text-[11px] text-slate-500">{entry.canonicalRow.operator_notes}</div> : null}
                         </>
                       ) : (
                         <span className="text-amber-700">Missing canonical row</span>
@@ -209,11 +230,12 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
                     </td>
                     <td className="px-4 py-3 align-top text-slate-700">{entry.canonicalProvider || "—"}</td>
                     <td className="px-4 py-3 align-top text-slate-700">
-                      {entry.canonicalProviderRef ? (
-                        <code className="text-xs text-slate-700">{entry.canonicalProviderRef}</code>
-                      ) : (
-                        <span className="text-rose-700">Missing ref</span>
-                      )}
+                      {entry.canonicalProviderRef ? <code className="text-xs text-slate-700">{entry.canonicalProviderRef}</code> : <span className="text-rose-700">Missing ref</span>}
+                    </td>
+                    <td className="px-4 py-3 align-top text-slate-700">
+                      <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${statusTone(entry.controlStatus)}`}>
+                        {entry.controlStatus.replaceAll("_", " ")}
+                      </span>
                     </td>
                     <td className="px-4 py-3 align-top text-slate-700">{activeLabel(entry.canonicalActive)}</td>
                     <td className="px-4 py-3 align-top text-slate-700">{fallbackLabel(entry.canonicalFallbackEligible)}</td>
@@ -223,17 +245,13 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
                     </td>
                     <td className="px-4 py-3 align-top text-slate-700">
                       <div className="font-semibold text-slate-900">{entry.runtimeQuote.displayPrice}</div>
-                      <div className="text-xs text-slate-500">
-                        {entry.runtimeQuote.provider || "Unavailable"} · {entry.runtimeSource}
-                      </div>
+                      <div className="text-xs text-slate-500">{entry.runtimeQuote.provider || "Unavailable"} · {entry.runtimeSource}</div>
                       {entry.runtimeQuote.resolutionKey ? <div className="mt-1 text-[11px] text-slate-500">{entry.runtimeQuote.resolutionKey}</div> : null}
                       {entry.runtimeQuote.priceId ? <div className="mt-1 text-[11px] text-slate-500">{entry.runtimeQuote.priceId}</div> : null}
                     </td>
                     <td className="px-4 py-3 align-top text-slate-700">
                       <div className="flex flex-wrap gap-2">
-                        {entry.checkoutMatchesCanonical ? (
-                          <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">Aligned</span>
-                        ) : null}
+                        {entry.checkoutMatchesCanonical ? <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">Aligned</span> : null}
                         {entry.diagnostics.length ? entry.diagnostics.map((diagnostic) => (
                           <span key={diagnostic} className="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">{diagnostic}</span>
                         )) : <span className="text-xs text-slate-500">—</span>}

@@ -265,6 +265,18 @@ CREATE POLICY "subscription price book admin write" ON public.subscription_price
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
 
+-- subscription_price_book_audit_log: admin-only pricing change history
+DROP POLICY IF EXISTS "subscription price book audit admin read" ON public.subscription_price_book_audit_log;
+CREATE POLICY "subscription price book audit admin read" ON public.subscription_price_book_audit_log
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "subscription price book audit admin write" ON public.subscription_price_book_audit_log;
+CREATE POLICY "subscription price book audit admin write" ON public.subscription_price_book_audit_log
+  FOR ALL
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
 -- help_tutorials: public published help stays public; internal admin tutorials stay protected
 DROP POLICY IF EXISTS "help tutorials select" ON public.help_tutorials;
 CREATE POLICY "help tutorials select" ON public.help_tutorials
