@@ -7,6 +7,7 @@ import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { buildPropertyShareRedirect, resolvePropertyShareStatus } from "@/lib/sharing/property-share";
 import { logPropertyEvent } from "@/lib/analytics/property-events.server";
 import { getSessionKeyFromCookies } from "@/lib/analytics/session.server";
+import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
 import { getCanonicalBaseUrl } from "@/lib/env";
 import { BRAND_OG_SHARE_IMAGE } from "@/lib/brand";
 import { formatPriceValue } from "@/lib/property-discovery";
@@ -21,6 +22,7 @@ export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{ token: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 type ShareRow = {
@@ -74,8 +76,10 @@ async function getSharePropertyMetadata(
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: Props): Promise<Metadata> {
   const { token } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
   const baseUrl = await getCanonicalBaseUrl();
   const headerList = await headers();
   const market = resolveMarketFromRequest({
@@ -83,7 +87,15 @@ export async function generateMetadata({
     cookieValue: readCookieValueFromHeader(headerList.get("cookie"), MARKET_COOKIE_NAME),
     appSettings: await getMarketSettings(),
   });
-  const fallbackPath = `/share/property/${encodeURIComponent(token || "")}`;
+  const fallbackUrl = new URL(`/share/property/${encodeURIComponent(token || "")}`, `${baseUrl}/`);
+  for (const key of ["source", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"] as const) {
+    const raw = resolvedSearchParams[key];
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    if (typeof value === "string" && value.trim()) {
+      fallbackUrl.searchParams.set(key, value.trim());
+    }
+  }
+  const fallbackPath = `${fallbackUrl.pathname}${fallbackUrl.search}`;
   const fallbackCanonical = baseUrl ? `${baseUrl}${fallbackPath}` : fallbackPath;
 
   const generic: Metadata = {
@@ -156,8 +168,22 @@ export async function generateMetadata({
   }
 }
 
-export default async function SharePropertyPage({ params }: Props) {
+export default async function SharePropertyPage({ params, searchParams }: Props) {
   const { token } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const readParam = (key: string) => {
+    const value = resolvedSearchParams[key];
+    return Array.isArray(value) ? value[0] : value;
+  };
+  const tracking = {
+    source: typeof readParam("source") === "string" ? readParam("source")!.trim() : "",
+    utm_source: typeof readParam("utm_source") === "string" ? readParam("utm_source")!.trim() : "",
+    utm_medium: typeof readParam("utm_medium") === "string" ? readParam("utm_medium")!.trim() : "",
+    utm_campaign: typeof readParam("utm_campaign") === "string" ? readParam("utm_campaign")!.trim() : "",
+    utm_content: typeof readParam("utm_content") === "string" ? readParam("utm_content")!.trim() : "",
+    utm_term: typeof readParam("utm_term") === "string" ? readParam("utm_term")!.trim() : "",
+  };
+  const qrAttributed = tracking.source === "qr_sign";
 
   if (!hasServerSupabaseEnv()) {
     return (
@@ -185,6 +211,20 @@ export default async function SharePropertyPage({ params }: Props) {
   const row = match?.share ?? null;
   const status = resolvePropertyShareStatus(row);
   if (!match || !row || status !== "active") {
+    if (qrAttributed && row?.property_id) {
+      try {
+        await logProductAnalyticsEvent({
+          eventName: "qr_redirect_inactive_listing",
+          properties: {
+            listingId: row.property_id,
+            listingStatus: status,
+            shareChannel: "qr",
+          },
+        });
+      } catch (err) {
+        console.warn("[share-property] qr inactive analytics failed", err);
+      }
+    }
     let title = "Share link unavailable";
     let description = "This share link is invalid or you no longer have access.";
     if (status === "expired" && row?.expires_at) {
@@ -213,11 +253,41 @@ export default async function SharePropertyPage({ params }: Props) {
       actorUserId: null,
       actorRole: "anon",
       sessionKey: await getSessionKeyFromCookies(),
-      meta: { source: "share_link" },
+      meta: {
+        source: tracking.source || "share_link",
+        share_channel: qrAttributed ? "qr" : null,
+        utm_source: tracking.utm_source || null,
+        utm_medium: tracking.utm_medium || null,
+        utm_campaign: tracking.utm_campaign || null,
+      },
     });
   } catch (err) {
     console.warn("[share-property] event log failed", err);
   }
 
-  redirect(buildPropertyShareRedirect(row.property_id));
+  if (qrAttributed) {
+    try {
+      await logProductAnalyticsEvent({
+        eventName: "qr_redirect_succeeded",
+        properties: {
+          listingId: row.property_id,
+          listingStatus: "live",
+          shareChannel: "qr",
+        },
+      });
+    } catch (err) {
+      console.warn("[share-property] qr success analytics failed", err);
+    }
+  }
+
+  redirect(
+    buildPropertyShareRedirect(row.property_id, {
+      source: tracking.source || null,
+      utm_source: tracking.utm_source || null,
+      utm_medium: tracking.utm_medium || null,
+      utm_campaign: tracking.utm_campaign || null,
+      utm_content: tracking.utm_content || null,
+      utm_term: tracking.utm_term || null,
+    })
+  );
 }

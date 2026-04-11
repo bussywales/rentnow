@@ -61,7 +61,9 @@ export async function POST(request: Request, { params }: { params: Promise<Param
     .eq("id", shareRow.id);
 
   const siteUrl = await getSiteUrl();
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const expiresAt = shareRow.expires_at
+    ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    : null;
 
   let token = "";
   let createdId: string | null = null;

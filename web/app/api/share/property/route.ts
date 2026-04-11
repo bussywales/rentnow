@@ -4,11 +4,17 @@ import { getSiteUrl } from "@/lib/env";
 import { getUserRole, requireUser } from "@/lib/authz";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
-import { buildPropertyShareToken, canManagePropertyShare, resolvePropertyShareStatus } from "@/lib/sharing/property-share";
+import {
+  buildPropertyShareToken,
+  canManagePropertyShare,
+  resolvePropertyShareStatus,
+} from "@/lib/sharing/property-share";
+import { isPropertySignKitEligible } from "@/lib/sharing/property-sign-kit";
 
 const payloadSchema = z.object({
   propertyId: z.string().uuid(),
   rotate: z.boolean().optional(),
+  purpose: z.enum(["general", "sign_kit"]).optional(),
 });
 
 export async function POST(request: Request) {
@@ -31,10 +37,11 @@ export async function POST(request: Request) {
 
   const supabase = auth.supabase;
   const role = await getUserRole(supabase, auth.user.id);
+  const purpose = body.data.purpose ?? "general";
 
   const { data: property } = await supabase
     .from("properties")
-    .select("id, owner_id")
+    .select("id, owner_id, status, is_approved, is_active")
     .eq("id", body.data.propertyId)
     .maybeSingle();
 
@@ -44,6 +51,20 @@ export async function POST(request: Request) {
 
   if (!canManagePropertyShare({ role, userId: auth.user.id, ownerId: property.owner_id })) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+
+  if (
+    purpose === "sign_kit" &&
+    !isPropertySignKitEligible({
+      status: property.status,
+      isApproved: property.is_approved,
+      isActive: property.is_active,
+    })
+  ) {
+    return NextResponse.json(
+      { error: "QR sign kits are available only for live listings." },
+      { status: 409 }
+    );
   }
 
   const nowIso = new Date().toISOString();
@@ -61,10 +82,16 @@ export async function POST(request: Request) {
     });
     if (status === "active") {
       const siteUrl = await getSiteUrl();
+      if (purpose === "sign_kit" && existing.expires_at) {
+        await supabase
+          .from("property_share_links")
+          .update({ expires_at: null })
+          .eq("id", existing.id);
+      }
       return NextResponse.json({
         id: existing.id,
         link: `${siteUrl}/share/property/${existing.token}`,
-        expires_at: existing.expires_at,
+        expires_at: purpose === "sign_kit" ? null : existing.expires_at,
         revoked_at: existing.revoked_at ?? null,
       });
     }
@@ -78,7 +105,9 @@ export async function POST(request: Request) {
   }
 
   const siteUrl = await getSiteUrl();
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const expiresAt = purpose === "sign_kit"
+    ? null
+    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
   let token = "";
   let createdId: string | null = null;

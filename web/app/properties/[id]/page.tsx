@@ -1136,7 +1136,17 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             </div>
           )}
           {currentUser && (isAdmin || (isHost && currentUser.id === property.owner_id)) && (
-            <PropertySharePanel propertyId={property.id} />
+            <PropertySharePanel
+              propertyId={property.id}
+              listingTitle={property.title}
+              listingStatus={property.status}
+              listingIntent={property.listing_intent}
+              isApproved={property.is_approved}
+              isActive={property.is_active}
+              locationLabel={property.location_label || property.city || property.neighbourhood || null}
+              price={property.price}
+              currency={property.currency}
+            />
           )}
           {!expiredReadOnly ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
