@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { parseAdminSubscriptionPriceMatrixFilters } from "@/lib/billing/subscription-price-book.server";
 import { SUBSCRIPTION_PRICE_BOOK_FILTER_OPTIONS } from "@/lib/billing/subscription-price-book";
+import { getStripeConfigForMode } from "@/lib/billing/stripe";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { loadAdminSubscriptionPricingControlPlane } from "@/lib/billing/subscription-price-control-plane.server";
 import {
@@ -66,6 +67,8 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
   const resolvedParams = searchParams ? await searchParams : {};
   const filters = parseAdminSubscriptionPriceMatrixFilters(resolvedParams);
   const { entries, summary, providerModes, drafts, activity } = await loadAdminSubscriptionPricingControlPlane(filters);
+  const stripeConfig = getStripeConfigForMode(providerModes.stripeMode);
+  const stripeRuntimeMissingModeKey = providerModes.stripeMode === "live" && !stripeConfig.secretKey;
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8" data-testid="admin-billing-prices-page">
@@ -143,6 +146,16 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
           <span className="rounded-full bg-slate-100 px-3 py-1">Paystack {formatProviderMode(providerModes.paystackMode)}</span>
           <span className="rounded-full bg-slate-100 px-3 py-1">Flutterwave {formatProviderMode(providerModes.flutterwaveMode)}</span>
         </div>
+        {stripeRuntimeMissingModeKey ? (
+          <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+            Stripe is set to Live mode, but no usable live Stripe secret is available in the active runtime. Stripe-backed markets cannot be signed off until the live key for the account holding the canonical recurring prices is configured.
+          </p>
+        ) : null}
+        {providerModes.paystackMode !== "live" ? (
+          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Nigeria remains provider-backed and operationally truthful, but it is not ready for final live-market sign-off while Paystack stays in Test mode.
+          </p>
+        ) : null}
       </section>
 
       <AdminSubscriptionPricingControlPlane drafts={drafts} recentActivity={activity} activeEntries={entries} />

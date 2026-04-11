@@ -26,6 +26,7 @@ void test("subscription pricing sop explains the safe operating flow in plain En
   assert.ok(html.includes("How to use activity and history"));
   assert.ok(html.includes("When missing canonical rows are a real problem"));
   assert.ok(html.includes("If the matrix shows Provider-backed runtime"));
+  assert.ok(html.includes("provider mode still has to be live"));
   assert.ok(html.includes("Recent pricing activity on the main control-plane page is only a compact summary"));
   assert.ok(html.includes("Subscription pricing audit log"));
   assert.ok(html.includes("Billing and payments sign-off"));

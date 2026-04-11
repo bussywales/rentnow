@@ -40,6 +40,8 @@ void test("subscription price book migrations and admin surface support draft pr
   assert.match(page, /getSubscriptionDiagnosticTone\(diagnostic\)/);
   assert.match(page, /categoryLabel} · {diagnostic}/);
   assert.match(page, /create and bind the Stripe recurring price/i);
+  assert.match(page, /no usable live Stripe secret is available in the active runtime/i);
+  assert.match(page, /Nigeria remains provider-backed and operationally truthful/i);
   assert.match(controlPlane, /Latest 8 audit events only/);
   assert.match(controlPlane, /View full audit log/);
   assert.match(controlPlane, /View row history/);

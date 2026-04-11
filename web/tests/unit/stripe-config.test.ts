@@ -91,9 +91,29 @@ void test("stripe config falls back to single keys", () => {
   delete process.env.STRIPE_SECRET_KEY_LIVE;
   delete process.env.STRIPE_WEBHOOK_SECRET_LIVE;
 
-  const config = getStripeConfigForMode("live");
+  const config = getStripeConfigForMode();
   assert.equal(config.secretKey, "sk_single_only");
   assert.equal(config.webhookSecret, "wh_single_only");
+
+  resetEnv();
+});
+
+void test("stripe config does not reuse a wrong-mode generic secret", () => {
+  process.env.STRIPE_SECRET_KEY = "sk_test_generic";
+  delete process.env.STRIPE_SECRET_KEY_LIVE;
+
+  const config = getStripeConfigForMode("live");
+  assert.equal(config.secretKey, null);
+
+  resetEnv();
+});
+
+void test("stripe config can use a generic secret when it already matches the requested mode", () => {
+  process.env.STRIPE_SECRET_KEY = "sk_live_generic";
+  delete process.env.STRIPE_SECRET_KEY_LIVE;
+
+  const config = getStripeConfigForMode("live");
+  assert.equal(config.secretKey, "sk_live_generic");
 
   resetEnv();
 });

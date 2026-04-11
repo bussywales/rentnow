@@ -45,7 +45,7 @@ export default function SubscriptionPricingPlaybookPage() {
           ]}
         />
         <HelpCallout variant="info" title="Non-Stripe markets use a different execution path">
-          Nigeria and any other provider-backed market still use the canonical price book as pricing truth, but checkout is executed by the local provider instead of by a Stripe recurring price ref. For those rows, Provider-backed runtime is healthy and Provider-managed in the ref column is expected.
+          Nigeria and any other provider-backed market still use the canonical price book as pricing truth, but checkout is executed by the local provider instead of by a Stripe recurring price ref. For those rows, Provider-backed runtime is healthy and Provider-managed in the ref column is expected. That does not make the market live-signoff ready by itself: provider mode still has to be live.
         </HelpCallout>
       </section>
 

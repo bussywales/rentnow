@@ -13,11 +13,11 @@ void test("billing and payments sign-off page captures current closure truth", (
   assert.ok(html.includes("United Kingdom — Not ready for sign-off"));
   assert.ok(html.includes("Canada — Not ready for sign-off"));
   assert.ok(html.includes("United States — Not ready for sign-off"));
-  assert.ok(html.includes("Nigeria — Signed off with constraints"));
-  assert.ok(html.includes("the current live Stripe configuration cannot retrieve the canonical Stripe price refs"));
-  assert.ok(html.includes("CA landlord yearly row"));
-  assert.ok(html.includes("wrong Stripe price"));
-  assert.ok(html.includes("current provider mode is test"));
+  assert.ok(html.includes("Nigeria — Not ready for sign-off"));
+  assert.ok(html.includes("does not have a live Stripe secret"));
+  assert.ok(html.includes("CA landlord yearly canonical row"));
+  assert.ok(html.includes("corrected back to the intended final price ref"));
+  assert.ok(html.includes("Paystack mode is test"));
   assert.ok(html.includes("provider-backed market"));
   assert.ok(html.includes("Admin pricing control plane"));
 });

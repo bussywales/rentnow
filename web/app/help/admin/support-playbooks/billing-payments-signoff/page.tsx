@@ -21,9 +21,9 @@ export default function BillingPaymentsSignoffPage() {
         <h2 className="text-lg font-semibold text-slate-900">Decision</h2>
         <HelpCallout variant="warn" title="Current sign-off status: Not ready for final sign-off">
           Billing and payments are not yet ready for a clean final sign-off. Nigeria is now truthfully represented as a
-          provider-backed market, but the live Stripe path is still blocked for the signed-off subscription markets
-          because the current live Stripe configuration cannot retrieve the canonical Stripe price refs. There is also
-          active CA canonical row drift in the remote database.
+          provider-backed market, but it is still running in test mode. The Stripe path is still blocked for the
+          intended live subscription markets because Stripe is set to live mode while the active runtime does not have a
+          live Stripe secret for the account holding the canonical GB/CA/US price refs.
         </HelpCallout>
         <p className="text-sm text-slate-600">
           Use this page as the current operational truth. Historical update notes record intended milestones, but they
@@ -46,8 +46,9 @@ export default function BillingPaymentsSignoffPage() {
             PAYG truth: separate listing PAYG path still exists for listing monetisation, but it is not the primary
             subscription execution path.
 
-            Runtime truth: current live Stripe configuration cannot retrieve the canonical UK Stripe price refs, so
-            runtime resolves as unavailable/misaligned instead of ready.
+            Runtime truth: Stripe mode is live, but the active runtime does not have a retrievable live Stripe secret
+            for the account that holds the canonical UK price refs. Runtime therefore resolves as unavailable instead
+            of ready.
 
             Admin matrix truth: truthful. The matrix surfaces canonical runtime plus checkout mismatch / runtime
             unavailable instead of pretending the market is healthy.
@@ -59,15 +60,14 @@ export default function BillingPaymentsSignoffPage() {
 
             Roles / cadences: tenant, landlord, and agent on monthly and yearly rows
 
-            Subscription truth: repo truth expects final CAD Stripe rows, but the current operational state is blocked.
+            Subscription truth: repo truth expects final CAD Stripe rows, and the active CA landlord yearly canonical row
+            has been corrected back to the intended final price ref.
 
             PAYG truth: separate listing PAYG path is available where listing-credit rules apply, but it does not solve
             subscription readiness.
 
-            Runtime truth: current live Stripe configuration cannot retrieve the canonical CA Stripe refs.
-
-            DB drift: the active CA landlord yearly row in the remote database is still bound to the wrong Stripe price
-            ref, so repo truth and DB truth are not fully aligned.
+            Runtime truth: Stripe mode is live, but the active runtime does not have a retrievable live Stripe secret
+            for the account that holds the canonical CA price refs.
 
             Admin matrix truth: truthful. It shows the market as misaligned/unavailable rather than complete.
           </HelpCopyBlock>
@@ -84,13 +84,13 @@ export default function BillingPaymentsSignoffPage() {
             PAYG truth: separate listing PAYG path still exists for listing monetisation, but it is not the primary
             subscription execution path.
 
-            Runtime truth: current live Stripe configuration cannot retrieve the canonical US Stripe refs, so runtime is
-            blocked at checkout.
+            Runtime truth: Stripe mode is live, but the active runtime does not have a retrievable live Stripe secret
+            for the account that holds the canonical US price refs, so runtime is blocked at checkout.
 
             Admin matrix truth: truthful. The matrix reflects checkout mismatch and runtime unavailable instead of
             calling the market complete.
           </HelpCopyBlock>
-          <HelpCopyBlock title="Nigeria — Signed off with constraints">
+          <HelpCopyBlock title="Nigeria — Not ready for sign-off">
             Provider: Paystack-backed runtime
 
             Currency: NGN
@@ -106,8 +106,8 @@ export default function BillingPaymentsSignoffPage() {
             Runtime truth: the matrix and runtime agree that Nigeria is healthy as a provider-backed market. Checkout is
             intentionally routed through Paystack, and a blank Stripe-style provider ref is not an error.
 
-            Constraint: current provider mode is test, and Flutterwave is not configured. Nigeria therefore remains an
-            operator-safe truth path, but not part of the live Stripe commercial promise.
+            Sign-off blocker: current Paystack mode is test, and Flutterwave is not configured. Nigeria is therefore an
+            operator-safe provider-backed path, but it is not ready for final live-market billing sign-off.
           </HelpCopyBlock>
         </div>
       </section>
@@ -135,17 +135,21 @@ export default function BillingPaymentsSignoffPage() {
         <HelpCopyBlock title="What is complete vs constrained vs blocked">
           Complete enough to understand operationally:
 
-          Nigeria now has truthful provider-backed runtime semantics. Operators can explain why it is sellable, why the
-          row is healthy, and why a missing Stripe ref is not the problem there.
+          Nigeria now has truthful provider-backed runtime semantics. Operators can explain why a missing Stripe ref is
+          not the problem there and why the market is intentionally local-provider-backed.
 
           Intentionally constrained:
 
-          Nigeria is still in test-mode provider operation and is not part of the live Stripe-backed commercial promise.
+          Nigeria is still in test-mode provider operation and is not part of the live commercial promise yet.
 
           Blocked:
 
-          United Kingdom, Canada, and United States cannot be signed off while the current live Stripe configuration
-          returns No such price for the canonical Stripe refs. Canada also has active DB drift on the landlord yearly row.
+          United Kingdom, Canada, and United States cannot be signed off while Stripe remains in live mode without a
+          usable live Stripe secret for the account holding the canonical price refs.
+
+          Also not ready:
+
+          Nigeria should not be called signed off while Paystack remains in test mode.
 
           Move-on decision:
 
@@ -158,19 +162,17 @@ export default function BillingPaymentsSignoffPage() {
       <section className="space-y-4">
         <h2 className="text-lg font-semibold text-slate-900">Exact blockers</h2>
         <HelpCopyBlock title="These are the blockers to final sign-off">
-          1. The current live Stripe configuration cannot retrieve any of the canonical Stripe price refs for GB, CA,
-          and US. Runtime therefore resolves those markets as unavailable/misaligned.
+          1. Stripe is set to live mode, but the active runtime does not have a usable live Stripe secret for the
+          account that holds the canonical GB, CA, and US recurring price refs. Runtime therefore resolves those
+          markets as unavailable.
 
-          2. The remote CA landlord yearly active row is still bound to the wrong Stripe price ref, so repo truth and
-          DB truth are not fully aligned.
-
-          3. Nigeria is operationally truthful but still constrained to Paystack test mode, and Flutterwave is not
+          2. Nigeria is operationally truthful but still constrained to Paystack test mode, and Flutterwave is not
           configured.
 
           Smallest safe closure batch after this:
 
-          - correct the CA landlord yearly active row in the database through a forward fix
           - align the live Stripe environment/account so the canonical Stripe price refs are retrievable
+          - move Nigeria to an explicit live provider posture if it is part of the live commercial promise
           - rerun the matrix and billing-page checks, then replace this page’s decision block with a signed-off state
         </HelpCopyBlock>
       </section>
