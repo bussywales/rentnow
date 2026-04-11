@@ -34,6 +34,7 @@ void test("support playbooks landing renders multiple links", () => {
   assert.ok(matches.length >= 6, "expected at least 6 playbook links");
   assert.ok(html.includes("/help/admin/support-playbooks/move-ready-services"));
   assert.ok(html.includes("/help/admin/support-playbooks/subscription-pricing"));
+  assert.ok(html.includes("Subscription pricing SOP"));
 });
 
 void test("tenant role is denied admin support playbooks", async () => {

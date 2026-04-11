@@ -81,7 +81,7 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
             href="/help/admin/support-playbooks/subscription-pricing"
             className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-300"
           >
-            Pricing playbook
+            Subscription pricing SOP
           </Link>
           <Link
             href="/admin/settings/billing"
@@ -104,10 +104,20 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
-        <p className="text-sm font-semibold text-slate-900">Canonical pricing operating model</p>
-        <p className="mt-1 text-sm text-slate-700">
-          Publish creates a new canonical active row. It does not edit a live Stripe amount in place. Old live rows remain as history, draft rows stay isolated until they are complete, and a Stripe-backed publish only succeeds when the linked recurring price matches the canonical amount, currency, and cadence.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Canonical pricing operating model</p>
+            <p className="mt-1 text-sm text-slate-700">
+              Publish creates a new canonical active row. It does not edit a live Stripe amount in place. Old live rows remain as history, draft rows stay isolated until they are complete, and a Stripe-backed publish only succeeds when the linked recurring price matches the canonical amount, currency, and cadence.
+            </p>
+          </div>
+          <Link
+            href="/help/admin/support-playbooks/subscription-pricing"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-300"
+          >
+            How to use this page
+          </Link>
+        </div>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

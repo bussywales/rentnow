@@ -18,7 +18,7 @@ const PLAYBOOK_LINKS = [
   { label: "Analytics & events", href: "/help/admin/support-playbooks/analytics" },
   { label: "Featured scheduling", href: "/help/admin/support-playbooks/featured" },
   { label: "Move & Ready Services", href: "/help/admin/support-playbooks/move-ready-services" },
-  { label: "Subscription pricing", href: "/help/admin/support-playbooks/subscription-pricing" },
+  { label: "Subscription pricing SOP", href: "/help/admin/support-playbooks/subscription-pricing" },
 ];
 
 export default function SupportPlaybooksLandingPage() {

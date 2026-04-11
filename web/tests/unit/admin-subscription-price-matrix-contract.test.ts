@@ -26,7 +26,8 @@ void test("subscription price book migrations and admin surface support draft pr
   assert.match(page, /pricing control plane/i);
   assert.match(page, /Publish-ready drafts/);
   assert.match(page, /Canonical pricing operating model/);
-  assert.match(page, /Pricing playbook/);
+  assert.match(page, /Subscription pricing SOP/);
+  assert.match(page, /How to use this page/);
   assert.match(page, /create and bind the Stripe recurring price/i);
   assert.match(controlPlane, /Create Stripe price/);
   assert.match(controlPlane, /Create replacement Stripe price/);
