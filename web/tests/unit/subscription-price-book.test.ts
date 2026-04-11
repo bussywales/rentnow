@@ -106,7 +106,7 @@ void test("subscription price matrix surfaces market gaps and runtime fallback s
   assert.match(entry.diagnostics.join(" | "), /Runtime fallback/);
 });
 
-void test("subscription price matrix marks blocked local-currency Stripe markets without calling them runtime fallback", () => {
+void test("subscription price matrix marks aligned CA canonical Stripe rows cleanly once local pricing is linked", () => {
   const [entry] = buildSubscriptionPriceMatrixEntries({
     canonicalRows: [
       {
@@ -116,19 +116,19 @@ void test("subscription price matrix marks blocked local-currency Stripe markets
         tier: "pro",
         cadence: "monthly",
         market_country: "CA",
-        currency: "GBP",
+        currency: "CAD",
         amount_minor: 4999,
         provider: "stripe",
-        provider_price_ref: "price_1SkqghIrMBE5QKLYnMjdVunO",
+        provider_price_ref: "price_1TKaUKPjtZ0fKtkBR72YdK8H",
         active: true,
         fallback_eligible: false,
-        effective_at: "2026-04-06T17:30:00Z",
+        effective_at: "2026-04-11T10:30:00Z",
         ends_at: null,
         display_order: 30,
-        badge: "Interim",
+        badge: null,
         operator_notes: null,
-        created_at: "2026-04-06T17:30:00Z",
-        updated_at: "2026-04-06T17:30:00Z",
+        created_at: "2026-04-11T10:30:00Z",
+        updated_at: "2026-04-11T10:30:00Z",
         updated_by: null,
       },
     ],
@@ -140,23 +140,23 @@ void test("subscription price matrix marks blocked local-currency Stripe markets
         tier: "pro",
         cadence: "monthly",
         quote: {
-          status: "unavailable",
+          status: "ready",
           source: "canonical",
-          provider: null,
-          providerMode: null,
-          currency: null,
-          amountMinor: null,
-          displayPrice: "Unavailable",
+          provider: "stripe",
+          providerMode: "live",
+          currency: "CAD",
+          amountMinor: 4999,
+          displayPrice: "CA$49.99",
           cadence: "monthly",
           marketCountry: "CA",
           marketCurrency: "CAD",
           marketLabel: "Canada (CA$)",
-          marketAligned: false,
+          marketAligned: true,
           fallbackApplied: false,
           fallbackMessage: null,
-          unavailableReason: "Canada (CA$) billing is not available yet. Local CAD Stripe pricing is still being configured.",
-          resolutionKey: null,
-          priceId: null,
+          unavailableReason: null,
+          resolutionKey: "SUBSCRIPTION_PRICE_BOOK:ca-agent-monthly",
+          priceId: "price_1TKaUKPjtZ0fKtkBR72YdK8H",
         },
       },
     ],
@@ -164,10 +164,11 @@ void test("subscription price matrix marks blocked local-currency Stripe markets
 
   assert.equal(entry.marketGap, false);
   assert.equal(entry.runtimeFallback, false);
-  assert.equal(entry.checkoutMatchesCanonical, false);
-  assert.match(entry.diagnostics.join(" | "), /Local-currency Stripe pending/);
-  assert.match(entry.diagnostics.join(" | "), /Runtime unavailable/);
-  assert.doesNotMatch(entry.diagnostics.join(" | "), /Runtime fallback/);
+  assert.equal(entry.checkoutMatchesCanonical, true);
+  assert.match(entry.diagnostics.join(" | "), /Canonical runtime/);
+  assert.doesNotMatch(entry.diagnostics.join(" | "), /Local-currency Stripe pending/);
+  assert.doesNotMatch(entry.diagnostics.join(" | "), /Runtime unavailable/);
+  assert.equal(entry.diagnostics.length, 1);
 });
 
 void test("subscription price matrix marks aligned canonical rows cleanly", () => {

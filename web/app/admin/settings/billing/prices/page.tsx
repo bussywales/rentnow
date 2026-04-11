@@ -82,11 +82,11 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-slate-500">Superseded rows</p><p className="mt-2 text-2xl font-semibold text-slate-900">{summary.supersededRows}</p></div>
       </section>
 
-      <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 shadow-sm">
-        <p className="text-sm font-semibold text-rose-900">CA/US local-currency truth gate</p>
-        <p className="mt-1 text-sm text-rose-800">
-          Canada and the United States should only show as ready when canonical Stripe rows are linked to real CAD/USD recurring prices.
-          Interim GBP-backed rows are intentionally treated as pending local-currency completion.
+      <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
+        <p className="text-sm font-semibold text-slate-900">Canonical Stripe alignment</p>
+        <p className="mt-1 text-sm text-slate-700">
+          Canonical Stripe markets should resolve with market-aligned recurring prices. If the local-currency pending count rises above zero,
+          a canonical Stripe market still needs a matching local-currency recurring price linked before checkout should be treated as ready.
         </p>
       </section>
 

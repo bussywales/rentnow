@@ -325,7 +325,7 @@ void test("canonical UK pricing blocks linked Stripe refs when they contradict c
   assert.match(quote.unavailableReason || "", /does not match canonical United Kingdom/);
 });
 
-void test("canonical Canada pricing is unavailable until a local CAD Stripe price is linked", async () => {
+void test("canonical Canada pricing resolves through the linked CAD Stripe recurring price", async () => {
   const quote = await resolveSubscriptionPlanQuote({
     role: "agent",
     tier: "pro",
@@ -339,19 +339,19 @@ void test("canonical Canada pricing is unavailable until a local CAD Stripe pric
         tier: "pro",
         cadence: "monthly",
         market_country: "CA",
-        currency: "GBP",
+        currency: "CAD",
         amount_minor: 4999,
         provider: "stripe",
-        provider_price_ref: "price_1SkqghIrMBE5QKLYnMjdVunO",
+        provider_price_ref: "price_1TKaUKPjtZ0fKtkBR72YdK8H",
         active: true,
         fallback_eligible: false,
-        effective_at: "2026-04-06T17:30:00Z",
+        effective_at: "2026-04-11T10:30:00Z",
         ends_at: null,
         display_order: 30,
-        badge: "Interim",
+        badge: null,
         operator_notes: null,
-        created_at: "2026-04-06T17:30:00Z",
-        updated_at: "2026-04-06T17:30:00Z",
+        created_at: "2026-04-11T10:30:00Z",
+        updated_at: "2026-04-11T10:30:00Z",
         updated_by: null,
       },
     ],
@@ -369,16 +369,80 @@ void test("canonical Canada pricing is unavailable until a local CAD Stripe pric
       mode: "test",
     },
     stripePriceLoader: async (_secretKey, priceId) => {
-      if (priceId === "price_1SkqghIrMBE5QKLYnMjdVunO") {
-        return { currency: "GBP", amountMinor: 4999 };
+      if (priceId === "price_1TKaUKPjtZ0fKtkBR72YdK8H") {
+        return { currency: "CAD", amountMinor: 4999 };
       }
       return null;
     },
   });
 
-  assert.equal(quote.status, "unavailable");
+  assert.equal(quote.status, "ready");
   assert.equal(quote.source, "canonical");
-  assert.match(quote.unavailableReason || "", /Local CAD Stripe pricing is still being configured/);
+  assert.equal(quote.currency, "CAD");
+  assert.equal(quote.amountMinor, 4999);
+  assert.equal(quote.marketAligned, true);
+  assert.equal(quote.priceId, "price_1TKaUKPjtZ0fKtkBR72YdK8H");
+  assert.equal(quote.resolutionKey, "SUBSCRIPTION_PRICE_BOOK:ca-agent-monthly");
+});
+
+void test("canonical United States pricing resolves through the linked USD Stripe recurring price", async () => {
+  const quote = await resolveSubscriptionPlanQuote({
+    role: "landlord",
+    tier: "pro",
+    cadence: "yearly",
+    market: { country: "US", currency: "USD" },
+    canonicalRows: [
+      {
+        id: "us-landlord-yearly",
+        product_area: "subscriptions",
+        role: "landlord",
+        tier: "pro",
+        cadence: "yearly",
+        market_country: "US",
+        currency: "USD",
+        amount_minor: 19900,
+        provider: "stripe",
+        provider_price_ref: "price_1TKaKXPjtZ0fKtkBCDLk8uah",
+        active: true,
+        fallback_eligible: false,
+        effective_at: "2026-04-11T10:30:00Z",
+        ends_at: null,
+        display_order: 21,
+        badge: null,
+        operator_notes: null,
+        created_at: "2026-04-11T10:30:00Z",
+        updated_at: "2026-04-11T10:30:00Z",
+        updated_by: null,
+      },
+    ],
+    stripe: {
+      enabled: true,
+      mode: "live",
+      secretKey: "sk_live_mock",
+    },
+    paystack: {
+      enabled: false,
+      mode: "test",
+    },
+    flutterwave: {
+      enabled: false,
+      mode: "test",
+    },
+    stripePriceLoader: async (_secretKey, priceId) => {
+      if (priceId === "price_1TKaKXPjtZ0fKtkBCDLk8uah") {
+        return { currency: "USD", amountMinor: 19900 };
+      }
+      return null;
+    },
+  });
+
+  assert.equal(quote.status, "ready");
+  assert.equal(quote.source, "canonical");
+  assert.equal(quote.currency, "USD");
+  assert.equal(quote.amountMinor, 19900);
+  assert.equal(quote.marketAligned, true);
+  assert.equal(quote.priceId, "price_1TKaKXPjtZ0fKtkBCDLk8uah");
+  assert.equal(quote.resolutionKey, "SUBSCRIPTION_PRICE_BOOK:us-landlord-yearly");
 });
 
 void test("canonical Canada pricing does not fall back to legacy GBP Stripe env prices when canonical rows are missing", async () => {
