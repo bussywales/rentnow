@@ -3,6 +3,7 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getProviderModes } from "@/lib/billing/provider-settings";
 import { getStripeClient, getStripeConfigForMode } from "@/lib/billing/stripe";
+import type { BillingCadence } from "@/lib/billing/stripe-plans";
 import {
   buildSubscriptionPriceBookKey,
   deriveSubscriptionPriceControlStatus,
@@ -67,7 +68,14 @@ const DISPLAY_LOCALE: Record<string, string> = {
   NG: "en-NG",
 };
 
-const stripeSnapshotCache = new Map<string, Promise<{ currency: string; amountMinor: number } | null>>();
+type StripePriceSnapshot = {
+  currency: string;
+  amountMinor: number;
+  interval: "month" | "year" | null;
+  productId: string | null;
+};
+
+const stripeSnapshotCache = new Map<string, Promise<StripePriceSnapshot | null>>();
 
 function resolveLocale(country: string) {
   return DISPLAY_LOCALE[country] || "en-GB";
@@ -138,9 +146,12 @@ async function fetchStripeSnapshot(secretKey: string, priceId: string) {
               ? Math.round(Number(price.unit_amount_decimal))
               : null;
           if (typeof amountMinor !== "number" || amountMinor < 0) return null;
+          const recurringInterval = price.recurring?.interval;
           return {
             currency: String(price.currency || "").toUpperCase(),
             amountMinor,
+            interval: recurringInterval === "month" || recurringInterval === "year" ? recurringInterval : null,
+            productId: typeof price.product === "string" ? price.product : price.product?.id ?? null,
           };
         } catch {
           return null;
@@ -151,8 +162,106 @@ async function fetchStripeSnapshot(secretKey: string, priceId: string) {
   return stripeSnapshotCache.get(cacheKey) ?? Promise.resolve(null);
 }
 
+function resolveStripeInterval(cadence: BillingCadence) {
+  return cadence === "yearly" ? "year" : "month";
+}
+
+function buildStripePriceNickname(row: Pick<SubscriptionPriceBookRow, "market_country" | "role" | "cadence" | "currency" | "amount_minor">) {
+  return [
+    "PropatyHub",
+    getSubscriptionRoleLabel(row.role),
+    "Pro",
+    row.market_country,
+    row.cadence,
+    formatDisplayPrice(row.market_country, row.currency, row.amount_minor),
+  ].join(" ");
+}
+
+function buildStripePriceMetadata(row: Pick<SubscriptionPriceBookRow, "id" | "market_country" | "role" | "tier" | "cadence" | "currency" | "amount_minor">) {
+  return {
+    source: "subscription_price_control_plane",
+    draft_id: row.id,
+    market_country: row.market_country,
+    role: row.role,
+    tier: row.tier,
+    cadence: row.cadence,
+    currency: row.currency,
+    amount_minor: String(row.amount_minor),
+  };
+}
+
+export function shouldInvalidateStripeDraftBinding(
+  previous: Pick<SubscriptionPriceBookRow, "market_country" | "role" | "cadence" | "currency" | "amount_minor" | "provider_price_ref">,
+  next: {
+    marketCountry: string;
+    role: SubscriptionPriceBookRow["role"];
+    cadence: SubscriptionPriceBookRow["cadence"];
+    currency: string;
+    amountMinor: number;
+    providerPriceRef: string | null;
+  }
+) {
+  if (!previous.provider_price_ref) return false;
+  const pricingChanged =
+    previous.market_country !== normalizeMarketCountry(next.marketCountry) ||
+    previous.role !== next.role ||
+    previous.cadence !== next.cadence ||
+    previous.currency !== normalizeCurrency(next.currency) ||
+    previous.amount_minor !== next.amountMinor;
+
+  if (!pricingChanged) return false;
+
+  const nextRef = next.providerPriceRef?.trim() || null;
+  return !nextRef || nextRef === previous.provider_price_ref;
+}
+
+async function resolveStripeProductIdForDraft(
+  row: Pick<SubscriptionPriceBookRow, "role" | "tier" | "id">,
+  secretKey: string
+) {
+  const rows = await loadSubscriptionPriceBookRows();
+  const candidateRefs = Array.from(
+    new Set(
+      rows
+        .filter(
+          (candidate) =>
+            candidate.provider === "stripe" &&
+            candidate.role === row.role &&
+            candidate.tier === row.tier &&
+            candidate.active &&
+            !candidate.ends_at &&
+            normalizeSubscriptionPriceWorkflowState(candidate) === "active" &&
+            candidate.provider_price_ref
+        )
+        .map((candidate) => candidate.provider_price_ref as string)
+    )
+  );
+
+  if (!candidateRefs.length) {
+    throw new Error("No active Stripe-backed canonical row exists to derive the Stripe product for this plan family.");
+  }
+
+  const productIds = new Set<string>();
+  for (const priceRef of candidateRefs) {
+    const snapshot = await fetchStripeSnapshot(secretKey, priceRef);
+    if (snapshot?.productId) {
+      productIds.add(snapshot.productId);
+    }
+  }
+
+  if (!productIds.size) {
+    throw new Error("Unable to derive the Stripe product from the current canonical recurring prices for this plan family.");
+  }
+  if (productIds.size > 1) {
+    throw new Error("Canonical Stripe prices for this plan family resolve to multiple Stripe products. Resolve product mapping before creating a new price.");
+  }
+
+  return Array.from(productIds)[0] ?? null;
+}
+
 export async function validateStripePriceDraft(row: {
   market_country: string;
+  cadence: SubscriptionPriceBookRow["cadence"];
   currency: string;
   amount_minor: number;
   provider: SubscriptionPriceBookProvider;
@@ -194,7 +303,11 @@ export async function validateStripePriceDraft(row: {
       detail: `Linked Stripe recurring price ${row.provider_price_ref} could not be loaded.`,
     };
   }
-  if (snapshot.currency !== row.currency || snapshot.amountMinor !== row.amount_minor) {
+  if (
+    snapshot.currency !== row.currency ||
+    snapshot.amountMinor !== row.amount_minor ||
+    snapshot.interval !== resolveStripeInterval(row.cadence)
+  ) {
     return {
       status: "misaligned" as const,
       detail: `Linked Stripe recurring price ${row.provider_price_ref} does not match ${formatDisplayPrice(
@@ -401,6 +514,21 @@ export async function upsertSubscriptionPriceDraft(input: UpsertSubscriptionPric
     .eq("active", true)
     .maybeSingle();
 
+  const invalidateStripeBinding = !!existingDraft
+    ? shouldInvalidateStripeDraftBinding(existingDraft, {
+        marketCountry,
+        role: input.role,
+        cadence: input.cadence,
+        currency,
+        amountMinor: input.amountMinor,
+        providerPriceRef: input.providerPriceRef,
+      })
+    : false;
+
+  const nextProviderPriceRef = invalidateStripeBinding
+    ? null
+    : input.providerPriceRef?.trim() || null;
+
   const nextValues = {
     product_area: "subscriptions",
     role: input.role,
@@ -410,7 +538,7 @@ export async function upsertSubscriptionPriceDraft(input: UpsertSubscriptionPric
     currency,
     amount_minor: input.amountMinor,
     provider: "stripe",
-    provider_price_ref: input.providerPriceRef,
+    provider_price_ref: nextProviderPriceRef,
     active: false,
     fallback_eligible: false,
     effective_at: now,
@@ -429,7 +557,7 @@ export async function upsertSubscriptionPriceDraft(input: UpsertSubscriptionPric
   let previousSnapshot: Record<string, unknown> | null = null;
 
   if (existingDraft) {
-    eventType = "draft_updated";
+    eventType = invalidateStripeBinding ? "stripe_price_invalidated" : "draft_updated";
     previousSnapshot = serializeSnapshot(existingDraft as unknown as Record<string, unknown>);
     const { error } = await adminDb.from("subscription_price_book").update(nextValues).eq("id", existingDraft.id);
     if (error) throw new Error(error.message || "Unable to update pricing draft.");
@@ -467,7 +595,96 @@ export async function upsertSubscriptionPriceDraft(input: UpsertSubscriptionPric
     next_snapshot: serializeSnapshot(savedRow as unknown as Record<string, unknown>),
   });
 
-  return savedRow;
+  return Object.assign(savedRow, {
+    stripePriceInvalidated: invalidateStripeBinding,
+  });
+}
+
+export async function createStripePriceForSubscriptionDraft(draftId: string, actorId: string) {
+  const admin = createServiceRoleClient();
+  const adminDb = admin as unknown as SubscriptionPriceDraftAdminDb;
+  const auditDb = admin as unknown as SubscriptionPriceAuditInsertDb;
+  const { data: draft, error } = await admin
+    .from("subscription_price_book")
+    .select(
+      "id,product_area,role,tier,cadence,market_country,currency,amount_minor,provider,provider_price_ref,active,fallback_eligible,effective_at,ends_at,display_order,badge,operator_notes,created_at,updated_at,updated_by,workflow_state,replaces_price_book_id"
+    )
+    .eq("id", draftId)
+    .maybeSingle();
+
+  const draftRow = draft as SubscriptionPriceBookRow | null;
+  if (error || !draftRow) {
+    throw new Error("Pricing draft not found.");
+  }
+  if (normalizeSubscriptionPriceWorkflowState(draftRow) !== "draft") {
+    throw new Error("Only draft pricing rows can create a new Stripe recurring price.");
+  }
+  if (draftRow.provider !== "stripe") {
+    throw new Error("Only Stripe-backed drafts can create a Stripe recurring price.");
+  }
+
+  const existingValidation = await validateStripePriceDraft(draftRow);
+  if (draftRow.provider_price_ref && existingValidation.status === "pending_publish") {
+    throw new Error("Draft already has a valid Stripe recurring price attached.");
+  }
+
+  const { stripeMode } = await getProviderModes();
+  const stripeConfig = getStripeConfigForMode(stripeMode);
+  if (!stripeConfig.secretKey) {
+    throw new Error("Stripe is not configured in this environment, so a recurring price cannot be created.");
+  }
+
+  const productId = await resolveStripeProductIdForDraft(draftRow, stripeConfig.secretKey);
+  const stripe = getStripeClient(stripeConfig.secretKey);
+  const createdPrice = await stripe.prices.create({
+    product: productId,
+    currency: draftRow.currency.toLowerCase(),
+    unit_amount: draftRow.amount_minor,
+    recurring: {
+      interval: resolveStripeInterval(draftRow.cadence),
+    },
+    nickname: buildStripePriceNickname(draftRow),
+    metadata: buildStripePriceMetadata(draftRow),
+  });
+
+  const now = new Date().toISOString();
+  const updatedRow = {
+    ...draftRow,
+    provider_price_ref: createdPrice.id,
+    updated_at: now,
+    updated_by: actorId,
+  } satisfies SubscriptionPriceBookRow;
+
+  const { error: updateError } = await adminDb
+    .from("subscription_price_book")
+    .update({
+      provider_price_ref: createdPrice.id,
+      updated_at: now,
+      updated_by: actorId,
+    })
+    .eq("id", draftRow.id);
+  if (updateError) {
+    throw new Error(updateError.message || "Unable to bind the created Stripe recurring price to this draft.");
+  }
+
+  await auditDb.from("subscription_price_book_audit_log").insert({
+    price_book_id: draftRow.id,
+    market_country: draftRow.market_country,
+    role: draftRow.role,
+    tier: draftRow.tier,
+    cadence: draftRow.cadence,
+    provider: draftRow.provider,
+    event_type: "stripe_price_created",
+    actor_id: actorId,
+    previous_snapshot: serializeSnapshot(draftRow as unknown as Record<string, unknown>),
+    next_snapshot: serializeSnapshot(updatedRow as unknown as Record<string, unknown>),
+  });
+
+  return {
+    draft: updatedRow,
+    createdPriceId: createdPrice.id,
+    stripeProductId: productId,
+  };
 }
 
 export async function publishSubscriptionPriceDraft(draftId: string, actorId: string) {

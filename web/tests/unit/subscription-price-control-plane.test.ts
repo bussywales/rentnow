@@ -5,6 +5,7 @@ import {
   deriveSubscriptionPriceControlStatus,
   normalizeSubscriptionPriceWorkflowState,
 } from "@/lib/billing/subscription-price-book";
+import { shouldInvalidateStripeDraftBinding } from "@/lib/billing/subscription-price-control-plane.server";
 
 void test("workflow state defaults active rows and archives historical rows", () => {
   assert.equal(
@@ -86,5 +87,77 @@ void test("active row status distinguishes aligned, missing-ref, and blocked sta
       diagnostics: ["Runtime unavailable"],
     }),
     "blocked"
+  );
+});
+
+void test("draft binding is invalidated when amount changes and the old Stripe ref is still attached", () => {
+  assert.equal(
+    shouldInvalidateStripeDraftBinding(
+      {
+        market_country: "CA",
+        role: "landlord",
+        cadence: "monthly",
+        currency: "CAD",
+        amount_minor: 1999,
+        provider_price_ref: "price_123",
+      },
+      {
+        marketCountry: "CA",
+        role: "landlord",
+        cadence: "monthly",
+        currency: "CAD",
+        amountMinor: 2499,
+        providerPriceRef: "price_123",
+      }
+    ),
+    true
+  );
+});
+
+void test("draft binding stays intact when the billing terms are unchanged", () => {
+  assert.equal(
+    shouldInvalidateStripeDraftBinding(
+      {
+        market_country: "US",
+        role: "tenant",
+        cadence: "yearly",
+        currency: "USD",
+        amount_minor: 9900,
+        provider_price_ref: "price_abc",
+      },
+      {
+        marketCountry: "US",
+        role: "tenant",
+        cadence: "yearly",
+        currency: "USD",
+        amountMinor: 9900,
+        providerPriceRef: "price_abc",
+      }
+    ),
+    false
+  );
+});
+
+void test("draft binding can be replaced manually with a new Stripe ref after a pricing change", () => {
+  assert.equal(
+    shouldInvalidateStripeDraftBinding(
+      {
+        market_country: "GB",
+        role: "agent",
+        cadence: "monthly",
+        currency: "GBP",
+        amount_minor: 4999,
+        provider_price_ref: "price_old",
+      },
+      {
+        marketCountry: "GB",
+        role: "agent",
+        cadence: "monthly",
+        currency: "GBP",
+        amountMinor: 5999,
+        providerPriceRef: "price_new",
+      }
+    ),
+    false
   );
 });

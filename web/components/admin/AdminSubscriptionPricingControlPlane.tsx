@@ -134,7 +134,30 @@ export default function AdminSubscriptionPricingControlPlane({ drafts, activity,
         setError(data?.error || "Unable to save pricing draft.");
         return;
       }
-      setToast("Pricing draft saved.");
+      setToast(
+        data?.stripePriceInvalidated
+          ? "Pricing draft saved. Existing Stripe price binding was cleared because the billing terms changed."
+          : "Pricing draft saved."
+      );
+      router.refresh();
+    });
+  };
+
+  const handleCreateStripePrice = (draftId: string) => {
+    setError(null);
+    setToast(null);
+    startTransition(async () => {
+      const res = await fetch("/api/admin/billing/prices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create_stripe_price", draftId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.error || "Unable to create the Stripe recurring price.");
+        return;
+      }
+      setToast(`Stripe recurring price created and bound: ${data?.providerPriceRef || "price created"}.`);
       router.refresh();
     });
   };
@@ -225,7 +248,7 @@ export default function AdminSubscriptionPricingControlPlane({ drafts, activity,
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-sm font-semibold text-slate-900">Draft editor</p>
             <p className="mt-1 text-xs text-slate-600">
-              Set the canonical price first. Attach the Stripe recurring price ref before publishing.
+              Set the canonical price first. Create and bind a Stripe recurring price from this draft, then publish only when the draft is ready.
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label className="text-sm text-slate-700">
@@ -283,11 +306,38 @@ export default function AdminSubscriptionPricingControlPlane({ drafts, activity,
               </div>
             ) : null}
 
+            {selectedDraft ? (
+              <div className="mt-4 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700">
+                <p className="font-semibold text-slate-900">Stripe execution state</p>
+                <p className="mt-1">
+                  {selectedDraft.providerPriceRef
+                    ? `Bound to ${selectedDraft.providerPriceRef}.`
+                    : "Draft only. No Stripe recurring price is bound yet."}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  If you change the amount, currency, or cadence after binding a Stripe price, save the draft again. The old binding will be cleared and a new Stripe price will be required.
+                </p>
+              </div>
+            ) : null}
+
             {error ? <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
             {toast ? <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{toast}</p> : null}
 
             <div className="mt-4 flex flex-wrap gap-2">
               <Button onClick={handleSaveDraft} disabled={pending}>{pending ? "Saving..." : "Save draft"}</Button>
+              {selectedDraft ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => handleCreateStripePrice(selectedDraft.id)}
+                  disabled={pending || selectedDraft.status === "pending_publish"}
+                >
+                  {pending
+                    ? "Creating..."
+                    : selectedDraft.providerPriceRef
+                    ? "Create replacement Stripe price"
+                    : "Create Stripe price"}
+                </Button>
+              ) : null}
               {selectedDraft ? (
                 <Button variant="secondary" onClick={() => handlePublish(selectedDraft.id)} disabled={pending || selectedDraft.status !== "pending_publish"}>
                   {pending ? "Publishing..." : "Publish draft"}

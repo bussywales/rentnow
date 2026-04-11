@@ -264,7 +264,15 @@ CREATE TABLE public.subscription_price_book_audit_log (
   tier TEXT NOT NULL,
   cadence TEXT NOT NULL,
   provider TEXT NOT NULL,
-  event_type TEXT NOT NULL CHECK (event_type IN ('draft_created', 'draft_updated', 'published')),
+  event_type TEXT NOT NULL CHECK (
+    event_type IN (
+      'draft_created',
+      'draft_updated',
+      'stripe_price_created',
+      'stripe_price_invalidated',
+      'published'
+    )
+  ),
   actor_id UUID REFERENCES public.profiles (id) ON DELETE SET NULL,
   previous_snapshot JSONB,
   next_snapshot JSONB NOT NULL,

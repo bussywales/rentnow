@@ -35,7 +35,7 @@ export default function SubscriptionPricingPlaybookPage() {
           steps={[
             "Create or update a draft for the market, role, and cadence you want to change.",
             "Set the canonical currency and amount that the business wants to charge.",
-            "Attach the matching Stripe recurring price ref.",
+            "Create and bind the matching Stripe recurring price from the draft, or attach the ref manually if it already exists.",
             "Publish only when the draft shows as publish-ready.",
             "Confirm the active matrix row is aligned after publish.",
           ]}
@@ -75,9 +75,9 @@ export default function SubscriptionPricingPlaybookPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-slate-900">Stripe refs in MVP</h2>
         <HelpCopyBlock title="Important scope note">
-          This MVP removes the need for Codex on normal Stripe-backed subscription price changes.
+          This control plane keeps pricing truth inside PropatyHub. Admins can create a new Stripe recurring price from a draft, bind the returned `price_...` ref, and publish when the draft is safe.
 
-          Stripe recurring price creation can still be partly operational. Once the correct Stripe ref exists, admins can attach it, save a draft, and publish from inside PropatyHub.
+          If the amount, currency, or cadence changes after a Stripe price has been created, the old binding must not be reused. Save the draft again and create a fresh Stripe price that matches the new canonical terms.
 
           Paystack and Flutterwave subscription execution are out of scope for this first control-plane batch.
         </HelpCopyBlock>

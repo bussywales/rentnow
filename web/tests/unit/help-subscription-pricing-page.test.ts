@@ -11,5 +11,7 @@ void test("subscription pricing playbook explains canonical truth and publish fl
   assert.ok(html.includes("What publish means"));
   assert.ok(html.includes("Safe price change flow"));
   assert.ok(html.includes("Missing Stripe ref"));
+  assert.ok(html.includes("Create and bind the matching Stripe recurring price from the draft"));
+  assert.ok(html.includes("old binding must not be reused"));
   assert.ok(html.includes("Admin pricing control plane"));
 });

@@ -27,6 +27,8 @@ function buildDeps(overrides: Partial<AdminSubscriptionPricingRouteDeps> = {}): 
         supabase: {} as never,
       }) as Awaited<ReturnType<AdminSubscriptionPricingRouteDeps["requireRole"]>>,
     upsertSubscriptionPriceDraft: async () => ({ id: "draft-1" } as never),
+    createStripePriceForSubscriptionDraft: async () =>
+      ({ draft: { id: "draft-1" }, createdPriceId: "price_123", stripeProductId: "prod_123" } as never),
     publishSubscriptionPriceDraft: async () => ({ id: "row-1" } as never),
     ...overrides,
   };
@@ -68,6 +70,30 @@ void test("admin pricing route saves a draft through the control-plane helper", 
   });
 });
 
+void test("admin pricing route surfaces when a draft edit invalidates the bound Stripe ref", async () => {
+  const res = await postAdminSubscriptionPricingResponse(
+    makeRequest({
+      action: "upsert_draft",
+      marketCountry: "CA",
+      role: "landlord",
+      cadence: "monthly",
+      currency: "CAD",
+      amountMinor: 2499,
+      providerPriceRef: "price_old",
+      operatorNotes: "Increase after review",
+    }),
+    buildDeps({
+      upsertSubscriptionPriceDraft: async () =>
+        ({ id: "draft-2", stripePriceInvalidated: true } as never),
+    })
+  );
+
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.ok, true);
+  assert.equal(body.stripePriceInvalidated, true);
+});
+
 void test("admin pricing route publishes a completed draft", async () => {
   let publishedId: string | null = null;
   const res = await postAdminSubscriptionPricingResponse(
@@ -87,6 +113,30 @@ void test("admin pricing route publishes a completed draft", async () => {
   assert.equal(publishedId, "9a2cd2f4-410f-46d3-aeb0-51371f617718");
 });
 
+void test("admin pricing route creates and binds a Stripe recurring price for a draft", async () => {
+  let createdForDraft: string | null = null;
+  const res = await postAdminSubscriptionPricingResponse(
+    makeRequest({ action: "create_stripe_price", draftId: "9a2cd2f4-410f-46d3-aeb0-51371f617718" }),
+    buildDeps({
+      createStripePriceForSubscriptionDraft: async (draftId) => {
+        createdForDraft = draftId;
+        return {
+          draft: { id: draftId },
+          createdPriceId: "price_1NewStripeDraft",
+          stripeProductId: "prod_landlord_pro",
+        } as never;
+      },
+    })
+  );
+
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.ok, true);
+  assert.equal(body.providerPriceRef, "price_1NewStripeDraft");
+  assert.equal(body.stripeProductId, "prod_landlord_pro");
+  assert.equal(createdForDraft, "9a2cd2f4-410f-46d3-aeb0-51371f617718");
+});
+
 void test("admin pricing route returns a safe error when publish validation fails", async () => {
   const res = await postAdminSubscriptionPricingResponse(
     makeRequest({ action: "publish", draftId: "9a2cd2f4-410f-46d3-aeb0-51371f617718" }),
@@ -100,4 +150,19 @@ void test("admin pricing route returns a safe error when publish validation fail
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.match(body.error, /Attach a Stripe recurring price ref/);
+});
+
+void test("admin pricing route returns a safe error when Stripe price creation fails", async () => {
+  const res = await postAdminSubscriptionPricingResponse(
+    makeRequest({ action: "create_stripe_price", draftId: "9a2cd2f4-410f-46d3-aeb0-51371f617718" }),
+    buildDeps({
+      createStripePriceForSubscriptionDraft: async () => {
+        throw new Error("Unable to derive the Stripe product from the current canonical recurring prices for this plan family.");
+      },
+    })
+  );
+
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /Unable to derive the Stripe product/);
 });

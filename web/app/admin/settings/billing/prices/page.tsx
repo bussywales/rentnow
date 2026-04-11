@@ -73,7 +73,7 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Admin</p>
           <h1 className="text-3xl font-semibold text-slate-900">Subscription pricing control plane</h1>
           <p className="max-w-3xl text-sm text-slate-600">
-            PropatyHub canonical subscription pricing is the source of truth. Stripe price objects are execution references. Draft changes here first, then publish a new live canonical state only when the row is safe.
+            PropatyHub canonical subscription pricing is the source of truth. Stripe price objects are execution references. Draft changes here first, create and bind the Stripe recurring price from the draft when needed, then publish a new live canonical state only when the row is safe.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -106,7 +106,7 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
       <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
         <p className="text-sm font-semibold text-slate-900">Canonical pricing operating model</p>
         <p className="mt-1 text-sm text-slate-700">
-          Publish creates a new canonical active row. It does not edit a live Stripe amount in place. Old live rows remain as history, draft rows stay isolated until they are complete, and a Stripe-backed publish only succeeds when the linked recurring price matches the canonical amount and currency.
+          Publish creates a new canonical active row. It does not edit a live Stripe amount in place. Old live rows remain as history, draft rows stay isolated until they are complete, and a Stripe-backed publish only succeeds when the linked recurring price matches the canonical amount, currency, and cadence.
         </p>
       </section>
 

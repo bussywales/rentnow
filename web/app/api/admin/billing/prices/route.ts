@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/authz";
 import { hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { logFailure } from "@/lib/observability";
 import {
+  createStripePriceForSubscriptionDraft,
   publishSubscriptionPriceDraft,
   upsertSubscriptionPriceDraft,
 } from "@/lib/billing/subscription-price-control-plane.server";
@@ -25,12 +26,17 @@ const payloadSchema = z.discriminatedUnion("action", [
     action: z.literal("publish"),
     draftId: z.string().uuid(),
   }),
+  z.object({
+    action: z.literal("create_stripe_price"),
+    draftId: z.string().uuid(),
+  }),
 ]);
 
 export type AdminSubscriptionPricingRouteDeps = {
   hasServiceRoleEnv: typeof hasServiceRoleEnv;
   requireRole: typeof requireRole;
   upsertSubscriptionPriceDraft: typeof upsertSubscriptionPriceDraft;
+  createStripePriceForSubscriptionDraft: typeof createStripePriceForSubscriptionDraft;
   publishSubscriptionPriceDraft: typeof publishSubscriptionPriceDraft;
 };
 
@@ -38,6 +44,7 @@ const defaultDeps: AdminSubscriptionPricingRouteDeps = {
   hasServiceRoleEnv,
   requireRole,
   upsertSubscriptionPriceDraft,
+  createStripePriceForSubscriptionDraft,
   publishSubscriptionPriceDraft,
 };
 
@@ -82,7 +89,21 @@ export async function postAdminSubscriptionPricingResponse(
         },
         auth.user.id
       );
-      return NextResponse.json({ ok: true, draftId: draft.id });
+      return NextResponse.json({
+        ok: true,
+        draftId: draft.id,
+        stripePriceInvalidated: Boolean((draft as { stripePriceInvalidated?: boolean }).stripePriceInvalidated),
+      });
+    }
+
+    if (parsed.data.action === "create_stripe_price") {
+      const created = await deps.createStripePriceForSubscriptionDraft(parsed.data.draftId, auth.user.id);
+      return NextResponse.json({
+        ok: true,
+        draftId: created.draft.id,
+        providerPriceRef: created.createdPriceId,
+        stripeProductId: created.stripeProductId,
+      });
     }
 
     const published = await deps.publishSubscriptionPriceDraft(parsed.data.draftId, auth.user.id);

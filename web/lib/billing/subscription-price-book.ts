@@ -49,7 +49,12 @@ export type SubscriptionPriceBookAuditLogRow = {
   tier: PlanTier;
   cadence: BillingCadence;
   provider: SubscriptionPriceBookProvider;
-  event_type: "draft_created" | "draft_updated" | "published";
+  event_type:
+    | "draft_created"
+    | "draft_updated"
+    | "stripe_price_created"
+    | "stripe_price_invalidated"
+    | "published";
   actor_id: string | null;
   previous_snapshot: Record<string, unknown> | null;
   next_snapshot: Record<string, unknown>;
