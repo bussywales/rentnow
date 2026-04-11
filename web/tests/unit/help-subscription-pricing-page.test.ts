@@ -22,5 +22,9 @@ void test("subscription pricing sop explains the safe operating flow in plain En
   assert.ok(html.includes("Create and bind the matching Stripe recurring price from the draft"));
   assert.ok(html.includes("Never reuse a stale Stripe price"));
   assert.ok(html.includes("When to stop and escalate"));
+  assert.ok(html.includes("How to use activity and history"));
+  assert.ok(html.includes("Recent pricing activity on the main control-plane page is only a compact summary"));
+  assert.ok(html.includes("Subscription pricing audit log"));
+  assert.ok(html.includes("Row history is the filtered lane view"));
   assert.ok(html.includes("Admin pricing control plane"));
 });

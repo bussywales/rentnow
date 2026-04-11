@@ -140,9 +140,21 @@ export default function SubscriptionPricingPlaybookPage() {
         </HelpCopyBlock>
       </section>
 
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-slate-900">How to use activity and history</h2>
+        <HelpCopyBlock title="Use the right history surface for the job">
+          Recent pricing activity on the main control-plane page is only a compact summary of the latest events.
+
+          The full audit log is the complete bounded history view for cross-market and cross-role investigation.
+
+          Row history is the filtered lane view for one market, role, and cadence. Use it when you need lineage for a specific pricing row without scanning the whole ledger.
+        </HelpCopyBlock>
+      </section>
+
       <HelpRelatedLinks
         links={[
           { label: "Admin pricing control plane", href: "/admin/settings/billing/prices" },
+          { label: "Subscription pricing audit log", href: "/admin/settings/billing/prices/history" },
           { label: "Billing settings", href: "/admin/settings/billing" },
           { label: "Support playbooks", href: "/help/admin/support-playbooks" },
         ]}

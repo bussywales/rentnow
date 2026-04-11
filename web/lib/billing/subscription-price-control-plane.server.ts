@@ -18,12 +18,17 @@ import {
 } from "@/lib/billing/subscription-price-book";
 import {
   loadSubscriptionPriceBookAuditLog,
+  loadSubscriptionPriceBookAuditLogPage,
   loadSubscriptionPriceBookRows,
 } from "@/lib/billing/subscription-price-book.repository";
 import {
   loadAdminSubscriptionPriceMatrix,
   type AdminSubscriptionPriceMatrixFilters,
 } from "@/lib/billing/subscription-price-book.server";
+import {
+  formatSubscriptionPriceAuditEventLabel,
+  type AdminSubscriptionPriceAuditFilters,
+} from "@/lib/billing/subscription-price-history";
 
 export type AdminSubscriptionPriceDraftView = {
   id: string;
@@ -50,15 +55,36 @@ export type AdminSubscriptionPriceDraftView = {
 
 export type AdminSubscriptionPriceAuditEntry = {
   id: string;
+  priceBookId: string | null;
+  rowKey: string;
   eventType: SubscriptionPriceBookAuditLogRow["event_type"];
+  eventLabel: string;
   marketCountry: string;
+  role: SubscriptionPriceBookAuditLogRow["role"];
   roleLabel: string;
   cadence: SubscriptionPriceBookAuditLogRow["cadence"];
   provider: SubscriptionPriceBookProvider;
+  actorId: string | null;
   actorLabel: string | null;
   createdAt: string;
   previousDisplayPrice: string | null;
   nextDisplayPrice: string | null;
+  previousProviderPriceRef: string | null;
+  nextProviderPriceRef: string | null;
+};
+
+export type AdminSubscriptionPriceAuditActorOption = {
+  id: string;
+  label: string;
+};
+
+export type AdminSubscriptionPriceAuditLogView = {
+  entries: AdminSubscriptionPriceAuditEntry[];
+  actorOptions: AdminSubscriptionPriceAuditActorOption[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 };
 
 const DISPLAY_LOCALE: Record<string, string> = {
@@ -127,6 +153,63 @@ async function loadActorLabelMap(rows: SubscriptionPriceBookRow[], auditRows: Su
       row.full_name?.trim() || row.id,
     ])
   );
+}
+
+function mapAuditRowsToEntries(
+  auditRows: SubscriptionPriceBookAuditLogRow[],
+  actorLabels: Map<string, string>
+) {
+  return auditRows.map((row) => {
+    const previousSnapshot = row.previous_snapshot as
+      | { currency?: string; amount_minor?: number; market_country?: string; provider_price_ref?: string | null }
+      | null;
+    const nextSnapshot = row.next_snapshot as
+      | { currency?: string; amount_minor?: number; market_country?: string; provider_price_ref?: string | null }
+      | null;
+
+    const previousDisplayPrice =
+      previousSnapshot?.currency && typeof previousSnapshot.amount_minor === "number"
+        ? formatDisplayPrice(
+            previousSnapshot.market_country || row.market_country,
+            previousSnapshot.currency,
+            previousSnapshot.amount_minor
+          )
+        : null;
+    const nextDisplayPrice =
+      nextSnapshot?.currency && typeof nextSnapshot.amount_minor === "number"
+        ? formatDisplayPrice(
+            nextSnapshot.market_country || row.market_country,
+            nextSnapshot.currency,
+            nextSnapshot.amount_minor
+          )
+        : null;
+
+    return {
+      id: row.id,
+      priceBookId: row.price_book_id,
+      rowKey: buildSubscriptionPriceBookKey({
+        marketCountry: row.market_country,
+        role: row.role,
+        cadence: row.cadence,
+      }),
+      eventType: row.event_type,
+      eventLabel: formatSubscriptionPriceAuditEventLabel(row.event_type),
+      marketCountry: row.market_country,
+      role: row.role,
+      roleLabel: getSubscriptionRoleLabel(row.role),
+      cadence: row.cadence,
+      provider: row.provider,
+      actorId: row.actor_id,
+      actorLabel: row.actor_id ? actorLabels.get(row.actor_id) ?? row.actor_id : null,
+      createdAt: row.created_at,
+      previousDisplayPrice,
+      nextDisplayPrice,
+      previousProviderPriceRef:
+        typeof previousSnapshot?.provider_price_ref === "string" ? previousSnapshot.provider_price_ref : null,
+      nextProviderPriceRef:
+        typeof nextSnapshot?.provider_price_ref === "string" ? nextSnapshot.provider_price_ref : null,
+    } satisfies AdminSubscriptionPriceAuditEntry;
+  });
 }
 
 async function fetchStripeSnapshot(secretKey: string, priceId: string) {
@@ -327,7 +410,7 @@ export async function loadAdminSubscriptionPricingControlPlane(filters: AdminSub
   const [{ entries, summary, providerModes }, rows, auditRows] = await Promise.all([
     loadAdminSubscriptionPriceMatrix(filters),
     loadSubscriptionPriceBookRows(),
-    loadSubscriptionPriceBookAuditLog(30),
+    loadSubscriptionPriceBookAuditLog(8),
   ]);
 
   const actorLabels = await loadActorLabelMap(rows, auditRows);
@@ -393,44 +476,7 @@ export async function loadAdminSubscriptionPricingControlPlane(filters: AdminSub
     })
   );
 
-  const activity = auditRows.map((row) => {
-    const previousSnapshot = row.previous_snapshot as
-      | { currency?: string; amount_minor?: number; market_country?: string }
-      | null;
-    const nextSnapshot = row.next_snapshot as
-      | { currency?: string; amount_minor?: number; market_country?: string }
-      | null;
-
-    const previousDisplayPrice =
-      previousSnapshot?.currency && typeof previousSnapshot.amount_minor === "number"
-        ? formatDisplayPrice(
-            previousSnapshot.market_country || row.market_country,
-            previousSnapshot.currency,
-            previousSnapshot.amount_minor
-          )
-        : null;
-    const nextDisplayPrice =
-      nextSnapshot?.currency && typeof nextSnapshot.amount_minor === "number"
-        ? formatDisplayPrice(
-            nextSnapshot.market_country || row.market_country,
-            nextSnapshot.currency,
-            nextSnapshot.amount_minor
-          )
-        : null;
-
-    return {
-      id: row.id,
-      eventType: row.event_type,
-      marketCountry: row.market_country,
-      roleLabel: getSubscriptionRoleLabel(row.role),
-      cadence: row.cadence,
-      provider: row.provider,
-      actorLabel: row.actor_id ? actorLabels.get(row.actor_id) ?? row.actor_id : null,
-      createdAt: row.created_at,
-      previousDisplayPrice,
-      nextDisplayPrice,
-    } satisfies AdminSubscriptionPriceAuditEntry;
-  });
+  const activity = mapAuditRowsToEntries(auditRows, actorLabels);
 
   return {
     entries,
@@ -442,6 +488,56 @@ export async function loadAdminSubscriptionPricingControlPlane(filters: AdminSub
     providerModes,
     drafts,
     activity,
+  };
+}
+
+const AUDIT_PAGE_SIZE = 25;
+
+export async function loadAdminSubscriptionPriceAuditLogView(
+  filters: AdminSubscriptionPriceAuditFilters
+): Promise<AdminSubscriptionPriceAuditLogView> {
+  const page = filters.page > 0 ? filters.page : 1;
+  const offset = (page - 1) * AUDIT_PAGE_SIZE;
+
+  const [{ rows, count }, actorSeedRows] = await Promise.all([
+    loadSubscriptionPriceBookAuditLogPage({
+      marketCountry: filters.market !== "ALL" ? filters.market : undefined,
+      role: filters.role !== "all" ? (filters.role as SubscriptionPriceBookAuditLogRow["role"]) : undefined,
+      cadence:
+        filters.cadence !== "all" ? (filters.cadence as SubscriptionPriceBookAuditLogRow["cadence"]) : undefined,
+      eventType:
+        filters.eventType !== "all"
+          ? (filters.eventType as SubscriptionPriceBookAuditLogRow["event_type"])
+          : undefined,
+      actorId: filters.actorId || undefined,
+      dateFrom: filters.dateFrom || undefined,
+      dateTo: filters.dateTo || undefined,
+      limit: AUDIT_PAGE_SIZE,
+      offset,
+    }),
+    loadSubscriptionPriceBookAuditLogPage({ limit: 200 }),
+  ]);
+
+  const actorLabels = await loadActorLabelMap([], [...rows, ...actorSeedRows.rows]);
+  const entries = mapAuditRowsToEntries(rows, actorLabels);
+  const actorOptions = Array.from(
+    new Map(
+      actorSeedRows.rows
+        .filter((row) => row.actor_id)
+        .map((row) => {
+          const actorId = row.actor_id as string;
+          return [actorId, { id: actorId, label: actorLabels.get(actorId) ?? actorId }] as const;
+        })
+    ).values()
+  ).sort((a, b) => a.label.localeCompare(b.label));
+
+  return {
+    entries,
+    actorOptions,
+    page,
+    pageSize: AUDIT_PAGE_SIZE,
+    total: count,
+    totalPages: Math.max(1, Math.ceil(count / AUDIT_PAGE_SIZE)),
   };
 }
 

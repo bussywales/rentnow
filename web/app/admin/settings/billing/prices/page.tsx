@@ -9,6 +9,7 @@ import {
   getSubscriptionControlStatusTone,
   getSubscriptionDiagnosticTone,
 } from "@/lib/billing/subscription-price-status-ui";
+import { buildSubscriptionPriceHistoryHref } from "@/lib/billing/subscription-price-history";
 import AdminSubscriptionPricingControlPlane from "@/components/admin/AdminSubscriptionPricingControlPlane";
 
 export const dynamic = "force-dynamic";
@@ -69,6 +70,12 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
+            href="/admin/settings/billing/prices/history"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-300"
+          >
+            Full audit log
+          </Link>
+          <Link
             href="/help/admin/support-playbooks/subscription-pricing"
             className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-300"
           >
@@ -119,7 +126,7 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
         </div>
       </section>
 
-      <AdminSubscriptionPricingControlPlane drafts={drafts} activity={activity} activeEntries={entries} />
+      <AdminSubscriptionPricingControlPlane drafts={drafts} recentActivity={activity} activeEntries={entries} />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <form method="get" action="/admin/settings/billing/prices" className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
@@ -199,12 +206,13 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
                 <th className="px-4 py-3">Updated</th>
                 <th className="px-4 py-3">Runtime checkout</th>
                 <th className="px-4 py-3">Diagnostics</th>
+                <th className="px-4 py-3">History</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {entries.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-8 text-center text-sm text-slate-500">No rows match the current filter set.</td>
+                  <td colSpan={13} className="px-4 py-8 text-center text-sm text-slate-500">No rows match the current filter set.</td>
                 </tr>
               ) : (
                 entries.map((entry) => (
@@ -273,6 +281,18 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
                           </span>
                         )) : <span className="text-xs text-slate-500">—</span>}
                       </div>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <Link
+                        href={buildSubscriptionPriceHistoryHref({
+                          marketCountry: entry.marketCountry,
+                          role: entry.role,
+                          cadence: entry.cadence,
+                        })}
+                        className="text-sm font-medium text-sky-700 hover:text-sky-800"
+                      >
+                        View history
+                      </Link>
                     </td>
                   </tr>
                 ))

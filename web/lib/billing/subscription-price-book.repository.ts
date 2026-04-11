@@ -12,6 +12,18 @@ export const SUBSCRIPTION_PRICE_BOOK_SELECT =
 const SUBSCRIPTION_PRICE_BOOK_AUDIT_SELECT =
   "id,price_book_id,market_country,role,tier,cadence,provider,event_type,actor_id,previous_snapshot,next_snapshot,created_at";
 
+type SubscriptionPriceBookAuditLogQuery = {
+  marketCountry?: string;
+  role?: SubscriptionPriceBookAuditLogRow["role"];
+  cadence?: SubscriptionPriceBookAuditLogRow["cadence"];
+  eventType?: SubscriptionPriceBookAuditLogRow["event_type"];
+  actorId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  limit?: number;
+  offset?: number;
+};
+
 async function createPriceBookClient(): Promise<SupabaseClient | null> {
   if (hasServiceRoleEnv()) return createServiceRoleClient();
   if (hasServerSupabaseEnv()) return createServerSupabaseClient();
@@ -53,14 +65,42 @@ export async function loadSubscriptionPriceBookRowsByProviderPriceRef(
 }
 
 export async function loadSubscriptionPriceBookAuditLog(limit = 24) {
+  const result = await loadSubscriptionPriceBookAuditLogPage({ limit });
+  return result.rows;
+}
+
+export async function loadSubscriptionPriceBookAuditLogPage(input: SubscriptionPriceBookAuditLogQuery = {}) {
   const client = await createPriceBookClient();
-  if (!client) return [] as SubscriptionPriceBookAuditLogRow[];
+  if (!client) {
+    return {
+      rows: [] as SubscriptionPriceBookAuditLogRow[],
+      count: 0,
+    };
+  }
 
-  const { data } = await client
+  let query = client
     .from("subscription_price_book_audit_log")
-    .select(SUBSCRIPTION_PRICE_BOOK_AUDIT_SELECT)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .select(SUBSCRIPTION_PRICE_BOOK_AUDIT_SELECT, { count: "exact" })
+    .order("created_at", { ascending: false });
 
-  return ((data ?? []) as SubscriptionPriceBookAuditLogRow[]).filter(Boolean);
+  if (input.marketCountry) query = query.eq("market_country", input.marketCountry);
+  if (input.role) query = query.eq("role", input.role);
+  if (input.cadence) query = query.eq("cadence", input.cadence);
+  if (input.eventType) query = query.eq("event_type", input.eventType);
+  if (input.actorId) query = query.eq("actor_id", input.actorId);
+  if (input.dateFrom) query = query.gte("created_at", `${input.dateFrom}T00:00:00.000Z`);
+  if (input.dateTo) query = query.lte("created_at", `${input.dateTo}T23:59:59.999Z`);
+
+  if (typeof input.offset === "number" && typeof input.limit === "number") {
+    query = query.range(input.offset, input.offset + input.limit - 1);
+  } else if (typeof input.limit === "number") {
+    query = query.limit(input.limit);
+  }
+
+  const { data, count } = await query;
+
+  return {
+    rows: ((data ?? []) as SubscriptionPriceBookAuditLogRow[]).filter(Boolean),
+    count: count ?? 0,
+  };
 }

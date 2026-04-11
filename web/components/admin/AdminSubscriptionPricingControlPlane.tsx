@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
@@ -9,6 +10,10 @@ import type {
   AdminSubscriptionPriceDraftView,
 } from "@/lib/billing/subscription-price-control-plane.server";
 import type { SubscriptionPriceMatrixEntry } from "@/lib/billing/subscription-price-book";
+import {
+  buildSubscriptionPriceHistoryHref,
+  formatSubscriptionPriceAuditEventLabel,
+} from "@/lib/billing/subscription-price-history";
 
 const MARKET_OPTIONS = [
   { country: "GB", currency: "GBP", label: "United Kingdom (GB£)" },
@@ -55,11 +60,11 @@ function toneClasses(status: AdminSubscriptionPriceDraftView["status"]) {
 
 type Props = {
   drafts: AdminSubscriptionPriceDraftView[];
-  activity: AdminSubscriptionPriceAuditEntry[];
+  recentActivity: AdminSubscriptionPriceAuditEntry[];
   activeEntries: SubscriptionPriceMatrixEntry[];
 };
 
-export default function AdminSubscriptionPricingControlPlane({ drafts, activity, activeEntries }: Props) {
+export default function AdminSubscriptionPricingControlPlane({ drafts, recentActivity, activeEntries }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
@@ -239,6 +244,18 @@ export default function AdminSubscriptionPricingControlPlane({ drafts, activity,
                       </span>
                     </div>
                     {draft.statusDetail ? <p className="mt-2 text-xs text-slate-600">{draft.statusDetail}</p> : null}
+                    <div className="mt-2">
+                      <Link
+                        href={buildSubscriptionPriceHistoryHref({
+                          marketCountry: draft.marketCountry,
+                          role: draft.role,
+                          cadence: draft.cadence,
+                        })}
+                        className="text-xs font-medium text-sky-700 hover:text-sky-800"
+                      >
+                        View row history
+                      </Link>
+                    </div>
                   </button>
                 ))
               )}
@@ -303,6 +320,18 @@ export default function AdminSubscriptionPricingControlPlane({ drafts, activity,
                   Provider {activeEntry.canonicalProvider || "—"}
                   {activeEntry.canonicalProviderRef ? ` · ${activeEntry.canonicalProviderRef}` : " · Missing ref"}
                 </p>
+                <div className="mt-2">
+                  <Link
+                    href={buildSubscriptionPriceHistoryHref({
+                      marketCountry: activeEntry.marketCountry,
+                      role: activeEntry.role,
+                      cadence: activeEntry.cadence,
+                    })}
+                    className="text-xs font-medium text-sky-700 hover:text-sky-800"
+                  >
+                    View row history
+                  </Link>
+                </div>
               </div>
             ) : null}
 
@@ -349,21 +378,31 @@ export default function AdminSubscriptionPricingControlPlane({ drafts, activity,
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-sm font-semibold text-slate-900">Recent pricing activity</p>
-        <p className="mt-1 text-xs text-slate-600">
-          Shows what changed, when, who changed it, and the before/after canonical values.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Recent pricing activity</p>
+            <p className="mt-1 text-xs text-slate-600">
+              Latest 8 audit events only. Use the full audit page for complete history and row-level lineage.
+            </p>
+          </div>
+          <Link
+            href="/admin/settings/billing/prices/history"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-300"
+          >
+            View full audit log
+          </Link>
+        </div>
         <div className="mt-4 space-y-3">
-          {activity.length === 0 ? (
+          {recentActivity.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-500">
               No pricing activity recorded yet.
             </div>
           ) : (
-            activity.map((item) => (
+            recentActivity.map((item) => (
               <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-semibold text-slate-900">
-                    {item.marketCountry} · {item.roleLabel} · {item.cadence} · {item.eventType.replaceAll("_", " ")}
+                    {item.marketCountry} · {item.roleLabel} · {item.cadence} · {item.eventLabel}
                   </p>
                   <p className="text-xs text-slate-500">{formatDateTime(item.createdAt)}</p>
                 </div>
@@ -375,6 +414,19 @@ export default function AdminSubscriptionPricingControlPlane({ drafts, activity,
                   {" → "}
                   {item.nextDisplayPrice ? `Next: ${item.nextDisplayPrice}` : "Next: —"}
                 </p>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <span className="text-slate-500">{formatSubscriptionPriceAuditEventLabel(item.eventType)}</span>
+                  <Link
+                    href={buildSubscriptionPriceHistoryHref({
+                      marketCountry: item.marketCountry,
+                      role: item.role,
+                      cadence: item.cadence,
+                    })}
+                    className="font-medium text-sky-700 hover:text-sky-800"
+                  >
+                    View row history
+                  </Link>
+                </div>
               </div>
             ))
           )}
