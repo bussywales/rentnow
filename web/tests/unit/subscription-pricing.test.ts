@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  describeSubscriptionMarketCharge,
   resolveSubscriptionPlanQuote,
   resolveYearlySavingsLabel,
 } from "../../lib/billing/subscription-pricing";
@@ -72,6 +73,34 @@ void test("exact local-provider pricing beats Stripe fallback for the wrong curr
   assert.equal(quote.currency, "NGN");
   assert.equal(quote.marketAligned, true);
   assert.equal(quote.fallbackApplied, false);
+});
+
+void test("provider-backed ready pricing surfaces an explicit local-provider disclosure", () => {
+  const disclosure = describeSubscriptionMarketCharge({
+    status: "ready",
+    source: "legacy",
+    provider: "paystack",
+    providerMode: "test",
+    currency: "NGN",
+    amountMinor: 290000,
+    displayPrice: "₦2,900.00",
+    cadence: "monthly",
+    marketCountry: "NG",
+    marketCurrency: "NGN",
+    marketLabel: "Nigeria (₦)",
+    marketAligned: true,
+    fallbackApplied: false,
+    fallbackMessage: null,
+    unavailableReason: null,
+    resolutionKey: "PAYSTACK_LANDLORD_MONTHLY_NGN",
+    priceId: null,
+  });
+
+  assert.ok(disclosure);
+  assert.equal(disclosure?.tone, "info");
+  assert.match(disclosure?.title || "", /uses Paystack/i);
+  assert.match(disclosure?.body || "", /test mode/i);
+  assert.match(disclosure?.body || "", /Stripe billing management does not apply/i);
 });
 
 void test("subscription pricing surfaces explicit unavailable state when no safe market price exists", async () => {

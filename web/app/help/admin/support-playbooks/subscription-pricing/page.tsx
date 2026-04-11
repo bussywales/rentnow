@@ -44,6 +44,9 @@ export default function SubscriptionPricingPlaybookPage() {
             "Verify the result in three places: the active matrix row, the role billing page, and Stripe itself.",
           ]}
         />
+        <HelpCallout variant="info" title="Non-Stripe markets use a different execution path">
+          Nigeria and any other provider-backed market still use the canonical price book as pricing truth, but checkout is executed by the local provider instead of by a Stripe recurring price ref. For those rows, Provider-backed runtime is healthy and Provider-managed in the ref column is expected.
+        </HelpCallout>
       </section>
 
       <section className="space-y-4">
@@ -96,6 +99,8 @@ export default function SubscriptionPricingPlaybookPage() {
 
             Canonical runtime means checkout is using the canonical row as intended.
 
+            Provider-backed runtime means the canonical amount is live and checkout is intentionally being executed by Paystack or Flutterwave for that market.
+
             Superseded row history means you are looking at traceable history, not an active problem.
           </HelpCopyBlock>
           <HelpCopyBlock title="In progress / operator action may still be needed">
@@ -105,6 +110,8 @@ export default function SubscriptionPricingPlaybookPage() {
           </HelpCopyBlock>
           <HelpCopyBlock title="Warning / fix needed">
             Cross-currency canonical means the canonical row is present but currency alignment is not clean.
+
+            Provider fallback in use means runtime found a different local payment provider than the canonical row expected.
 
             Checkout mismatch means runtime checkout truth does not match the canonical row.
 
@@ -128,6 +135,17 @@ export default function SubscriptionPricingPlaybookPage() {
           Never reuse a stale Stripe price after the amount, currency, or cadence changes. Save the draft again and create a fresh Stripe price that matches the new canonical terms.
 
           Always confirm live or test mode first. A correct draft in the wrong mode is still an operational mistake.
+        </HelpCopyBlock>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-slate-900">When missing canonical rows are a real problem</h2>
+        <HelpCopyBlock title="Treat the matrix according to the execution model">
+          A missing canonical row is a real problem when the market is supposed to sell from canonical subscription truth and runtime checkout cannot explain the row cleanly.
+
+          A non-Stripe market is not broken just because there is no Stripe recurring price ref. If the matrix shows Provider-backed runtime with the correct amount, currency, and local provider, the row is intentionally sellable through that provider path.
+
+          Treat fallback runtime as a warning. It means checkout found a workable path, but operators should still confirm whether that fallback is expected for the market.
         </HelpCopyBlock>
       </section>
 

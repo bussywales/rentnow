@@ -293,3 +293,132 @@ void test("subscription price matrix marks linked corrected UK rows as canonical
   assert.match(entry.diagnostics.join(" | "), /Canonical runtime/);
   assert.doesNotMatch(entry.diagnostics.join(" | "), /Missing provider ref/);
 });
+
+void test("subscription price matrix marks NG paystack rows as provider-backed runtime without requiring a Stripe ref", () => {
+  const [entry] = buildSubscriptionPriceMatrixEntries({
+    canonicalRows: [
+      {
+        id: "ng-landlord-monthly",
+        product_area: "subscriptions",
+        role: "landlord",
+        tier: "pro",
+        cadence: "monthly",
+        market_country: "NG",
+        currency: "NGN",
+        amount_minor: 290000,
+        provider: "paystack",
+        provider_price_ref: null,
+        active: true,
+        fallback_eligible: false,
+        effective_at: "2026-03-30T00:00:00Z",
+        ends_at: null,
+        display_order: 50,
+        badge: null,
+        operator_notes: "Nigeria provider-backed pricing.",
+        created_at: "2026-03-30T00:00:00Z",
+        updated_at: "2026-03-30T00:00:00Z",
+        updated_by: null,
+      },
+    ],
+    runtimeQuotes: [
+      {
+        marketCountry: "NG",
+        marketCurrency: "NGN",
+        role: "landlord",
+        tier: "pro",
+        cadence: "monthly",
+        quote: {
+          status: "ready",
+          source: "legacy",
+          provider: "paystack",
+          providerMode: "test",
+          currency: "NGN",
+          amountMinor: 290000,
+          displayPrice: "₦2,900.00",
+          cadence: "monthly",
+          marketCountry: "NG",
+          marketCurrency: "NGN",
+          marketLabel: "Nigeria (₦)",
+          marketAligned: true,
+          fallbackApplied: false,
+          fallbackMessage: null,
+          unavailableReason: null,
+          resolutionKey: "PAYSTACK_LANDLORD_MONTHLY_NGN",
+          priceId: null,
+        },
+      },
+    ],
+  });
+
+  assert.equal(entry.checkoutMatchesCanonical, true);
+  assert.equal(entry.missingProviderRef, false);
+  assert.equal(entry.canonicalProviderRefRequired, false);
+  assert.equal(entry.providerBackedRuntime, true);
+  assert.equal(entry.providerFallbackInUse, false);
+  assert.equal(entry.controlStatus, "active");
+  assert.match(entry.diagnostics.join(" | "), /Provider-backed runtime/);
+  assert.doesNotMatch(entry.diagnostics.join(" | "), /Missing provider ref/);
+});
+
+void test("subscription price matrix flags non-Stripe provider fallback when runtime switches provider", () => {
+  const [entry] = buildSubscriptionPriceMatrixEntries({
+    canonicalRows: [
+      {
+        id: "ng-agent-yearly",
+        product_area: "subscriptions",
+        role: "agent",
+        tier: "pro",
+        cadence: "yearly",
+        market_country: "NG",
+        currency: "NGN",
+        amount_minor: 4900000,
+        provider: "paystack",
+        provider_price_ref: null,
+        active: true,
+        fallback_eligible: false,
+        effective_at: "2026-03-30T00:00:00Z",
+        ends_at: null,
+        display_order: 60,
+        badge: null,
+        operator_notes: "Nigeria provider-backed pricing.",
+        created_at: "2026-03-30T00:00:00Z",
+        updated_at: "2026-03-30T00:00:00Z",
+        updated_by: null,
+      },
+    ],
+    runtimeQuotes: [
+      {
+        marketCountry: "NG",
+        marketCurrency: "NGN",
+        role: "agent",
+        tier: "pro",
+        cadence: "yearly",
+        quote: {
+          status: "ready",
+          source: "legacy",
+          provider: "flutterwave",
+          providerMode: "test",
+          currency: "NGN",
+          amountMinor: 4900000,
+          displayPrice: "₦49,000.00",
+          cadence: "yearly",
+          marketCountry: "NG",
+          marketCurrency: "NGN",
+          marketLabel: "Nigeria (₦)",
+          marketAligned: true,
+          fallbackApplied: false,
+          fallbackMessage: null,
+          unavailableReason: null,
+          resolutionKey: "FLUTTERWAVE_AGENT_YEARLY_NGN",
+          priceId: null,
+        },
+      },
+    ],
+  });
+
+  assert.equal(entry.checkoutMatchesCanonical, false);
+  assert.equal(entry.providerBackedRuntime, false);
+  assert.equal(entry.providerFallbackInUse, true);
+  assert.match(entry.diagnostics.join(" | "), /Provider fallback in use/);
+  assert.match(entry.diagnostics.join(" | "), /Checkout mismatch/);
+});

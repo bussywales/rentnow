@@ -13,6 +13,7 @@ void test("subscription pricing sop explains the safe operating flow in plain En
   assert.ok(html.includes("Operator status legend"));
   assert.ok(html.includes("Healthy / good"));
   assert.ok(html.includes("Canonical runtime"));
+  assert.ok(html.includes("Provider-backed runtime"));
   assert.ok(html.includes("Superseded row history"));
   assert.ok(html.includes("Cross-currency canonical"));
   assert.ok(html.includes("Runtime unavailable"));
@@ -23,6 +24,8 @@ void test("subscription pricing sop explains the safe operating flow in plain En
   assert.ok(html.includes("Never reuse a stale Stripe price"));
   assert.ok(html.includes("When to stop and escalate"));
   assert.ok(html.includes("How to use activity and history"));
+  assert.ok(html.includes("When missing canonical rows are a real problem"));
+  assert.ok(html.includes("If the matrix shows Provider-backed runtime"));
   assert.ok(html.includes("Recent pricing activity on the main control-plane page is only a compact summary"));
   assert.ok(html.includes("Subscription pricing audit log"));
   assert.ok(html.includes("Row history is the filtered lane view"));

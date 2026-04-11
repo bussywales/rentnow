@@ -43,6 +43,7 @@ export function getSubscriptionDiagnosticTone(label: string): SubscriptionPriceS
 
   if (
     label === "Canonical runtime" ||
+    label === "Provider-backed runtime" ||
     label === "Superseded row history" ||
     label === "Pending publish"
   ) {
@@ -55,7 +56,8 @@ export function getSubscriptionDiagnosticTone(label: string): SubscriptionPriceS
   if (
     label === "Missing Stripe ref" ||
     label === "Missing provider ref" ||
-    label === "Cross-currency canonical"
+    label === "Cross-currency canonical" ||
+    label === "Provider fallback in use"
   ) {
     return {
       className: "border border-amber-200 bg-amber-50 text-amber-700",

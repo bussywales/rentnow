@@ -27,11 +27,17 @@ void test("pricing diagnostic tones no longer treat informational states like wa
   assert.match(getSubscriptionDiagnosticTone("Canonical runtime").className, /sky/i);
   assert.equal(getSubscriptionDiagnosticTone("Canonical runtime").categoryLabel, "Info");
 
+  assert.match(getSubscriptionDiagnosticTone("Provider-backed runtime").className, /sky/i);
+  assert.equal(getSubscriptionDiagnosticTone("Provider-backed runtime").categoryLabel, "Info");
+
   assert.match(getSubscriptionDiagnosticTone("Superseded row history").className, /sky/i);
   assert.equal(getSubscriptionDiagnosticTone("Superseded row history").categoryLabel, "Info");
 
   assert.match(getSubscriptionDiagnosticTone("Cross-currency canonical").className, /amber/i);
   assert.equal(getSubscriptionDiagnosticTone("Cross-currency canonical").categoryLabel, "Warning");
+
+  assert.match(getSubscriptionDiagnosticTone("Provider fallback in use").className, /amber/i);
+  assert.equal(getSubscriptionDiagnosticTone("Provider fallback in use").categoryLabel, "Warning");
 
   assert.match(getSubscriptionDiagnosticTone("Checkout mismatch").className, /rose/i);
   assert.equal(getSubscriptionDiagnosticTone("Checkout mismatch").categoryLabel, "Blocking");

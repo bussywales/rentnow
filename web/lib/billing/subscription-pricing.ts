@@ -386,7 +386,18 @@ export function resolveYearlySavingsLabel(pricing: SubscriptionPlanPricingSet) {
 }
 
 export function describeSubscriptionMarketCharge(pricing: SubscriptionPlanPricingView | null) {
-  if (!pricing || pricing.status !== "ready" || pricing.marketAligned) return null;
+  if (!pricing || pricing.status !== "ready") return null;
+  if (pricing.provider && pricing.provider !== "stripe" && pricing.marketAligned) {
+    const providerLabel =
+      pricing.provider === "paystack" ? "Paystack" : pricing.provider === "flutterwave" ? "Flutterwave" : "local provider";
+    const modeLabel = pricing.providerMode === "live" ? "live" : "test";
+    return {
+      tone: "info" as const,
+      title: `${pricing.marketLabel} subscription checkout uses ${providerLabel}.`,
+      body: `${providerLabel} is the execution layer for this market's local-currency subscription checkout in ${modeLabel} mode. Stripe billing management does not apply to this plan path.`,
+    };
+  }
+  if (pricing.marketAligned) return null;
   if (pricing.source !== "canonical") {
     return {
       tone: "warning" as const,

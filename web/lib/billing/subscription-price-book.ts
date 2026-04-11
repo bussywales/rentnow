@@ -84,6 +84,7 @@ export type SubscriptionPriceMatrixEntry = {
   canonicalDisplayPrice: string | null;
   canonicalProvider: SubscriptionPriceBookProvider | null;
   canonicalProviderRef: string | null;
+  canonicalProviderRefRequired: boolean;
   canonicalActive: boolean;
   canonicalFallbackEligible: boolean;
   canonicalEffectiveAt: string | null;
@@ -95,6 +96,8 @@ export type SubscriptionPriceMatrixEntry = {
   missingProviderRef: boolean;
   marketGap: boolean;
   runtimeFallback: boolean;
+  providerBackedRuntime: boolean;
+  providerFallbackInUse: boolean;
   supersededByNewerRow: boolean;
   diagnostics: string[];
   canonicalWorkflowState: SubscriptionPriceWorkflowState;
@@ -228,10 +231,24 @@ export function buildSubscriptionPriceMatrixEntries(input: {
     });
     const marketGap = !canonicalRow;
     const missingProviderRef = !!canonicalRow && canonicalRow.provider === "stripe" && !canonicalRow.provider_price_ref;
+    const canonicalProviderRefRequired = canonicalRow?.provider === "stripe";
     const localCurrencyStripePending = Boolean(
       canonicalRow &&
         canonicalRow.provider === "stripe" &&
         canonicalRow.currency !== runtime.marketCurrency
+    );
+    const providerBackedRuntime = Boolean(
+      canonicalRow &&
+        canonicalRow.provider !== "stripe" &&
+        runtime.quote.status === "ready" &&
+        runtime.quote.provider === canonicalRow.provider
+    );
+    const providerFallbackInUse = Boolean(
+      canonicalRow &&
+        canonicalRow.provider !== "stripe" &&
+        runtime.quote.status === "ready" &&
+        runtime.quote.provider &&
+        runtime.quote.provider !== canonicalRow.provider
     );
 
     const checkoutMatchesCanonical = Boolean(
@@ -245,6 +262,8 @@ export function buildSubscriptionPriceMatrixEntries(input: {
     const diagnostics: string[] = [];
     if (marketGap) diagnostics.push("Market gap");
     if (localCurrencyStripePending) diagnostics.push("Local-currency Stripe pending");
+    if (providerBackedRuntime) diagnostics.push("Provider-backed runtime");
+    if (providerFallbackInUse) diagnostics.push("Provider fallback in use");
     if (runtime.quote.source === "canonical") diagnostics.push("Canonical runtime");
     if (canonicalRow && runtime.quote.source === "canonical" && !runtime.quote.marketAligned) {
       diagnostics.push("Cross-currency canonical");
@@ -281,6 +300,7 @@ export function buildSubscriptionPriceMatrixEntries(input: {
       canonicalDisplayPrice: formatCanonicalPrice(canonicalRow),
       canonicalProvider: canonicalRow?.provider || null,
       canonicalProviderRef: canonicalRow?.provider_price_ref || null,
+      canonicalProviderRefRequired,
       canonicalActive: canonicalRow?.active || false,
       canonicalFallbackEligible: canonicalRow?.fallback_eligible || false,
       canonicalEffectiveAt: canonicalRow?.effective_at || null,
@@ -292,6 +312,8 @@ export function buildSubscriptionPriceMatrixEntries(input: {
       missingProviderRef,
       marketGap,
       runtimeFallback: runtime.quote.fallbackApplied,
+      providerBackedRuntime,
+      providerFallbackInUse,
       supersededByNewerRow,
       diagnostics,
       canonicalWorkflowState,

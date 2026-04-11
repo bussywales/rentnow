@@ -39,6 +39,15 @@ function fallbackLabel(enabled: boolean) {
   return enabled ? "Yes" : "No";
 }
 
+function formatRuntimeSourceLabel(entry: Awaited<ReturnType<typeof loadAdminSubscriptionPricingControlPlane>>["entries"][number]) {
+  if (entry.runtimeQuote.status !== "ready") return "unavailable";
+  if (entry.runtimeSource === "canonical") return "canonical subscription";
+  if (entry.providerBackedRuntime) return "provider-backed runtime";
+  if (entry.providerFallbackInUse) return "provider fallback";
+  if (entry.runtimeFallback) return "fallback runtime";
+  return "provider runtime";
+}
+
 export default async function AdminBillingPricesPage({ searchParams }: Props) {
   if (!hasServerSupabaseEnv()) {
     return <div className="p-6 text-sm text-slate-600">Supabase is not configured.</div>;
@@ -90,10 +99,11 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-8">
+      <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-9">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-slate-500">Canonical rows</p><p className="mt-2 text-2xl font-semibold text-slate-900">{summary.canonicalRows}</p></div>
         <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-sky-700">Draft rows</p><p className="mt-2 text-2xl font-semibold text-sky-900">{summary.draftRows}</p></div>
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-emerald-700">Publish-ready drafts</p><p className="mt-2 text-2xl font-semibold text-emerald-900">{summary.publishReadyDrafts}</p></div>
+        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-sky-700">Provider-backed runtime</p><p className="mt-2 text-2xl font-semibold text-sky-900">{summary.providerBackedRuntimes}</p></div>
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-amber-700">Market gaps</p><p className="mt-2 text-2xl font-semibold text-amber-900">{summary.marketGaps}</p></div>
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-amber-700">Runtime fallbacks</p><p className="mt-2 text-2xl font-semibold text-amber-900">{summary.runtimeFallbacks}</p></div>
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-rose-700">Missing provider refs</p><p className="mt-2 text-2xl font-semibold text-rose-900">{summary.missingProviderRefs}</p></div>
@@ -107,6 +117,9 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
             <p className="text-sm font-semibold text-slate-900">Canonical pricing operating model</p>
             <p className="mt-1 text-sm text-slate-700">
               Publish creates a new canonical active row. It does not edit a live Stripe amount in place. Old live rows remain as history, draft rows stay isolated until they are complete, and a Stripe-backed publish only succeeds when the linked recurring price matches the canonical amount, currency, and cadence.
+            </p>
+            <p className="mt-2 text-sm text-slate-700">
+              Non-Stripe markets can still be healthy. When a row is marked as provider-backed runtime, the canonical amount is intentional and checkout is executed by Paystack or Flutterwave rather than by a Stripe recurring price ref.
             </p>
           </div>
           <Link
@@ -239,7 +252,17 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
                     </td>
                     <td className="px-4 py-3 align-top text-slate-700">{entry.canonicalProvider || "—"}</td>
                     <td className="px-4 py-3 align-top text-slate-700">
-                      {entry.canonicalProviderRef ? <code className="text-xs text-slate-700">{entry.canonicalProviderRef}</code> : <span className="text-rose-700">Missing ref</span>}
+                      {entry.canonicalProviderRef ? (
+                        <code className="text-xs text-slate-700">{entry.canonicalProviderRef}</code>
+                      ) : entry.canonicalRow ? (
+                        entry.canonicalProviderRefRequired ? (
+                          <span className="text-rose-700">Missing ref</span>
+                        ) : (
+                          <span className="text-sky-700">Provider-managed</span>
+                        )
+                      ) : (
+                        <span className="text-slate-500">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 align-top text-slate-700">
                       <span
@@ -257,7 +280,7 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
                     </td>
                     <td className="px-4 py-3 align-top text-slate-700">
                       <div className="font-semibold text-slate-900">{entry.runtimeQuote.displayPrice}</div>
-                      <div className="text-xs text-slate-500">{entry.runtimeQuote.provider || "Unavailable"} · {entry.runtimeSource}</div>
+                      <div className="text-xs text-slate-500">{entry.runtimeQuote.provider || "Unavailable"} · {formatRuntimeSourceLabel(entry)}</div>
                       {entry.runtimeQuote.resolutionKey ? <div className="mt-1 text-[11px] text-slate-500">{entry.runtimeQuote.resolutionKey}</div> : null}
                       {entry.runtimeQuote.priceId ? <div className="mt-1 text-[11px] text-slate-500">{entry.runtimeQuote.priceId}</div> : null}
                     </td>

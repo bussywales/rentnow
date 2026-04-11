@@ -57,7 +57,11 @@ void test("billing page surfaces subscription lifecycle state and Stripe portal 
 void test("billing UI keeps local-currency pending copy explicit when a market is intentionally gated", () => {
   const gridSource = read("components/billing/PlansGrid.tsx");
   const cardSource = read("components/billing/PlanCard.tsx");
+  const pricingSource = read("lib/billing/subscription-pricing.ts");
 
   assert.match(gridSource, /Local-currency subscription checkout is not available in this market yet\./);
   assert.match(cardSource, /Local pricing pending/);
+  assert.match(pricingSource, /pricing\.provider === "paystack"/);
+  assert.match(pricingSource, /pricing\.provider === "flutterwave"/);
+  assert.match(pricingSource, /Stripe billing management does not apply to this plan path/);
 });
