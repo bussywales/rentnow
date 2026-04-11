@@ -64,6 +64,52 @@ function resolveLifecycleToneClasses(tone: "neutral" | "positive" | "warning" | 
   return "bg-slate-100 text-slate-600";
 }
 
+function resolveBillingModePresentation(input: {
+  normalizedRole: string;
+  pricingByPlanKey: Record<string, SubscriptionPlanPricingSet>;
+  providerModes: { stripeMode: "test" | "live"; paystackMode: "test" | "live"; flutterwaveMode: "test" | "live" };
+}) {
+  const activePlanKey =
+    input.normalizedRole === "tenant"
+      ? "tenant_pro"
+      : input.normalizedRole === "agent"
+      ? "agent_pro"
+      : "landlord_pro";
+  const activePricing = input.pricingByPlanKey[activePlanKey];
+  const provider = activePricing?.monthly.provider ?? activePricing?.yearly.provider ?? "stripe";
+
+  if (provider === "paystack") {
+    return {
+      providerLabel: "Paystack",
+      mode: input.providerModes.paystackMode,
+      detail:
+        input.providerModes.paystackMode === "live"
+          ? "Paystack live mode enabled for this market."
+          : "Paystack test mode enabled for this market. Real charges are not being made.",
+    } as const;
+  }
+
+  if (provider === "flutterwave") {
+    return {
+      providerLabel: "Flutterwave",
+      mode: input.providerModes.flutterwaveMode,
+      detail:
+        input.providerModes.flutterwaveMode === "live"
+          ? "Flutterwave live mode enabled for this market."
+          : "Flutterwave test mode enabled for this market. Real charges are not being made.",
+    } as const;
+  }
+
+  return {
+    providerLabel: "Stripe",
+    mode: input.providerModes.stripeMode,
+    detail:
+      input.providerModes.stripeMode === "test"
+        ? "Stripe test mode enabled. No real charges will be made."
+        : "Stripe live mode enabled for this market.",
+  } as const;
+}
+
 async function requestUpgrade(formData: FormData) {
   "use server";
   if (!hasServerSupabaseEnv()) return;
@@ -260,6 +306,11 @@ export default async function BillingPage({ searchParams }: { searchParams?: Sea
       })
   );
   const pricingByPlanKey = Object.fromEntries(pricingEntries) as Record<string, SubscriptionPlanPricingSet>;
+  const billingModePresentation = resolveBillingModePresentation({
+    normalizedRole,
+    pricingByPlanKey,
+    providerModes,
+  });
 
   const summaryCopy =
     normalizedRole === "tenant"
@@ -299,12 +350,11 @@ export default async function BillingPage({ searchParams }: { searchParams?: Sea
               {summaryCopy}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-              <PaymentModeBadge mode={providerModes.stripeMode} />
-              <span>
-                {providerModes.stripeMode === "test"
-                  ? "You are in TEST mode. No real charges will be made."
-                  : "LIVE mode enabled."}
-              </span>
+              <PaymentModeBadge
+                mode={billingModePresentation.mode}
+                providerLabel={billingModePresentation.providerLabel}
+              />
+              <span>{billingModePresentation.detail}</span>
             </div>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">

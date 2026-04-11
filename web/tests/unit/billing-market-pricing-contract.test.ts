@@ -54,6 +54,19 @@ void test("billing page surfaces subscription lifecycle state and Stripe portal 
   assert.match(cardSource, /Manage subscription/);
 });
 
+void test("billing page surfaces the active market payment provider mode instead of always advertising Stripe", () => {
+  const source = read("app/dashboard/billing/page.tsx");
+  const badgeSource = read("components/billing/PaymentModeBadge.tsx");
+
+  assert.match(source, /resolveBillingModePresentation/);
+  assert.match(source, /providerLabel: "Paystack"/);
+  assert.match(source, /providerLabel: "Stripe"/);
+  assert.match(source, /providerLabel=\{billingModePresentation\.providerLabel\}/);
+  assert.match(source, /Paystack test mode enabled for this market/);
+  assert.match(badgeSource, /providerLabel\?: string/);
+  assert.match(badgeSource, /providerLabel = "Payments"/);
+});
+
 void test("billing UI keeps local-currency pending copy explicit when a market is intentionally gated", () => {
   const gridSource = read("components/billing/PlansGrid.tsx");
   const cardSource = read("components/billing/PlanCard.tsx");

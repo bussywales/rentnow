@@ -1,9 +1,10 @@
 type Props = {
   mode: "test" | "live";
   className?: string;
+  providerLabel?: string;
 };
 
-export function PaymentModeBadge({ mode, className }: Props) {
+export function PaymentModeBadge({ mode, className, providerLabel = "Payments" }: Props) {
   const isLive = mode === "live";
   const label = isLive ? "LIVE MODE" : "TEST MODE";
   const base =
@@ -13,5 +14,5 @@ export function PaymentModeBadge({ mode, className }: Props) {
     : "bg-amber-100 text-amber-700";
   const combined = [base, tone, className].filter(Boolean).join(" ");
 
-  return <span className={combined}>Payments: {label}</span>;
+  return <span className={combined}>{providerLabel}: {label}</span>;
 }
