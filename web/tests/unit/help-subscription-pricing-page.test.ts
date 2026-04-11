@@ -10,6 +10,12 @@ void test("subscription pricing sop explains the safe operating flow in plain En
   assert.ok(html.includes("Subscription pricing SOP"));
   assert.ok(html.includes("What this page is for"));
   assert.ok(html.includes("Safe subscription price change flow"));
+  assert.ok(html.includes("Operator status legend"));
+  assert.ok(html.includes("Healthy / good"));
+  assert.ok(html.includes("Canonical runtime"));
+  assert.ok(html.includes("Superseded row history"));
+  assert.ok(html.includes("Cross-currency canonical"));
+  assert.ok(html.includes("Runtime unavailable"));
   assert.ok(html.includes("Confirm Stripe mode first"));
   assert.ok(html.includes("Never start in Stripe"));
   assert.ok(html.includes("Missing Stripe ref"));

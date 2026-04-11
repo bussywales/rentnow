@@ -88,6 +88,36 @@ export default function SubscriptionPricingPlaybookPage() {
         </div>
       </section>
 
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-slate-900">Operator status legend</h2>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <HelpCopyBlock title="Healthy / good">
+            Aligned means the live row and checkout truth match cleanly.
+
+            Canonical runtime means checkout is using the canonical row as intended.
+
+            Superseded row history means you are looking at traceable history, not an active problem.
+          </HelpCopyBlock>
+          <HelpCopyBlock title="In progress / operator action may still be needed">
+            Pending publish means the draft is complete enough to go live, but publish has not happened yet.
+
+            Missing ref means the draft still needs a Stripe recurring price ref before it is safe to publish.
+          </HelpCopyBlock>
+          <HelpCopyBlock title="Warning / fix needed">
+            Cross-currency canonical means the canonical row is present but currency alignment is not clean.
+
+            Checkout mismatch means runtime checkout truth does not match the canonical row.
+
+            Misaligned means the draft or live row is linked to a Stripe ref that does not match its canonical terms.
+          </HelpCopyBlock>
+          <HelpCopyBlock title="Blocking / unsafe">
+            Runtime unavailable means checkout cannot safely resolve a usable price.
+
+            Blocked means the row must not be published or relied on until the underlying issue is fixed.
+          </HelpCopyBlock>
+        </div>
+      </section>
+
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-slate-900">Hard rules</h2>
         <HelpCopyBlock title="Important scope note">

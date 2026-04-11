@@ -5,6 +5,10 @@ import { parseAdminSubscriptionPriceMatrixFilters } from "@/lib/billing/subscrip
 import { SUBSCRIPTION_PRICE_BOOK_FILTER_OPTIONS } from "@/lib/billing/subscription-price-book";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { loadAdminSubscriptionPricingControlPlane } from "@/lib/billing/subscription-price-control-plane.server";
+import {
+  getSubscriptionControlStatusTone,
+  getSubscriptionDiagnosticTone,
+} from "@/lib/billing/subscription-price-status-ui";
 import AdminSubscriptionPricingControlPlane from "@/components/admin/AdminSubscriptionPricingControlPlane";
 
 export const dynamic = "force-dynamic";
@@ -32,19 +36,6 @@ function activeLabel(active: boolean) {
 
 function fallbackLabel(enabled: boolean) {
   return enabled ? "Yes" : "No";
-}
-
-function statusTone(status: string) {
-  if (status === "active" || status === "pending_publish") {
-    return "bg-emerald-50 text-emerald-700";
-  }
-  if (status === "missing_stripe_ref" || status === "misaligned") {
-    return "bg-amber-50 text-amber-700";
-  }
-  if (status === "blocked") {
-    return "bg-rose-50 text-rose-700";
-  }
-  return "bg-slate-100 text-slate-600";
 }
 
 export default async function AdminBillingPricesPage({ searchParams }: Props) {
@@ -243,7 +234,10 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
                       {entry.canonicalProviderRef ? <code className="text-xs text-slate-700">{entry.canonicalProviderRef}</code> : <span className="text-rose-700">Missing ref</span>}
                     </td>
                     <td className="px-4 py-3 align-top text-slate-700">
-                      <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${statusTone(entry.controlStatus)}`}>
+                      <span
+                        className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getSubscriptionControlStatusTone(entry.controlStatus).className}`}
+                        aria-label={`${getSubscriptionControlStatusTone(entry.controlStatus).categoryLabel} status: ${entry.controlStatus.replaceAll("_", " ")}`}
+                      >
                         {entry.controlStatus.replaceAll("_", " ")}
                       </span>
                     </td>
@@ -261,9 +255,22 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
                     </td>
                     <td className="px-4 py-3 align-top text-slate-700">
                       <div className="flex flex-wrap gap-2">
-                        {entry.checkoutMatchesCanonical ? <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">Aligned</span> : null}
+                        {entry.checkoutMatchesCanonical ? (
+                          <span
+                            className={`rounded-full px-2 py-1 text-xs font-medium ${getSubscriptionDiagnosticTone("Aligned").className}`}
+                            aria-label="Good status: Aligned"
+                          >
+                            Good · Aligned
+                          </span>
+                        ) : null}
                         {entry.diagnostics.length ? entry.diagnostics.map((diagnostic) => (
-                          <span key={diagnostic} className="rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">{diagnostic}</span>
+                          <span
+                            key={diagnostic}
+                            className={`rounded-full px-2 py-1 text-xs font-medium ${getSubscriptionDiagnosticTone(diagnostic).className}`}
+                            aria-label={`${getSubscriptionDiagnosticTone(diagnostic).categoryLabel} status: ${diagnostic}`}
+                          >
+                            {getSubscriptionDiagnosticTone(diagnostic).categoryLabel} · {diagnostic}
+                          </span>
                         )) : <span className="text-xs text-slate-500">—</span>}
                       </div>
                     </td>
