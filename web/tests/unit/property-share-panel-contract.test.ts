@@ -13,6 +13,9 @@ void test("property share panel exposes qr sign kit actions", () => {
   assert.match(source, /Download sign kit/);
   assert.match(source, /Download QR card/);
   assert.match(source, /Download QR PNG/);
+  assert.match(source, /Sign kit/);
+  assert.match(source, /QR only/);
+  assert.match(source, /Download the selected asset/);
 });
 
 void test("share route gates sign kit generation to live listings", () => {
