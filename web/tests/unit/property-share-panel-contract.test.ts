@@ -3,19 +3,26 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const panelPath = "/Users/olubusayoadewale/rentnow/web/components/properties/PropertySharePanel.tsx";
+const modalPath = "/Users/olubusayoadewale/rentnow/web/components/properties/PropertySignKitModal.tsx";
 const shareRoutePath = "/Users/olubusayoadewale/rentnow/web/app/api/share/property/route.ts";
 const sharePagePath = "/Users/olubusayoadewale/rentnow/web/app/share/property/[token]/page.tsx";
 
-void test("property share panel exposes qr sign kit actions", () => {
+void test("property share panel uses the sidebar as a launcher for the qr sign kit", () => {
   const source = readFileSync(panelPath, "utf8");
+  assert.match(source, /Private share controls/);
   assert.match(source, /Generate QR sign kit/);
-  assert.match(source, /Copy tracked link/);
-  assert.match(source, /Download sign kit/);
-  assert.match(source, /Download QR card/);
-  assert.match(source, /Download QR PNG/);
-  assert.match(source, /Sign kit/);
-  assert.match(source, /QR only/);
+  assert.match(source, /Open QR sign kit/);
+  assert.doesNotMatch(source, /Download the selected asset/);
+});
+
+void test("property sign kit modal owns preview and export controls", () => {
+  const source = readFileSync(modalPath, "utf8");
+  assert.match(source, /property-sign-kit-modal/);
+  assert.match(source, /previewOptions\.map/);
+  assert.match(source, /onPreviewModeChange/);
   assert.match(source, /Download the selected asset/);
+  assert.match(source, /Copy tracked link/);
+  assert.match(source, /Live listing safeguard/);
 });
 
 void test("share route gates sign kit generation to live listings", () => {

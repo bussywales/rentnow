@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
+import { PropertySignKitModal } from "@/components/properties/PropertySignKitModal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { cn } from "@/components/ui/cn";
 import { trackProductEvent } from "@/lib/analytics/product-events.client";
 import { formatPropertyShareExpiry } from "@/lib/sharing/property-share";
 import {
@@ -72,6 +72,7 @@ export function PropertySharePanel({
   currency,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [signKitOpen, setSignKitOpen] = useState(false);
   const [shareId, setShareId] = useState<string | null>(null);
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
@@ -207,6 +208,7 @@ export function PropertySharePanel({
       setExpiresAt(null);
       setQrSvg(null);
       setQrPngUrl(null);
+      setSignKitOpen(false);
     } catch (err) {
       console.warn("Failed to revoke share link", err);
       setError("Unable to revoke share link.");
@@ -220,6 +222,13 @@ export function PropertySharePanel({
     setOpen(next);
     if (next && !shareLink) {
       void loadLink(false, signKitEligible ? "sign_kit" : "general");
+    }
+  };
+
+  const handleOpenSignKit = () => {
+    setSignKitOpen(true);
+    if (!shareLink) {
+      void loadLink(false, "sign_kit");
     }
   };
 
@@ -387,210 +396,33 @@ export function PropertySharePanel({
 
           {signKitEligible ? (
             <section
-              className="overflow-hidden rounded-[32px] border border-slate-200 bg-[linear-gradient(180deg,#f8fbff_0%,#eef5ff_100%)] shadow-[0_20px_50px_rgba(15,23,42,0.08)]"
+              className="rounded-[32px] border border-slate-200 bg-[linear-gradient(180deg,#f8fbff_0%,#eef5ff_100%)] p-4 shadow-[0_20px_50px_rgba(15,23,42,0.08)] sm:p-5"
               data-testid="property-sign-kit-panel"
             >
-              <div className="border-b border-slate-200/80 bg-white/70 px-4 py-4 backdrop-blur sm:px-6 sm:py-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                  <div className="max-w-2xl space-y-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">Listing marketing infrastructure</p>
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-950 sm:text-xl">Generate QR sign kit</h3>
-                      <p className="mt-1 text-sm text-slate-600 sm:text-[15px]">
-                        Share this listing offline with a tracked PropatyHub QR code. Scans land on the live listing while it stays active and fail safely when it does not.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {PREVIEW_OPTIONS.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setPreviewMode(option.value)}
-                        className={cn(
-                          "rounded-full border px-3 py-2 text-xs font-semibold transition sm:text-sm",
-                          previewMode === option.value
-                            ? "border-slate-900 bg-slate-900 text-white shadow-sm"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
-                        )}
-                        aria-pressed={previewMode === option.value}
-                        data-testid={`property-sign-kit-preview-${option.value}`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div className="max-w-xl space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">Listing marketing infrastructure</p>
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-950 sm:text-xl">Generate QR sign kit</h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Open the dedicated sign-kit surface to review the tracked QR, switch formats, and export a printable asset.
+                    </p>
                   </div>
                 </div>
+                <Button
+                  size="md"
+                  type="button"
+                  onClick={handleOpenSignKit}
+                  disabled={loading}
+                  className="w-full sm:w-auto"
+                  data-testid="property-sign-kit-open"
+                >
+                  {loading && !shareLink ? "Preparing…" : "Open QR sign kit"}
+                </Button>
               </div>
-
-              {qrLoading ? (
-                <div className="px-4 py-10 text-sm text-slate-600 sm:px-6">Preparing QR sign kit…</div>
-              ) : trackedShareLink && qrSvg && qrPngUrl ? (
-                <div className="grid gap-6 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1.2fr)_360px] lg:items-start">
-                  <div className="space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">{previewTitle}</p>
-                        <p className="text-xs text-slate-500 sm:text-sm">Choose a format, review the asset, then export the version you need.</p>
-                      </div>
-                      <p className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-[11px] font-medium text-slate-500 sm:text-xs">
-                        {PREVIEW_OPTIONS.find((option) => option.value === previewMode)?.hint}
-                      </p>
-                    </div>
-
-                    <div className="rounded-[28px] border border-white/70 bg-[radial-gradient(circle_at_top,#ffffff_0%,#eff6ff_58%,#e2ecfb_100%)] p-4 shadow-inner sm:p-6">
-                      {previewMode === "sign" ? (
-                        <div className="mx-auto max-w-[760px] rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.14)]">
-                          <div className="rounded-t-[28px] bg-slate-950 px-5 py-5 text-white sm:px-7 sm:py-6">
-                            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-200">PropatyHub</p>
-                            <p className="mt-3 text-2xl font-semibold uppercase tracking-[0.08em] sm:text-4xl">{headline}</p>
-                          </div>
-                          <div className="grid gap-6 p-5 sm:grid-cols-[minmax(0,1fr)_220px] sm:p-7">
-                            <div className="space-y-4">
-                              <div>
-                                <p className="text-xl font-semibold text-slate-950 sm:text-3xl">{safeTitle}</p>
-                                <p className="mt-2 max-w-xl text-sm text-slate-600 sm:text-base">{safeLocation}</p>
-                              </div>
-                              <p className="text-lg font-semibold text-sky-700 sm:text-2xl">{priceLabel}</p>
-                              <p className="text-xs text-slate-500 sm:text-sm">
-                                Scans open the live PropatyHub listing while this property remains active.
-                              </p>
-                            </div>
-                            <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                              <div
-                                className="mx-auto aspect-square max-w-[180px] [&_svg]:h-auto [&_svg]:w-full"
-                                dangerouslySetInnerHTML={{ __html: qrSvg }}
-                              />
-                              <p className="mt-3 text-center text-xs font-semibold text-slate-900 sm:text-sm">Scan to view this listing</p>
-                              <p className="mt-1 text-center text-[11px] text-slate-500">Tracked through a PropatyHub share link</p>
-                            </div>
-                          </div>
-                        </div>
-                      ) : previewMode === "flyer" ? (
-                        <div className="mx-auto max-w-[520px] rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_24px_60px_rgba(15,23,42,0.14)] sm:p-6">
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">{headline}</p>
-                              <p className="mt-2 text-xl font-semibold text-slate-950">{safeTitle}</p>
-                              <p className="mt-2 text-sm text-slate-600">{safeLocation}</p>
-                            </div>
-                            <p className="text-base font-semibold text-sky-700">{priceLabel}</p>
-                          </div>
-                          <div className="mt-5 grid gap-4 sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center">
-                            <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-3 shadow-sm">
-                              <div
-                                className="mx-auto aspect-square max-w-[130px] [&_svg]:h-auto [&_svg]:w-full"
-                                dangerouslySetInnerHTML={{ __html: qrSvg }}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <p className="text-sm font-semibold text-slate-900">Window, counter, or handout format</p>
-                              <p className="text-sm text-slate-600">
-                                Use this compact card when you need a cleaner asset than the full sign sheet.
-                              </p>
-                              <p className="text-xs text-slate-500">The QR remains tied to the tracked PropatyHub listing link.</p>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mx-auto flex max-w-[420px] flex-col items-center rounded-[28px] border border-slate-200 bg-white p-6 text-center shadow-[0_24px_60px_rgba(15,23,42,0.14)] sm:p-8">
-                          <div className="w-full max-w-[220px] rounded-[28px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                            <div
-                              className="mx-auto aspect-square max-w-[180px] [&_svg]:h-auto [&_svg]:w-full"
-                              dangerouslySetInnerHTML={{ __html: qrSvg }}
-                            />
-                          </div>
-                          <p className="mt-5 text-lg font-semibold text-slate-950">Standalone QR asset</p>
-                          <p className="mt-2 text-sm text-slate-600">
-                            Best when you only need the tracked QR image for another print layout.
-                          </p>
-                          <p className="mt-3 text-xs text-slate-500">No raw listing URL. This always routes through the controlled PropatyHub share path.</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <aside className="space-y-4 rounded-[28px] border border-slate-200 bg-white/90 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.08)] backdrop-blur sm:p-5">
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Export</p>
-                        <p className="mt-1 text-base font-semibold text-slate-950">Download the selected asset</p>
-                      </div>
-                      <Button
-                        size="md"
-                        type="button"
-                        onClick={handlePrimaryDownload}
-                        disabled={previewMode !== "qr" && assetBusy !== null}
-                        className="w-full"
-                        data-testid={
-                          previewMode === "sign"
-                            ? "property-sign-kit-download-sign"
-                            : previewMode === "flyer"
-                              ? "property-sign-kit-download-flyer"
-                              : "property-sign-kit-download-qr"
-                        }
-                      >
-                        {primaryDownloadLabel}
-                      </Button>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <Button
-                          size="sm"
-                          type="button"
-                          variant="secondary"
-                          onClick={() => void handleDownloadPdf("sign")}
-                          disabled={assetBusy !== null}
-                        >
-                          {assetBusy === "sign" ? "Preparing…" : "Sign sheet PDF"}
-                        </Button>
-                        <Button
-                          size="sm"
-                          type="button"
-                          variant="secondary"
-                          onClick={() => void handleDownloadPdf("flyer")}
-                          disabled={assetBusy !== null}
-                        >
-                          {assetBusy === "flyer" ? "Preparing…" : "QR card PDF"}
-                        </Button>
-                      </div>
-                      <Button
-                        size="sm"
-                        type="button"
-                        variant="ghost"
-                        onClick={handleDownloadQrPng}
-                        className="w-full justify-start"
-                      >
-                        Download QR PNG
-                      </Button>
-                    </div>
-
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-sm font-semibold text-slate-900">Tracked link</p>
-                      <p className="mt-1 text-xs text-slate-500">Copy the QR-linked PropatyHub URL for WhatsApp, email, or print notes.</p>
-                      <div className="mt-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 break-all">
-                        {trackedShareLink}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={handleCopyTracked}
-                        className="mt-3 w-full"
-                        data-testid="property-sign-kit-copy-link"
-                      >
-                        {trackedCopied ? "Copied" : "Copy tracked link"}
-                      </Button>
-                    </div>
-
-                    <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 text-sm text-slate-600">
-                      <p className="font-medium text-slate-900">Live listing safeguard</p>
-                      <p className="mt-1">
-                        This QR only resolves to the live property page while the listing remains active on PropatyHub.
-                      </p>
-                    </div>
-                  </aside>
-                </div>
-              ) : (
-                <div className="px-4 py-10 text-sm text-slate-600 sm:px-6">Generate a live tracked link to prepare the QR sign kit.</div>
-              )}
+              <div className="mt-4 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 text-sm text-slate-600">
+                This QR only resolves to the live property page while the listing remains active.
+              </div>
             </section>
           ) : (
             <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" data-testid="property-sign-kit-ineligible">
@@ -601,6 +433,31 @@ export function PropertySharePanel({
           {error && <p className="text-xs text-rose-600">{error}</p>}
         </div>
       )}
+
+      <PropertySignKitModal
+        open={signKitOpen}
+        onOpenChange={setSignKitOpen}
+        previewMode={previewMode}
+        onPreviewModeChange={setPreviewMode}
+        previewOptions={PREVIEW_OPTIONS}
+        qrLoading={qrLoading}
+        qrSvg={qrSvg}
+        trackedShareLink={trackedShareLink}
+        trackedCopied={trackedCopied}
+        onCopyTracked={handleCopyTracked}
+        onPrimaryDownload={handlePrimaryDownload}
+        onDownloadSign={() => void handleDownloadPdf("sign")}
+        onDownloadFlyer={() => void handleDownloadPdf("flyer")}
+        onDownloadQr={handleDownloadQrPng}
+        primaryDownloadLabel={primaryDownloadLabel}
+        assetBusy={assetBusy}
+        previewTitle={previewTitle}
+        headline={headline}
+        title={safeTitle}
+        locationLabel={safeLocation}
+        priceLabel={priceLabel}
+        error={error}
+      />
     </div>
   );
 }
