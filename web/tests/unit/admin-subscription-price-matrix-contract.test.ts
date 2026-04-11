@@ -29,6 +29,7 @@ void test("subscription price book migrations and admin surface support draft pr
   assert.match(page, /Canonical pricing operating model/);
   assert.match(page, /Provider-managed/);
   assert.match(page, /provider-backed runtime/);
+  assert.match(page, /Billing sign-off pack/);
   assert.match(page, /Full audit log/);
   assert.match(page, /Subscription pricing SOP/);
   assert.match(page, /How to use this page/);

@@ -79,6 +79,12 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
+            href="/help/admin/support-playbooks/billing-payments-signoff"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-300"
+          >
+            Billing sign-off pack
+          </Link>
+          <Link
             href="/admin/settings/billing/prices/history"
             className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-300"
           >

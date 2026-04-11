@@ -28,6 +28,7 @@ void test("subscription pricing sop explains the safe operating flow in plain En
   assert.ok(html.includes("If the matrix shows Provider-backed runtime"));
   assert.ok(html.includes("Recent pricing activity on the main control-plane page is only a compact summary"));
   assert.ok(html.includes("Subscription pricing audit log"));
+  assert.ok(html.includes("Billing and payments sign-off"));
   assert.ok(html.includes("Row history is the filtered lane view"));
   assert.ok(html.includes("Admin pricing control plane"));
 });

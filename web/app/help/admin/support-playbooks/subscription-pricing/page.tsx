@@ -172,6 +172,7 @@ export default function SubscriptionPricingPlaybookPage() {
       <HelpRelatedLinks
         links={[
           { label: "Admin pricing control plane", href: "/admin/settings/billing/prices" },
+          { label: "Billing and payments sign-off", href: "/help/admin/support-playbooks/billing-payments-signoff" },
           { label: "Subscription pricing audit log", href: "/admin/settings/billing/prices/history" },
           { label: "Billing settings", href: "/admin/settings/billing" },
           { label: "Support playbooks", href: "/help/admin/support-playbooks" },
