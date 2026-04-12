@@ -121,13 +121,13 @@ export async function GET(request: NextRequest) {
     const { data, error } = await searchProperties(
       {
         city: null,
-        minPrice: null,
-        maxPrice: null,
+        minPrice: filters.minPrice,
+        maxPrice: filters.maxPrice,
         currency: null,
         bedrooms: null,
         bedroomsMode: "exact",
         includeSimilarOptions: false,
-        propertyType: null,
+        propertyType: filters.propertyType,
         listingIntent: "rent",
         stay: "shortlet",
         rentalType: null,

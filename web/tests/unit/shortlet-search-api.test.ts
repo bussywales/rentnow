@@ -167,6 +167,16 @@ void test("shortlet search defaults market to NG", () => {
   assert.equal(parsed.marketCountry, "NG");
 });
 
+void test("shortlet search parses hero budget and property type params", () => {
+  const parsed = parseShortletSearchFilters(
+    new URLSearchParams("where=lekki&minPrice=80000&maxPrice=250000&propertyType=condo&guests=3")
+  );
+  assert.equal(parsed.minPrice, 80000);
+  assert.equal(parsed.maxPrice, 250000);
+  assert.equal(parsed.propertyType, "condo");
+  assert.equal(parsed.guests, 3);
+});
+
 void test("shortlet search supports bbox and where params", () => {
   const parsed = parseShortletSearchFilters(
     new URLSearchParams(

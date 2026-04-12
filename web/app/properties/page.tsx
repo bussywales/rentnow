@@ -798,7 +798,9 @@ export default async function PropertiesPage({ searchParams }: Props) {
     !!createdAfter ||
     hasCategoryFilter ||
     hasActiveFilters(filters);
-  const searchSource = savedSearch ? "saved_search" : hasFilters ? "browse_filtered" : "browse";
+  const sourceParam = readParam(resolvedSearchParams, "source")?.trim() || null;
+  const searchSource =
+    sourceParam ?? (savedSearch ? "saved_search" : hasFilters ? "browse_filtered" : "browse");
   const filterCount =
     filterChips.length +
     (featuredOnly ? 1 : 0) +

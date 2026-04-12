@@ -1,10 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { HeroSearchForm } from "@/components/home/HeroSearchForm";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
-import { QuickSearchForm } from "@/components/search/QuickSearchForm";
 import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
 import { HomeListingRail } from "@/components/home/HomeListingRail";
 import { MobileFeaturedDiscoveryStrip } from "@/components/home/MobileFeaturedDiscoveryStrip";
@@ -290,7 +290,7 @@ export default async function Home() {
               Find the right place — faster and with confidence.
             </h1>
             <p className="text-lg text-slate-200">
-              Rent or buy homes across Africa and beyond. Search by city, budget, or simply describe what you need.
+              Switch between renting, buying, and short stays from the start, then jump into the right search flow for your market.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <ButtonLink href="/properties" data-testid="desktop-home-cta-browse">
@@ -324,21 +324,27 @@ export default async function Home() {
               )}
             </div>
           </div>
-          <div className="glass relative rounded-2xl p-5 text-slate-900">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">
-                  Quick search
+          <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/92 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.35)] backdrop-blur md:p-7">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/80 to-transparent" />
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  Hero search
                 </p>
-                <p className="text-lg font-semibold text-slate-900">
-                  Find your next stay
-                </p>
+                <div>
+                  <p className="text-2xl font-semibold text-slate-950">
+                    Search homes the right way
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Start with intent, keep the filters tight, and open the right browse flow immediately.
+                  </p>
+                </div>
               </div>
-              <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">
-                PWA ready
+              <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+                Rent • Buy • Shortlets
               </span>
             </div>
-            <QuickSearchForm />
+            <HeroSearchForm />
           </div>
         </div>
       </section>

@@ -1,5 +1,5 @@
 import { isShortletProperty, resolveShortletBookingMode, resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
-import type { Property } from "@/lib/types";
+import type { ListingType, Property } from "@/lib/types";
 import { orderImagesWithCover } from "@/lib/properties/images";
 import { resolvePropertyImageUrl } from "@/lib/properties/image-url";
 import { calcFees, calcNights, calcSubtotal } from "@/lib/shortlet/pricing";
@@ -42,6 +42,9 @@ export type ShortletSearchFilters = {
   checkIn: string | null;
   checkOut: string | null;
   guests: number;
+  minPrice: number | null;
+  maxPrice: number | null;
+  propertyType: ListingType | null;
   marketCountry: string;
   bounds: ShortletSearchBounds | null;
   sort: ShortletSearchSort;
@@ -143,6 +146,21 @@ const MARKET_DEFAULT_CURRENCIES: Record<string, string[]> = {
   US: ["USD"],
 };
 
+const LISTING_TYPES: ListingType[] = [
+  "apartment",
+  "condo",
+  "house",
+  "duplex",
+  "bungalow",
+  "studio",
+  "room",
+  "student",
+  "hostel",
+  "shop",
+  "office",
+  "land",
+];
+
 const SHORTLET_IMAGE_PLACEHOLDER_PATTERNS = [
   "images.unsplash.com/photo-1505691938895-1758d7feb511",
   "placeholder",
@@ -165,6 +183,19 @@ function parsePositiveInt(value: string | null, fallback: number): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
   return Math.max(1, Math.trunc(parsed));
+}
+
+function parseOptionalPositiveInt(value: string | null): number | null {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.max(1, Math.trunc(parsed));
+}
+
+function parseListingType(value: string | null): ListingType | null {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  return LISTING_TYPES.includes(normalized as ListingType) ? (normalized as ListingType) : null;
 }
 
 function parseSort(value: string | null): ShortletSearchSort {
@@ -320,6 +351,9 @@ export function parseShortletSearchFilters(params: URLSearchParams): ShortletSea
     checkIn: parseDate(params.get("checkIn")),
     checkOut: parseDate(params.get("checkOut")),
     guests: parsePositiveInt(params.get("guests"), 1),
+    minPrice: parseOptionalPositiveInt(params.get("minPrice")),
+    maxPrice: parseOptionalPositiveInt(params.get("maxPrice")),
+    propertyType: parseListingType(params.get("propertyType")),
     marketCountry: parseMarketCountry(params),
     bounds,
     sort: parseSort(params.get("sort")),

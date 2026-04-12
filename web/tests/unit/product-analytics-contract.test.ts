@@ -7,6 +7,7 @@ const propertiesPage = readFileSync('/Users/olubusayoadewale/rentnow/web/app/pro
 const propertyDetailPage = readFileSync('/Users/olubusayoadewale/rentnow/web/app/properties/[id]/page.tsx', 'utf8');
 const billingPage = readFileSync('/Users/olubusayoadewale/rentnow/web/app/dashboard/billing/page.tsx', 'utf8');
 const plansGrid = readFileSync('/Users/olubusayoadewale/rentnow/web/components/billing/PlansGrid.tsx', 'utf8');
+const shortletsSearchShell = readFileSync('/Users/olubusayoadewale/rentnow/web/components/shortlets/search/ShortletsSearchShell.tsx', 'utf8');
 
 test('root layout mounts product analytics bootstrap', () => {
   assert.match(rootLayout, /ProductAnalyticsBootstrap/);
@@ -14,6 +15,10 @@ test('root layout mounts product analytics bootstrap', () => {
 
 test('browse page mounts properties analytics tracker', () => {
   assert.match(propertiesPage, /PropertiesBrowseAnalyticsTracker/);
+});
+
+test('shortlets search reuses product browse analytics tracking', () => {
+  assert.match(shortletsSearchShell, /PropertiesBrowseAnalyticsTracker/);
 });
 
 test('property detail page tracks listing view', () => {

@@ -12,6 +12,7 @@ import { Select } from "@/components/ui/Select";
 import { Calendar } from "@/components/ui/calendar";
 import { FilterChipRow } from "@/components/filters/FilterChipRow";
 import { FilterDrawerShell } from "@/components/filters/FilterDrawerShell";
+import { PropertiesBrowseAnalyticsTracker } from "@/components/analytics/PropertiesBrowseAnalyticsTracker";
 import {
   createApplyAndCloseAction,
   createClearApplyAndCloseAction,
@@ -1588,12 +1589,45 @@ export function ShortletsSearchShell({
       ? "Prices vary by listing."
       : `Prices shown in ${marketCurrency}. Market affects currency display, not where you can search.`;
   const showExploreMapHint = !isBboxApplied && !activeDestination;
+  const sourceParam = stableSearchParams.get("source")?.trim() || null;
+  const propertyTypeParam = stableSearchParams.get("propertyType")?.trim() || null;
+  const heroDrivenFilterCount =
+    Number(Boolean(parsedUi.where.trim())) +
+    Number(Boolean(hasDateSelection)) +
+    Number(normalizeShortletGuestsParam(parsedUi.guests) > 1) +
+    Number(Boolean(propertyTypeParam)) +
+    Number(Boolean(stableSearchParams.get("minPrice"))) +
+    Number(Boolean(stableSearchParams.get("maxPrice")));
+  const searchFilterCount = appliedFilterCount + activeDrawerToggleCount + heroDrivenFilterCount;
+  const searchKey = useMemo(() => {
+    const next = new URLSearchParams(stableSearchParams.toString());
+    next.delete("page");
+    return next.toString() || "shortlets";
+  }, [stableSearchParams]);
+  const shouldTrackSearch =
+    Boolean(sourceParam) || heroDrivenFilterCount > 0 || appliedFilterCount > 0 || activeDrawerToggleCount > 0;
+  const searchSource =
+    sourceParam ?? (shouldTrackSearch ? "browse_filtered" : "browse");
 
   return (
     <div
       className="mx-auto flex w-full max-w-[1200px] min-w-0 flex-col gap-4 overflow-x-hidden px-4 py-4 lg:overflow-x-visible"
       data-testid="shortlets-search-shell"
     >
+      <PropertiesBrowseAnalyticsTracker
+        searchKey={searchKey}
+        shouldTrackSearch={shouldTrackSearch}
+        shouldTrackFilters={searchFilterCount > 0}
+        market={parsedUi.market}
+        role={null}
+        intent="shortlet"
+        city={activeDestination || null}
+        area={null}
+        propertyType={propertyTypeParam}
+        resultsCount={filteredTotal}
+        filterCount={searchFilterCount}
+        searchSource={searchSource}
+      />
       <div
         aria-hidden={mobileMapOpen}
         inert={mobileMapOpen ? true : undefined}
