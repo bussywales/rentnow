@@ -206,7 +206,7 @@ export default async function Home() {
   ];
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4">
+    <div className="mx-auto flex max-w-[1280px] flex-col gap-12 px-4 pb-8 lg:gap-14 xl:px-6">
       <MobileQuickStartBar
         showExploreChip={exploreEnabled}
         requestAction={requestQuickStartEntry}
@@ -279,119 +279,126 @@ export default async function Home() {
         </HomeCollapsibleSection>
       </section>
 
-      <section className="relative hidden overflow-hidden rounded-3xl bg-slate-900 px-6 py-12 text-white shadow-xl md:block">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(14,165,233,0.3),transparent_35%),radial-gradient(circle_at_80%_0,rgba(56,189,248,0.25),transparent_25%)]" />
-        <div className="relative grid items-center gap-8 md:grid-cols-2">
-          <div className="space-y-4">
-            <p className="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100">
+      <section
+        className="relative hidden overflow-hidden rounded-[2rem] bg-slate-950 px-6 py-10 text-white shadow-[0_32px_90px_rgba(15,23,42,0.22)] md:block xl:px-10 xl:py-12"
+        data-testid="desktop-home-hero"
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_18%,rgba(56,189,248,0.22),transparent_30%),radial-gradient(circle_at_88%_14%,rgba(37,99,235,0.18),transparent_24%),linear-gradient(135deg,rgba(15,23,42,0.98),rgba(15,23,42,0.88)_52%,rgba(9,18,37,0.95))]" />
+        <div className="absolute inset-y-0 right-[34%] hidden w-px bg-white/10 xl:block" />
+        <div className="relative grid items-center gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(400px,460px)] lg:gap-10 xl:grid-cols-[minmax(0,1.15fr)_minmax(420px,470px)] xl:gap-12">
+          <div className="flex min-h-[440px] flex-col justify-between">
+            <div className="space-y-5">
+              <p className="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100">
               PropatyHub Beta
-            </p>
-            <h1 className="text-4xl font-semibold leading-tight md:text-5xl">
-              Find the right place — faster and with confidence.
-            </h1>
-            <p className="text-lg text-slate-200">
-              Switch between renting, buying, and short stays from the start, then jump into the right search flow for your market.
-            </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <ButtonLink href="/properties" data-testid="desktop-home-cta-browse">
-                Browse homes
-              </ButtonLink>
-              {requestQuickStartEntry ? (
-                <ButtonLink
-                  href={requestQuickStartEntry.href}
-                  variant="secondary"
-                  data-testid="desktop-home-cta-request"
-                >
-                  {requestQuickStartEntry.label}
+              </p>
+              <div className="space-y-4">
+                <h1 className="max-w-[10ch] text-5xl font-semibold leading-[1.02] tracking-[-0.04em] text-white lg:text-[4.25rem] xl:text-[4.7rem]">
+                  Find the right place with less friction.
+                </h1>
+                <p className="max-w-xl text-lg leading-8 text-slate-200">
+                  Rent, buy, or book a short stay from one front door, then jump straight into the discovery flow that fits your market and intent.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <ButtonLink href="/properties" data-testid="desktop-home-cta-browse">
+                  Browse homes
                 </ButtonLink>
-              ) : null}
-              {signedInHeroCta ? (
-                <Link
-                  href={signedInHeroCta.href}
-                  data-testid="desktop-home-cta-signed-in"
-                  className="text-sm font-semibold text-cyan-100 underline-offset-4 hover:text-white hover:underline"
-                >
-                  {signedInHeroCta.label}
-                </Link>
-              ) : (
-                <Link
-                  href="/auth/register"
-                  data-testid="desktop-home-cta-get-started"
-                  className="text-sm font-semibold text-cyan-100 underline-offset-4 hover:text-white hover:underline"
-                >
-                  Get started
-                </Link>
-              )}
+                {requestQuickStartEntry ? (
+                  <ButtonLink
+                    href={requestQuickStartEntry.href}
+                    variant="secondary"
+                    data-testid="desktop-home-cta-request"
+                  >
+                    {requestQuickStartEntry.label}
+                  </ButtonLink>
+                ) : null}
+                {signedInHeroCta ? (
+                  <Link
+                    href={signedInHeroCta.href}
+                    data-testid="desktop-home-cta-signed-in"
+                    className="text-sm font-semibold text-cyan-100 underline-offset-4 hover:text-white hover:underline"
+                  >
+                    {signedInHeroCta.label}
+                  </Link>
+                ) : (
+                  <Link
+                    href="/auth/register"
+                    data-testid="desktop-home-cta-get-started"
+                    className="text-sm font-semibold text-cyan-100 underline-offset-4 hover:text-white hover:underline"
+                  >
+                    Get started
+                  </Link>
+                )}
+              </div>
+            </div>
+            <div className="grid gap-4 border-t border-white/10 pt-6 sm:grid-cols-2 xl:max-w-[620px] xl:grid-cols-3">
+              <div className="space-y-1">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">
+                  One front door
+                </p>
+                <p className="text-sm text-slate-200">Switch cleanly between renting, buying, and short stays.</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">
+                  Market-aware
+                </p>
+                <p className="text-sm text-slate-200">Open the right browse path instead of forcing one generic search.</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100/80">
+                  Trust-led
+                </p>
+                <p className="text-sm text-slate-200">Verified listings, saved searches, and clearer next steps from the start.</p>
+              </div>
             </div>
           </div>
-          <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/92 p-6 shadow-[0_30px_80px_rgba(15,23,42,0.35)] backdrop-blur md:p-7">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/80 to-transparent" />
-            <div className="mb-5 flex items-start justify-between gap-4">
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Hero search
-                </p>
-                <div>
-                  <p className="text-2xl font-semibold text-slate-950">
-                    Search homes the right way
+          <div className="relative lg:ml-auto lg:w-full lg:max-w-[470px]">
+            <div className="absolute inset-0 rounded-[2rem] bg-white/10 blur-3xl" />
+            <div className="relative overflow-hidden rounded-[2rem] border border-white/12 bg-white/94 p-5 shadow-[0_32px_90px_rgba(15,23,42,0.34)] backdrop-blur xl:p-6">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/80 to-transparent" />
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                    Hero search
                   </p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Start with intent, keep the filters tight, and open the right browse flow immediately.
-                  </p>
+                  <div>
+                    <p className="text-[1.9rem] font-semibold tracking-[-0.03em] text-slate-950">
+                      Search homes the right way
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      Intent first, filters tight, and the right discovery flow immediately.
+                    </p>
+                  </div>
                 </div>
+                <span className="rounded-full bg-sky-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-700">
+                  Rent • Buy • Shortlets
+                </span>
               </div>
-              <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
-                Rent • Buy • Shortlets
-              </span>
+              <HeroSearchForm />
             </div>
-            <HeroSearchForm />
           </div>
         </div>
       </section>
 
-      <section className="hidden gap-4 md:grid md:grid-cols-3">
+      <section className="hidden gap-4 md:grid md:grid-cols-3" data-testid="desktop-home-market-hubs">
         {hubs.map((hub) => (
           <div
             key={hub.city}
-            className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+            className="rounded-[1.5rem] border border-slate-200/80 bg-white/78 p-5 shadow-[0_12px_30px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(15,23,42,0.09)]"
           >
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-              Featured hub
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Popular market
             </p>
-            <p className="text-xl font-semibold text-slate-900">{hub.city}</p>
-            <p className="text-sm text-slate-600">{hub.caption}</p>
+            <p className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-slate-900">{hub.city}</p>
+            <p className="mt-1 text-sm leading-6 text-slate-600">{hub.caption}</p>
             <Link
               href={`/properties?city=${encodeURIComponent(hub.city)}`}
-              className="mt-3 inline-flex text-sm font-semibold text-sky-700"
+              className="mt-4 inline-flex text-sm font-semibold text-sky-700"
             >
               Browse {hub.city}
             </Link>
           </div>
         ))}
-      </section>
-
-      <section className="hidden gap-6 md:grid md:grid-cols-5">
-        <div className="md:col-span-3">
-          <SmartSearchBox />
-        </div>
-        <div className="md:col-span-2 space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-900">How it works</h3>
-          <ul className="space-y-2 text-sm text-slate-600">
-            <li>1. Browse verified listings across cities and neighbourhoods.</li>
-            <li>2. Save and compare homes that fit your lifestyle and budget.</li>
-            <li>3. Message securely — no spam, no pressure.</li>
-            <li>4. Book viewings or connect when you’re ready.</li>
-          </ul>
-          <div className="rounded-xl bg-slate-900 px-4 py-3 text-sm text-slate-100">
-            <p className="font-semibold text-white">Built for trust</p>
-            <ul className="mt-2 space-y-1 text-sm text-slate-100/90">
-              <li>• Verified hosts and agents</li>
-              <li>• Secure in-app messaging</li>
-              <li>• Admin-reviewed listings</li>
-              <li>• No hidden fees or forced contact</li>
-            </ul>
-          </div>
-        </div>
       </section>
 
       {featuredPreview.length ? (
@@ -427,6 +434,45 @@ export default async function Home() {
           </div>
         </section>
       ) : null}
+
+      <section
+        className="hidden items-start gap-8 rounded-[2rem] border border-slate-200/70 bg-white/68 px-6 py-7 shadow-[0_18px_45px_rgba(15,23,42,0.05)] md:grid md:grid-cols-[minmax(0,1.05fr)_320px]"
+        data-testid="desktop-home-smart-search-assist"
+      >
+        <div className="space-y-4">
+          <div className="max-w-2xl space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Search assist
+            </p>
+            <h2 className="text-[2rem] font-semibold tracking-[-0.03em] text-slate-900">
+              Need a more specific brief?
+            </h2>
+            <p className="text-sm leading-7 text-slate-600">
+              Use smart search when your request is more descriptive than structured. It’s a secondary assist, not the main way into discovery.
+            </p>
+          </div>
+          <SmartSearchBox compact />
+        </div>
+        <div className="space-y-4 pt-1">
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-slate-900">How PropatyHub keeps search useful</h3>
+            <ul className="space-y-2 text-sm leading-6 text-slate-600">
+              <li>1. Start with intent so results match what you are actually trying to do.</li>
+              <li>2. Refine on the results page with the deeper filters that already power the platform.</li>
+              <li>3. Save, compare, message, and book viewings only when a listing is truly worth it.</li>
+            </ul>
+          </div>
+          <div className="rounded-[1.4rem] bg-slate-950 px-4 py-4 text-sm text-slate-100">
+            <p className="font-semibold text-white">Built for trust</p>
+            <ul className="mt-2 space-y-1.5 text-sm leading-6 text-slate-100/88">
+              <li>• Verified hosts and agents</li>
+              <li>• Secure in-app messaging</li>
+              <li>• Admin-reviewed listings</li>
+              <li>• No hidden fees or forced contact</li>
+            </ul>
+          </div>
+        </div>
+      </section>
 
       <section className="hidden space-y-4 md:block">
         <div className="flex items-center justify-between">

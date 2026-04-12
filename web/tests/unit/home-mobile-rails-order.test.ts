@@ -13,7 +13,7 @@ void test("public mobile home renders inventory rails before long explainer copy
   const newRailIndex = source.indexOf('sectionTestId="mobile-home-new-rail"');
   const smartSearchIndex = source.indexOf('data-testid="mobile-home-smart-search-compact"');
   const whyAccordionIndex = source.indexOf('testId="mobile-home-why-propatyhub"');
-  const howItWorksTextIndex = source.indexOf("How it works");
+  const whyTitleIndex = source.indexOf('title="Why PropatyHub?"');
 
   assert.ok(featuredRailIndex >= 0, "expected featured rail marker");
   assert.ok(featuredDiscoveryIndex >= 0, "expected featured discovery strip marker");
@@ -21,11 +21,11 @@ void test("public mobile home renders inventory rails before long explainer copy
   assert.ok(newRailIndex >= 0, "expected new-this-week rail marker");
   assert.ok(smartSearchIndex >= 0, "expected compact smart-search marker");
   assert.ok(whyAccordionIndex >= 0, "expected collapsed why-propatyhub accordion marker");
-  assert.ok(howItWorksTextIndex >= 0, "expected legacy explainer copy to remain present");
+  assert.ok(whyTitleIndex >= 0, "expected why-propatyhub title to remain present");
   assert.ok(featuredRailIndex < featuredDiscoveryIndex, "expected featured homes rail to render before discovery strip");
   assert.ok(featuredRailIndex < smartSearchIndex, "expected first rail above mobile smart search");
   assert.ok(featuredRailIndex < whyAccordionIndex, "expected first rail above why accordion");
-  assert.ok(featuredRailIndex < howItWorksTextIndex, "expected first rail above explainer copy");
+  assert.ok(featuredRailIndex < whyTitleIndex, "expected first rail above why-propatyhub title");
 });
 
 void test("mobile why-propatyhub accordion is collapsed by default", () => {

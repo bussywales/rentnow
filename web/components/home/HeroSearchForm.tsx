@@ -29,21 +29,21 @@ const MODE_OPTIONS: Array<{
     value: "rent",
     label: "Rent",
     title: "Long-term homes",
-    detail: "Search rental homes with long-term pricing, beds, and listing type upfront.",
+    detail: "Search verified rental homes with the right budget, beds, and listing type upfront.",
     cta: "Search rentals",
   },
   {
     value: "buy",
     label: "Buy",
     title: "For-sale homes",
-    detail: "Jump straight into homes for sale without starting from a rentals-only form.",
+    detail: "Go straight to homes for sale without starting from a rentals-only flow.",
     cta: "Search homes for sale",
   },
   {
     value: "shortlet",
     label: "Shortlets",
     title: "Bookable stays",
-    detail: "Open the dedicated shortlet discovery flow with destination, guests, and stay-aware results.",
+    detail: "Open the dedicated shortlet flow with destination, guests, and stay-aware results.",
     cta: "Search shortlets",
   },
 ];
@@ -105,12 +105,12 @@ export function HeroSearchForm() {
 
   return (
     <form
-      className="space-y-5"
+      className="space-y-4"
       onSubmit={handleSubmit}
       data-testid="desktop-home-hero-search-form"
     >
-      <div className="space-y-3">
-        <div className="inline-flex rounded-full border border-slate-200/80 bg-slate-100/80 p-1">
+      <div className="space-y-2.5">
+        <div className="inline-flex rounded-full border border-slate-200 bg-slate-100/90 p-1">
           {MODE_OPTIONS.map((option) => {
             const active = option.value === activeMode;
             return (
@@ -132,19 +132,23 @@ export function HeroSearchForm() {
             );
           })}
         </div>
-        <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-            Search mode
-          </p>
-          <h3 className="text-2xl font-semibold text-slate-950">{modeMeta.title}</h3>
-          <p className="max-w-xl text-sm text-slate-600">{modeMeta.detail}</p>
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-[1.7rem] font-semibold tracking-[-0.02em] text-slate-950">
+              {modeMeta.title}
+            </h3>
+            <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-700">
+              {activeMode === "shortlet" ? "Dedicated flow" : "Market-aware"}
+            </span>
+          </div>
+          <p className="max-w-lg text-sm leading-6 text-slate-600">{modeMeta.detail}</p>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]">
-          <div className="space-y-2 lg:col-span-2">
-            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500" htmlFor="desktop-hero-location">
+      <div className="rounded-[1.75rem] border border-slate-200/90 bg-slate-50/65 p-3.5 shadow-[0_14px_36px_rgba(15,23,42,0.06)]">
+        <div className="grid gap-3">
+          <div className="space-y-2">
+            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500" htmlFor="desktop-hero-location">
               Location
             </label>
             <Input
@@ -154,13 +158,13 @@ export function HeroSearchForm() {
               placeholder={
                 activeMode === "shortlet" ? "City, area, or landmark" : "City or neighbourhood"
               }
-              className="h-14 rounded-2xl border-slate-200 text-base shadow-none"
+              className="h-14 rounded-2xl border-slate-200 bg-white text-base shadow-none"
             />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:col-span-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_220px_220px]">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500" htmlFor="desktop-hero-min-price">
+              <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500" htmlFor="desktop-hero-min-price">
                 Budget
               </label>
               <Input
@@ -169,7 +173,7 @@ export function HeroSearchForm() {
                 value={minPrice}
                 onChange={(event) => setMinPrice(sanitizeNumericField(event.target.value))}
                 placeholder={minPricePlaceholder}
-                className="h-12 rounded-2xl border-slate-200 shadow-none"
+                className="h-12 rounded-2xl border-slate-200 bg-white shadow-none"
               />
             </div>
 
@@ -184,12 +188,12 @@ export function HeroSearchForm() {
                 value={maxPrice}
                 onChange={(event) => setMaxPrice(sanitizeNumericField(event.target.value))}
                 placeholder={maxPricePlaceholder}
-                className="h-12 rounded-2xl border-slate-200 shadow-none"
+                className="h-12 rounded-2xl border-slate-200 bg-white shadow-none"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500" htmlFor="desktop-hero-bedrooms">
+              <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500" htmlFor="desktop-hero-bedrooms">
                 {bedroomsLabel}
               </label>
               <Input
@@ -198,19 +202,19 @@ export function HeroSearchForm() {
                 value={bedrooms}
                 onChange={(event) => setBedrooms(sanitizeNumericField(event.target.value))}
                 placeholder={activeMode === "shortlet" ? "Guests" : "Bedrooms"}
-                className="h-12 rounded-2xl border-slate-200 shadow-none"
+                className="h-12 rounded-2xl border-slate-200 bg-white shadow-none"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500" htmlFor="desktop-hero-property-type">
+              <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500" htmlFor="desktop-hero-property-type">
                 {propertyTypeLabel}
               </label>
               <Select
                 id="desktop-hero-property-type"
                 value={selectedPropertyType}
                 onChange={(event) => setPropertyType(event.target.value)}
-                className="h-12 rounded-2xl border-slate-200 px-4 shadow-none"
+                className="h-12 rounded-2xl border-slate-200 bg-white px-4 shadow-none"
               >
                 <option value="">Any {propertyTypeLabel.toLowerCase()}</option>
                 {propertyTypeOptions.map((option) => (
@@ -224,11 +228,11 @@ export function HeroSearchForm() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-md text-sm text-slate-500">
-          Uses your selected market and opens the right discovery flow for {mode === "shortlet" ? "stays" : "homes"}.
+      <div className="flex flex-col gap-3 border-t border-slate-200/80 pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="max-w-sm text-sm leading-6 text-slate-500">
+          Opens the right discovery flow for {activeMode === "shortlet" ? "stays" : "homes"} in your selected market.
         </p>
-        <Button type="submit" size="lg" className="min-w-[220px] rounded-2xl px-6">
+        <Button type="submit" size="lg" className="rounded-2xl px-6 sm:min-w-[220px]">
           {modeMeta.cta}
         </Button>
       </div>

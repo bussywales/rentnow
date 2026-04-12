@@ -23,3 +23,15 @@ void test('hero search form keeps the MVP field set and hero source attribution'
   assert.match(heroSearchForm, /Property type|Stay type/);
   assert.match(heroSearchForm, /source: "home_hero_v2"/);
 });
+
+void test('desktop homepage keeps hero primary and demotes smart search below featured homes', () => {
+  const heroIndex = homePage.indexOf('data-testid="desktop-home-hero"');
+  const featuredIndex = homePage.indexOf('data-testid="featured-homes-section"');
+  const smartSearchIndex = homePage.indexOf('data-testid="desktop-home-smart-search-assist"');
+
+  assert.ok(heroIndex >= 0, 'expected desktop hero marker');
+  assert.ok(featuredIndex >= 0, 'expected featured homes section marker');
+  assert.ok(smartSearchIndex >= 0, 'expected desktop smart search assist marker');
+  assert.ok(heroIndex < featuredIndex, 'expected hero above featured homes');
+  assert.ok(featuredIndex < smartSearchIndex, 'expected smart search assist below featured homes');
+});

@@ -38,5 +38,5 @@ void test("/home hero CTA points to canonical host properties manager", () => {
   const feedPath = path.join(process.cwd(), "components", "home", "WorkspaceHomeFeed.tsx");
   const contents = fs.readFileSync(feedPath, "utf8");
 
-  assert.match(contents, /href=\"\/host\/properties\"/);
+  assert.match(contents, /href=\"\/host\/listings\?view=manage\"/);
 });

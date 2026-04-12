@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { buildMobileQuickSearchHref } from "@/components/home/MobileQuickSearchSheet";
+import { buildMobileQuickSearchHref } from "@/lib/home/mobile-featured-discovery";
 import { getPropertyRequestQuickStartEntry } from "@/lib/requests/property-request-entry";
 
 void test("mobile quick-start renders search entry and category shortcuts", () => {
@@ -57,6 +57,9 @@ void test("mobile quick search href builder maps category params safely", () => 
     category: "shortlet",
     city: "Lekki",
     shortletParams: { checkIn: "2026-03-02", checkOut: "2026-03-05", guests: "2" },
+    checkIn: "2026-03-02",
+    checkOut: "2026-03-05",
+    guests: 2,
   });
 
   const rentParams = new URLSearchParams(rentHref.split("?")[1] || "");
@@ -91,7 +94,7 @@ void test("public home mounts mobile quick-start before long-form hero content",
   const source = fs.readFileSync(pagePath, "utf8");
 
   const quickStartIndex = source.indexOf("<MobileQuickStartBar");
-  const heroIndex = source.indexOf('<section className="relative hidden overflow-hidden');
+  const heroIndex = source.indexOf('data-testid="desktop-home-hero"');
 
   assert.ok(quickStartIndex >= 0, "expected MobileQuickStartBar mount on public home");
   assert.ok(heroIndex >= 0, "expected hero section marker on public home");
