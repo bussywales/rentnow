@@ -4,6 +4,8 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { enforceSupportRateLimit } from "@/lib/security/rate-limit";
+import { normalizeRole } from "@/lib/roles";
+import { notifyAdminsOfSupportTicket } from "@/lib/support/support-ticket-notifications.server";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 const payloadSchema = z.object({
@@ -20,6 +22,7 @@ export type SupportContactDeps = {
   createServerSupabaseClient: typeof createServerSupabaseClient;
   getServerAuthUser: typeof getServerAuthUser;
   enforceSupportRateLimit: typeof enforceSupportRateLimit;
+  notifyAdminsOfSupportTicket?: typeof notifyAdminsOfSupportTicket;
 };
 
 const defaultDeps: SupportContactDeps = {
@@ -29,6 +32,7 @@ const defaultDeps: SupportContactDeps = {
   createServerSupabaseClient,
   getServerAuthUser,
   enforceSupportRateLimit,
+  notifyAdminsOfSupportTicket,
 };
 
 export async function postSupportContactResponse(
@@ -85,6 +89,24 @@ export async function postSupportContactResponse(
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  if (deps.notifyAdminsOfSupportTicket && data?.id) {
+    const roleLabel =
+      normalizeRole(user?.user_metadata?.role ?? null) ?? (user?.id ? "authenticated" : "guest");
+    await deps.notifyAdminsOfSupportTicket({
+      requestId: String(data.id),
+      category: body.data.category,
+      role: roleLabel,
+      name: body.data.name ?? null,
+      email: body.data.email ?? user?.email ?? null,
+      message: body.data.message,
+      metadata: {
+        submittedAt: new Date().toISOString(),
+        userId: user?.id ?? null,
+      },
+      escalated: false,
+    });
   }
 
   return NextResponse.json({ ok: true, id: data?.id ?? null });

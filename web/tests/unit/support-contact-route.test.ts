@@ -12,6 +12,7 @@ function makeRequest(payload: unknown) {
 
 void test("support contact route inserts request when allowed", async () => {
   let inserted: Record<string, unknown> | null = null;
+  let notified: Record<string, unknown> | null = null;
   const dbClient = {
     from(table: string) {
       assert.equal(table, "support_requests");
@@ -46,6 +47,10 @@ void test("support contact route inserts request when allowed", async () => {
       scopeKey: "user:user-1",
       source: "memory",
     }),
+    notifyAdminsOfSupportTicket: async (input) => {
+      notified = input;
+      return { ok: true, attempted: 1, sent: 1, skipped: 0 } as const;
+    },
   };
 
   const response = await postSupportContactResponse(
@@ -61,6 +66,8 @@ void test("support contact route inserts request when allowed", async () => {
   assert.equal(body.ok, true);
   assert.equal(inserted?.user_id, "user-1");
   assert.equal(inserted?.email, "tenant@example.com");
+  assert.equal(notified?.requestId, "support-1");
+  assert.equal(notified?.escalated, false);
 });
 
 void test("support contact route returns 429 when rate limit is exceeded", async () => {

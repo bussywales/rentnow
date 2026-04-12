@@ -13,13 +13,21 @@ export type ProfileRecord = {
   agent_bio?: string | null;
   listing_review_email_enabled?: boolean | null;
   property_request_alerts_enabled?: boolean | null;
+  support_request_email_enabled?: boolean | null;
+  support_escalation_email_enabled?: boolean | null;
 };
 
 export const PROFILE_SELECT_FIELDS =
-  "id, role, first_name, last_name, display_name, full_name, phone, avatar_url, public_slug, agent_storefront_enabled, agent_slug, agent_bio, listing_review_email_enabled, property_request_alerts_enabled";
+  "id, role, first_name, last_name, display_name, full_name, phone, avatar_url, public_slug, agent_storefront_enabled, agent_slug, agent_bio, listing_review_email_enabled, property_request_alerts_enabled, support_request_email_enabled, support_escalation_email_enabled";
 
 const PROFILE_SELECT_FIELDS_LEGACY =
   "id, role, first_name, last_name, display_name, full_name, phone, avatar_url, public_slug, agent_storefront_enabled, agent_slug, agent_bio";
+
+const PROFILE_SELECT_FIELDS_WITHOUT_SUPPORT =
+  "id, role, first_name, last_name, display_name, full_name, phone, avatar_url, public_slug, agent_storefront_enabled, agent_slug, agent_bio, listing_review_email_enabled, property_request_alerts_enabled";
+
+const PROFILE_SELECT_FIELDS_WITHOUT_PROPERTY_REQUEST_ALERTS =
+  "id, role, first_name, last_name, display_name, full_name, phone, avatar_url, public_slug, agent_storefront_enabled, agent_slug, agent_bio, listing_review_email_enabled";
 
 type SupabaseError = {
   message?: string | null;
@@ -60,6 +68,13 @@ function isUnknownColumn(error: SupabaseError | null, column: string) {
   return message.includes(`column \"${column.toLowerCase()}\"`) && message.includes("does not exist");
 }
 
+function withMissingFields(
+  profile: ProfileRecord | null,
+  missing: Partial<ProfileRecord>
+): ProfileRecord | null {
+  return profile ? { ...profile, ...missing } : null;
+}
+
 async function fetchProfile(
   client: SupabaseProfileClient,
   userId: string
@@ -69,37 +84,70 @@ async function fetchProfile(
     .select(PROFILE_SELECT_FIELDS)
     .eq("id", userId)
     .maybeSingle();
-  if (selected.error && isUnknownColumn(selected.error, "property_request_alerts_enabled")) {
+
+  if (!selected.error) return selected;
+
+  if (
+    isUnknownColumn(selected.error, "support_request_email_enabled") ||
+    isUnknownColumn(selected.error, "support_escalation_email_enabled")
+  ) {
+    const fallback = await client
+      .from("profiles")
+      .select(PROFILE_SELECT_FIELDS_WITHOUT_SUPPORT)
+      .eq("id", userId)
+      .maybeSingle();
+    if (!fallback.error) {
+      return {
+        data: withMissingFields(fallback.data, {
+          support_request_email_enabled: null,
+          support_escalation_email_enabled: null,
+        }),
+        error: null,
+      };
+    }
+    if (
+      !isUnknownColumn(fallback.error, "property_request_alerts_enabled") &&
+      !isUnknownColumn(fallback.error, "listing_review_email_enabled")
+    ) {
+      return fallback;
+    }
+  }
+
+  if (isUnknownColumn(selected.error, "property_request_alerts_enabled")) {
     const fallbackColumns = isUnknownColumn(selected.error, "listing_review_email_enabled")
       ? PROFILE_SELECT_FIELDS_LEGACY
-      : "id, role, first_name, last_name, display_name, full_name, phone, avatar_url, public_slug, agent_storefront_enabled, agent_slug, agent_bio, listing_review_email_enabled";
+      : PROFILE_SELECT_FIELDS_WITHOUT_PROPERTY_REQUEST_ALERTS;
     const fallback = await client
       .from("profiles")
       .select(fallbackColumns)
       .eq("id", userId)
       .maybeSingle();
     return {
-      data: fallback.data
-        ? {
-            ...fallback.data,
-            listing_review_email_enabled:
-              "listing_review_email_enabled" in fallback.data
-                ? fallback.data.listing_review_email_enabled ?? null
-                : null,
-            property_request_alerts_enabled: null,
-          }
-        : null,
+      data: withMissingFields(fallback.data, {
+        listing_review_email_enabled:
+          fallback.data && "listing_review_email_enabled" in fallback.data
+            ? fallback.data.listing_review_email_enabled ?? null
+            : null,
+        property_request_alerts_enabled: null,
+        support_request_email_enabled: null,
+        support_escalation_email_enabled: null,
+      }),
       error: fallback.error,
     };
   }
-  if (selected.error && isUnknownColumn(selected.error, "listing_review_email_enabled")) {
+  if (isUnknownColumn(selected.error, "listing_review_email_enabled")) {
     const legacy = await client
       .from("profiles")
       .select(PROFILE_SELECT_FIELDS_LEGACY)
       .eq("id", userId)
       .maybeSingle();
     return {
-      data: legacy.data ? { ...legacy.data, listing_review_email_enabled: null } : null,
+      data: withMissingFields(legacy.data, {
+        listing_review_email_enabled: null,
+        property_request_alerts_enabled: null,
+        support_request_email_enabled: null,
+        support_escalation_email_enabled: null,
+      }),
       error: legacy.error,
     };
   }
@@ -123,6 +171,8 @@ export async function ensureProfileRow(input: EnsureProfileInput): Promise<Ensur
     agent_storefront_enabled: false,
     listing_review_email_enabled: false,
     property_request_alerts_enabled: true,
+    support_request_email_enabled: false,
+    support_escalation_email_enabled: false,
   };
 
   const trimmedEmail = email?.trim();
@@ -148,12 +198,27 @@ export async function ensureProfileRow(input: EnsureProfileInput): Promise<Ensur
     const rest = { ...payload };
     delete rest.listing_review_email_enabled;
     delete rest.property_request_alerts_enabled;
+    delete rest.support_request_email_enabled;
+    delete rest.support_escalation_email_enabled;
     insertError = (await client.from("profiles").upsert(rest, { onConflict: "id" })).error;
   }
 
   if (insertError && isUnknownColumn(insertError, "property_request_alerts_enabled")) {
     const rest = { ...payload };
     delete rest.property_request_alerts_enabled;
+    delete rest.support_request_email_enabled;
+    delete rest.support_escalation_email_enabled;
+    insertError = (await client.from("profiles").upsert(rest, { onConflict: "id" })).error;
+  }
+
+  if (
+    insertError &&
+    (isUnknownColumn(insertError, "support_request_email_enabled") ||
+      isUnknownColumn(insertError, "support_escalation_email_enabled"))
+  ) {
+    const rest = { ...payload };
+    delete rest.support_request_email_enabled;
+    delete rest.support_escalation_email_enabled;
     insertError = (await client.from("profiles").upsert(rest, { onConflict: "id" })).error;
   }
 

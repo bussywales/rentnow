@@ -7,6 +7,7 @@ import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { enforceSupportRateLimit } from "@/lib/security/rate-limit";
+import { notifyAdminsOfSupportTicket } from "@/lib/support/support-ticket-notifications.server";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
@@ -53,6 +54,7 @@ export type SupportEscalateDeps = {
   createServiceRoleClient: typeof createServiceRoleClient;
   getServerAuthUser: typeof getServerAuthUser;
   enforceSupportRateLimit: typeof enforceSupportRateLimit;
+  notifyAdminsOfSupportTicket?: typeof notifyAdminsOfSupportTicket;
   now: () => Date;
   sendSupportEscalationEmail: (input: {
     requestId: string;
@@ -104,6 +106,7 @@ const defaultDeps: SupportEscalateDeps = {
   createServiceRoleClient,
   getServerAuthUser,
   enforceSupportRateLimit,
+  notifyAdminsOfSupportTicket,
   now: () => new Date(),
   sendSupportEscalationEmail,
 };
@@ -250,6 +253,18 @@ export async function postSupportEscalateResponse(
   }
 
   const requestId = String(insertResult.data?.id || "");
+  if (deps.notifyAdminsOfSupportTicket && requestId) {
+    await deps.notifyAdminsOfSupportTicket({
+      requestId,
+      category: body.data.category,
+      role: resolvedRole,
+      name: resolvedName,
+      email: resolvedEmail,
+      message,
+      metadata,
+      escalated: true,
+    });
+  }
   const emailResult = await deps.sendSupportEscalationEmail({
     requestId,
     category: body.data.category,

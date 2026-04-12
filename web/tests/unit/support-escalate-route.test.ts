@@ -16,6 +16,7 @@ function makeRequest(payload: unknown) {
 void test("support escalate route creates request row and sends email", async () => {
   let insertedPayload: Record<string, unknown> | null = null;
   let emailPayload: Record<string, unknown> | null = null;
+  let notifiedPayload: Record<string, unknown> | null = null;
 
   const dbClient = {
     from(table: string) {
@@ -71,6 +72,10 @@ void test("support escalate route creates request row and sends email", async ()
       scopeKey: "user:user-1",
       source: "memory",
     }),
+    notifyAdminsOfSupportTicket: async (input) => {
+      notifiedPayload = input;
+      return { ok: true, attempted: 2, sent: 2, skipped: 0 } as const;
+    },
     now: () => new Date("2026-02-23T15:00:00.000Z"),
     sendSupportEscalationEmail: async (input) => {
       emailPayload = input;
@@ -98,6 +103,8 @@ void test("support escalate route creates request row and sends email", async ()
   assert.equal(insertedPayload?.email, "tenant@example.com");
   assert.equal(typeof insertedPayload?.metadata, "object");
   assert.equal(emailPayload?.requestId, "req_123");
+  assert.equal(notifiedPayload?.requestId, "req_123");
+  assert.equal(notifiedPayload?.escalated, true);
 });
 
 void test("support escalate route requires email when unauthenticated", async () => {

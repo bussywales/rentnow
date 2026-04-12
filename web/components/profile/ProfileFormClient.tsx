@@ -72,6 +72,12 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
   const [listingReviewEmailEnabled, setListingReviewEmailEnabled] = useState(
     initialProfile?.listing_review_email_enabled ?? false
   );
+  const [supportRequestEmailEnabled, setSupportRequestEmailEnabled] = useState(
+    initialProfile?.support_request_email_enabled ?? false
+  );
+  const [supportEscalationEmailEnabled, setSupportEscalationEmailEnabled] = useState(
+    initialProfile?.support_escalation_email_enabled ?? false
+  );
   const [propertyRequestAlertsEnabled, setPropertyRequestAlertsEnabled] = useState(
     initialProfile?.property_request_alerts_enabled ?? true
   );
@@ -102,6 +108,8 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
     avatarUrl: initialProfile?.avatar_url ?? null,
     agentStorefrontEnabled: initialProfile?.agent_storefront_enabled ?? true,
     listingReviewEmailEnabled: initialProfile?.listing_review_email_enabled ?? false,
+    supportRequestEmailEnabled: initialProfile?.support_request_email_enabled ?? false,
+    supportEscalationEmailEnabled: initialProfile?.support_escalation_email_enabled ?? false,
     propertyRequestAlertsEnabled: initialProfile?.property_request_alerts_enabled ?? true,
     agentBio: initialProfile?.agent_bio ?? "",
     agentSlug: initialProfile?.agent_slug ?? null,
@@ -148,6 +156,8 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       setAvatarUrl(nextProfile?.avatar_url ?? null);
       setAgentStorefrontEnabled(nextProfile?.agent_storefront_enabled ?? true);
       setListingReviewEmailEnabled(nextProfile?.listing_review_email_enabled ?? false);
+      setSupportRequestEmailEnabled(nextProfile?.support_request_email_enabled ?? false);
+      setSupportEscalationEmailEnabled(nextProfile?.support_escalation_email_enabled ?? false);
       setPropertyRequestAlertsEnabled(nextProfile?.property_request_alerts_enabled ?? true);
       setAgentBio(nextProfile?.agent_bio ?? "");
       setAgentSlug(nextProfile?.agent_slug ?? null);
@@ -167,6 +177,8 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
         avatarUrl: nextProfile?.avatar_url ?? null,
         agentStorefrontEnabled: nextProfile?.agent_storefront_enabled ?? true,
         listingReviewEmailEnabled: nextProfile?.listing_review_email_enabled ?? false,
+        supportRequestEmailEnabled: nextProfile?.support_request_email_enabled ?? false,
+        supportEscalationEmailEnabled: nextProfile?.support_escalation_email_enabled ?? false,
         propertyRequestAlertsEnabled: nextProfile?.property_request_alerts_enabled ?? true,
         agentBio: nextProfile?.agent_bio ?? "",
         agentSlug: nextProfile?.agent_slug ?? null,
@@ -224,7 +236,10 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       lastName.trim() !== snapshot.lastName ||
       phone.trim() !== snapshot.phone ||
       avatarUrl !== snapshot.avatarUrl ||
-      (isAdmin && listingReviewEmailEnabled !== snapshot.listingReviewEmailEnabled) ||
+      (isAdmin &&
+        (listingReviewEmailEnabled !== snapshot.listingReviewEmailEnabled ||
+          supportRequestEmailEnabled !== snapshot.supportRequestEmailEnabled ||
+          supportEscalationEmailEnabled !== snapshot.supportEscalationEmailEnabled)) ||
       (isHostRequestResponder &&
         propertyRequestAlertsEnabled !== snapshot.propertyRequestAlertsEnabled) ||
       (isAgent &&
@@ -365,8 +380,10 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
         : {}),
       ...(isAdmin
         ? {
-            listing_review_email_enabled: listingReviewEmailEnabled,
-          }
+          listing_review_email_enabled: listingReviewEmailEnabled,
+          support_request_email_enabled: supportRequestEmailEnabled,
+          support_escalation_email_enabled: supportEscalationEmailEnabled,
+        }
         : {}),
       ...(isHostRequestResponder
         ? {
@@ -389,6 +406,8 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
         avatarUrl,
         agentStorefrontEnabled,
         listingReviewEmailEnabled,
+        supportRequestEmailEnabled,
+        supportEscalationEmailEnabled,
         propertyRequestAlertsEnabled,
         agentBio: payload.agent_bio ?? "",
         agentSlug,
@@ -678,6 +697,44 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
                 </span>
                 <span className="mt-1 block text-xs text-slate-500">
                   Sends an email when a listing moves into the admin review queue.
+                </span>
+              </span>
+            </label>
+          </div>
+          <div className="mt-4">
+            <label className="inline-flex items-start gap-3 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                checked={supportRequestEmailEnabled}
+                onChange={(event) => setSupportRequestEmailEnabled(event.target.checked)}
+                data-testid="admin-support-request-email-toggle"
+              />
+              <span>
+                <span className="block font-semibold text-slate-900">
+                  Email me for every new support request
+                </span>
+                <span className="mt-1 block text-xs text-slate-500">
+                  Includes standard contact submissions and escalated help requests.
+                </span>
+              </span>
+            </label>
+          </div>
+          <div className="mt-4">
+            <label className="inline-flex items-start gap-3 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                checked={supportEscalationEmailEnabled}
+                onChange={(event) => setSupportEscalationEmailEnabled(event.target.checked)}
+                data-testid="admin-support-escalation-email-toggle"
+              />
+              <span>
+                <span className="block font-semibold text-slate-900">
+                  Email me when a support request is escalated
+                </span>
+                <span className="mt-1 block text-xs text-slate-500">
+                  High-signal Ask Assistant escalations still reach the central support inbox too.
                 </span>
               </span>
             </label>
