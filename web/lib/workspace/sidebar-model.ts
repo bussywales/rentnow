@@ -49,6 +49,7 @@ export function getWorkspaceSidebarSections(
         label: "Admin",
         items: [
           { key: "admin", label: "Admin", href: "/admin" },
+          { key: "support-requests", label: "Support requests", href: "/admin/support" },
           { key: "help-tutorials", label: "Help Tutorials", href: "/admin/help/tutorials" },
         ],
       },
