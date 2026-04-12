@@ -33,6 +33,9 @@ void test("subscription price book migrations and admin surface support draft pr
   assert.match(page, /Full audit log/);
   assert.match(page, /Subscription pricing SOP/);
   assert.match(page, /How to use this page/);
+  assert.match(page, /function SummaryStatCard/);
+  assert.match(page, /min-h-\[7\.75rem\]/);
+  assert.match(page, /mt-auto flex min-h-\[2\.5rem\] items-end/);
   assert.match(page, /View history/);
   assert.match(page, /getSubscriptionControlStatusTone\(entry\.controlStatus\)/);
   assert.match(page, /Good status: Aligned/);

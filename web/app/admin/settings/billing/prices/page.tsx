@@ -49,6 +49,37 @@ function formatRuntimeSourceLabel(entry: Awaited<ReturnType<typeof loadAdminSubs
   return "provider runtime";
 }
 
+type SummaryStatCardProps = {
+  label: string;
+  value: number;
+  tone?: {
+    border: string;
+    background: string;
+    label: string;
+    value: string;
+  };
+};
+
+function SummaryStatCard({ label, value, tone }: SummaryStatCardProps) {
+  const palette = tone ?? {
+    border: "border-slate-200",
+    background: "bg-white",
+    label: "text-slate-500",
+    value: "text-slate-900",
+  };
+
+  return (
+    <div
+      className={`flex h-full min-h-[7.75rem] flex-col rounded-2xl border p-4 shadow-sm ${palette.border} ${palette.background}`}
+    >
+      <p className={`text-xs uppercase tracking-wide ${palette.label}`}>{label}</p>
+      <div className="mt-auto flex min-h-[2.5rem] items-end">
+        <p className={`text-2xl font-semibold leading-none ${palette.value}`}>{value}</p>
+      </div>
+    </div>
+  );
+}
+
 export default async function AdminBillingPricesPage({ searchParams }: Props) {
   if (!hasServerSupabaseEnv()) {
     return <div className="p-6 text-sm text-slate-600">Supabase is not configured.</div>;
@@ -109,15 +140,78 @@ export default async function AdminBillingPricesPage({ searchParams }: Props) {
       </div>
 
       <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-9">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-slate-500">Canonical rows</p><p className="mt-2 text-2xl font-semibold text-slate-900">{summary.canonicalRows}</p></div>
-        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-sky-700">Draft rows</p><p className="mt-2 text-2xl font-semibold text-sky-900">{summary.draftRows}</p></div>
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-emerald-700">Publish-ready drafts</p><p className="mt-2 text-2xl font-semibold text-emerald-900">{summary.publishReadyDrafts}</p></div>
-        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-sky-700">Provider-backed runtime</p><p className="mt-2 text-2xl font-semibold text-sky-900">{summary.providerBackedRuntimes}</p></div>
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-amber-700">Market gaps</p><p className="mt-2 text-2xl font-semibold text-amber-900">{summary.marketGaps}</p></div>
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-amber-700">Runtime fallbacks</p><p className="mt-2 text-2xl font-semibold text-amber-900">{summary.runtimeFallbacks}</p></div>
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-rose-700">Missing provider refs</p><p className="mt-2 text-2xl font-semibold text-rose-900">{summary.missingProviderRefs}</p></div>
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-rose-700">Checkout mismatches</p><p className="mt-2 text-2xl font-semibold text-rose-900">{summary.checkoutMismatches}</p></div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs uppercase tracking-wide text-slate-500">Superseded rows</p><p className="mt-2 text-2xl font-semibold text-slate-900">{summary.supersededRows}</p></div>
+        <SummaryStatCard label="Canonical rows" value={summary.canonicalRows} />
+        <SummaryStatCard
+          label="Draft rows"
+          value={summary.draftRows}
+          tone={{
+            border: "border-sky-200",
+            background: "bg-sky-50",
+            label: "text-sky-700",
+            value: "text-sky-900",
+          }}
+        />
+        <SummaryStatCard
+          label="Publish-ready drafts"
+          value={summary.publishReadyDrafts}
+          tone={{
+            border: "border-emerald-200",
+            background: "bg-emerald-50",
+            label: "text-emerald-700",
+            value: "text-emerald-900",
+          }}
+        />
+        <SummaryStatCard
+          label="Provider-backed runtime"
+          value={summary.providerBackedRuntimes}
+          tone={{
+            border: "border-sky-200",
+            background: "bg-sky-50",
+            label: "text-sky-700",
+            value: "text-sky-900",
+          }}
+        />
+        <SummaryStatCard
+          label="Market gaps"
+          value={summary.marketGaps}
+          tone={{
+            border: "border-amber-200",
+            background: "bg-amber-50",
+            label: "text-amber-700",
+            value: "text-amber-900",
+          }}
+        />
+        <SummaryStatCard
+          label="Runtime fallbacks"
+          value={summary.runtimeFallbacks}
+          tone={{
+            border: "border-amber-200",
+            background: "bg-amber-50",
+            label: "text-amber-700",
+            value: "text-amber-900",
+          }}
+        />
+        <SummaryStatCard
+          label="Missing provider refs"
+          value={summary.missingProviderRefs}
+          tone={{
+            border: "border-rose-200",
+            background: "bg-rose-50",
+            label: "text-rose-700",
+            value: "text-rose-900",
+          }}
+        />
+        <SummaryStatCard
+          label="Checkout mismatches"
+          value={summary.checkoutMismatches}
+          tone={{
+            border: "border-rose-200",
+            background: "bg-rose-50",
+            label: "text-rose-700",
+            value: "text-rose-900",
+          }}
+        />
+        <SummaryStatCard label="Superseded rows" value={summary.supersededRows} />
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
