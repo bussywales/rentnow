@@ -29,6 +29,9 @@ void test("admin support inbox component includes table and drawer metadata view
   assert.match(source, /data-testid="admin-support-analytics-resolved7d"/);
   assert.match(source, /data-testid="admin-support-analytics-overdue"/);
   assert.match(source, /data-testid="admin-support-status-filter"/);
+  assert.match(source, /useState\(false\)/);
+  assert.match(source, /Support requests inbox/);
+  assert.match(source, /Open support requests, escalation signal, metadata, and transcript context in one queue\./);
   assert.match(source, /Closed/);
   assert.match(source, /data-testid="admin-support-assigned-filter"/);
   assert.match(source, /data-testid="admin-support-overdue-sort"/);

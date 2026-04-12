@@ -4,6 +4,7 @@ import {
   postSupportEscalateResponse,
   type SupportEscalateDeps,
 } from "@/app/api/support/escalate/route";
+import { buildSupportEscalationEmail } from "@/lib/email/templates/support-escalation";
 
 function makeRequest(payload: unknown) {
   return new Request("http://localhost/api/support/escalate", {
@@ -225,4 +226,22 @@ void test("support escalate route returns 429 when rate limit is exceeded", asyn
 
   assert.equal(response.status, 429);
   assert.equal(body.retryAfterSeconds, 42);
+});
+
+
+void test("support escalation email copy is unmistakably classified", () => {
+  const email = buildSupportEscalationEmail({
+    requestId: "req_123",
+    category: "billing",
+    role: "tenant",
+    name: "Tenant User",
+    email: "tenant@example.com",
+    message: "Charged but no booking confirmation shown in trips.",
+    metadata: { escalationReason: "charged_without_booking_no_doc_match" },
+  });
+
+  assert.match(email.subject, /\[SUPPORT ESCALATION\]/);
+  assert.match(email.html, /Support escalation received/);
+  assert.match(email.html, />Escalated</);
+  assert.match(email.html, /needs support triage\./);
 });

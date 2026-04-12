@@ -72,7 +72,7 @@ function formatAgeMinutes(value: number) {
 
 export function AdminSupportRequestsInbox() {
   const [status, setStatus] = useState<"open" | "all" | "new" | "in_progress" | "resolved" | "closed">("open");
-  const [escalatedOnly, setEscalatedOnly] = useState(true);
+  const [escalatedOnly, setEscalatedOnly] = useState(false);
   const [assignedToMe, setAssignedToMe] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -333,9 +333,9 @@ export function AdminSupportRequestsInbox() {
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-lg font-semibold text-slate-900">AI escalations inbox</h3>
+          <h3 className="text-lg font-semibold text-slate-900">Support requests inbox</h3>
           <p className="text-sm text-slate-600">
-            Newest support requests with escalation signal, metadata, and transcript context.
+            Open support requests, escalation signal, metadata, and transcript context in one queue.
           </p>
         </div>
         <div className="flex items-center gap-2">

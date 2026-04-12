@@ -29,17 +29,18 @@ function formatMetadata(metadata: Record<string, unknown> | null | undefined) {
 
 export function buildSupportTicketNotificationEmail(input: SupportTicketNotificationEmailInput) {
   const summary = input.message.trim().slice(0, 72) || "Support request";
-  const subjectPrefix = input.escalated ? "[Support escalation]" : "[Support]";
+  const subjectPrefix = input.escalated ? "[SUPPORT ESCALATION]" : "[Support request]";
   const subject = `${subjectPrefix} ${input.category} - ${summary}`;
   const metadataText = formatMetadata(input.metadata);
   const heading = input.escalated ? "Escalated support request" : "New support request";
   const summaryLine = input.escalated
-    ? "This request was escalated from the Help widget or Ask Assistant flow."
+    ? "This ticket was escalated from the Help widget or Ask Assistant flow and should be triaged promptly."
     : "This request was submitted through the Help and Support contact flow.";
 
   const html = `
     <div style="font-family:Inter,Arial,sans-serif;max-width:680px;margin:0 auto;color:#0f172a;">
       <h2 style="margin:0 0 12px;">${escapeHtml(heading)}</h2>
+      <p style="margin:0 0 10px;display:inline-block;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:700;letter-spacing:0.04em;background:${input.escalated ? "#fef3c7" : "#e2e8f0"};color:${input.escalated ? "#92400e" : "#334155"};">${escapeHtml(input.escalated ? "Escalated" : "Standard")}</p>
       <p style="margin:0 0 16px;color:#475569;">${escapeHtml(summaryLine)}</p>
       <p style="margin:0 0 8px;"><strong>Ticket:</strong> ${escapeHtml(input.requestId)}</p>
       <p style="margin:0 0 8px;"><strong>Category:</strong> ${escapeHtml(input.category)}</p>

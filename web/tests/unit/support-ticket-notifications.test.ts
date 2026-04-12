@@ -38,7 +38,7 @@ void test("support ticket notifications send standard requests only to admins op
         userId === "admin-1" ? "ops1@example.com" : "ops2@example.com",
       sendEmail: async ({ to, subject, html }) => {
         sentTo.push(to);
-        assert.match(subject, /\[Support\]/);
+        assert.match(subject, /\[Support request\]/);
         assert.match(html, /duplicate billing charge/i);
         assert.match(html, /\/admin\/support/);
         return { ok: true };
@@ -95,8 +95,10 @@ void test("support ticket notifications send escalations to all-support and esca
       getAdminEmail: async (_client, userId) => `${userId}@example.com`,
       sendEmail: async ({ to, subject, html }) => {
         sentTo.push(to);
-        assert.match(subject, /\[Support escalation\]/);
+        assert.match(subject, /\[SUPPORT ESCALATION\]/);
         assert.match(html, /Escalated support request/);
+        assert.match(html, /This ticket was escalated from the Help widget or Ask Assistant flow and should be triaged promptly\./);
+        assert.match(html, />Escalated</);
         return { ok: true };
       },
     }

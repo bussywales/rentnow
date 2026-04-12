@@ -27,12 +27,14 @@ function formatMetadata(metadata: Record<string, unknown>) {
 
 export function buildSupportEscalationEmail(input: SupportEscalationEmailInput) {
   const summary = input.message.trim().slice(0, 72) || "Support request";
-  const subject = `[Support] ${input.category} - ${input.role} - ${summary}`;
+  const subject = `[SUPPORT ESCALATION] ${input.category} - ${input.role} - ${summary}`;
   const metadataText = formatMetadata(input.metadata);
 
   const html = `
     <div style="font-family:Inter,Arial,sans-serif;max-width:680px;margin:0 auto;color:#0f172a;">
       <h2 style="margin:0 0 12px;">Support escalation received</h2>
+      <p style="margin:0 0 10px;display:inline-block;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:700;letter-spacing:0.04em;background:#fef3c7;color:#92400e;">Escalated</p>
+      <p style="margin:0 0 16px;color:#475569;">This ticket was escalated from the Help widget or Ask Assistant flow and needs support triage.</p>
       <p style="margin:0 0 8px;"><strong>Ticket:</strong> ${escapeHtml(input.requestId)}</p>
       <p style="margin:0 0 8px;"><strong>Category:</strong> ${escapeHtml(input.category)}</p>
       <p style="margin:0 0 8px;"><strong>Role:</strong> ${escapeHtml(input.role)}</p>
