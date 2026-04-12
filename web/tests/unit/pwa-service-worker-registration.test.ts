@@ -35,6 +35,7 @@ void test("registerRootServiceWorker reuses existing root registration", async (
   resetRootServiceWorkerRegistrationForTests();
   const existingRegistration = { scope: "/" } as ServiceWorkerRegistration;
   let registerCalls = 0;
+  let updateCalls = 0;
 
   const serviceWorker = {
     getRegistration: async () => existingRegistration,
@@ -50,7 +51,13 @@ void test("registerRootServiceWorker reuses existing root registration", async (
     ) => Promise<ServiceWorkerRegistration>;
   };
 
+  (existingRegistration as ServiceWorkerRegistration & { update: () => Promise<void> }).update =
+    async () => {
+      updateCalls += 1;
+    };
+
   const result = await registerRootServiceWorker(serviceWorker);
   assert.equal(result, existingRegistration);
   assert.equal(registerCalls, 0);
+  assert.equal(updateCalls, 1);
 });

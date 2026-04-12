@@ -14,7 +14,10 @@ export async function registerRootServiceWorker(
   registerPromise = (async () => {
     if (typeof serviceWorker.getRegistration === "function") {
       const existing = await serviceWorker.getRegistration("/");
-      if (existing) return existing;
+      if (existing) {
+        void existing.update?.().catch(() => undefined);
+        return existing;
+      }
     }
     return serviceWorker.register("/sw.js", { scope: "/" });
   })().catch((error) => {

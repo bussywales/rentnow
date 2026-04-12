@@ -1,6 +1,5 @@
 const CACHE_NAME = "propatyhub-shell-v1";
-const START_ROUTE_CACHE_NAME = "ph-nav-start-v1";
-const START_ROUTE_CACHE_TIMEOUT_MS = 1200;
+const START_ROUTE_CACHE_NAME = "ph-nav-start-v2";
 const START_ROUTE_PATH = "/";
 const OFFLINE_URL = "/offline";
 const OFFLINE_QUERY_PARAM = "from";
@@ -80,16 +79,6 @@ function isCacheableStartRouteResponse(response) {
   return contentType.includes("text/html");
 }
 
-async function fetchWithTimeout(request, timeoutMs) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(request, { signal: controller.signal });
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
 async function updateStartRouteCache() {
   const response = await fetch(getStartRouteCacheKey(), {
     method: "GET",
@@ -122,7 +111,7 @@ self.addEventListener("fetch", (event) => {
           const startRouteCacheKey = getStartRouteCacheKey();
 
           try {
-            const networkResponse = await fetchWithTimeout(request, START_ROUTE_CACHE_TIMEOUT_MS);
+            const networkResponse = await fetch(request);
             event.waitUntil(updateStartRouteCache().catch(() => undefined));
             return networkResponse;
           } catch {

@@ -65,12 +65,8 @@ void test("service worker caches only the exact anonymous start route", () => {
   const contents = fs.readFileSync(swPath, "utf8");
 
   assert.ok(
-    contents.includes('const START_ROUTE_CACHE_NAME = "ph-nav-start-v1";'),
+    contents.includes('const START_ROUTE_CACHE_NAME = "ph-nav-start-v2";'),
     "expected dedicated start-route cache name"
-  );
-  assert.ok(
-    contents.includes("const START_ROUTE_CACHE_TIMEOUT_MS = 1200;"),
-    "expected start-route timeout for fast fallback"
   );
   assert.match(
     contents,
@@ -79,4 +75,5 @@ void test("service worker caches only the exact anonymous start route", () => {
   assert.match(contents, /credentials:\s*"omit"/);
   assert.match(contents, /caches\.open\(START_ROUTE_CACHE_NAME\)/);
   assert.match(contents, /cache\.put\(getStartRouteCacheKey\(\), response\.clone\(\)\)/);
+  assert.doesNotMatch(contents, /fetchWithTimeout/);
 });
