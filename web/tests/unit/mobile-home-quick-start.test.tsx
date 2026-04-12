@@ -20,6 +20,9 @@ void test("mobile quick-start renders search entry and category shortcuts", () =
   assert.match(source, /data-testid="mobile-quickstart-chip-request"/);
   assert.match(source, /requestAction\.label/);
   assert.match(source, /requestAction\.href/);
+  assert.match(source, /data-testid="explore-v2-entry"/);
+  assert.match(source, /Open Explore/);
+  assert.doesNotMatch(source, /experimental/i);
   assert.equal(
     source.split('data-testid="mobile-quickstart-chip-request"').length - 1,
     1,

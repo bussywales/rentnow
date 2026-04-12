@@ -15,9 +15,16 @@ void test("homepage copy is customer-first and removes tech stack references", (
     "properties",
     "SmartSearchBox.tsx"
   );
+  const mobileQuickStartPath = path.join(
+    process.cwd(),
+    "components",
+    "home",
+    "MobileQuickStartBar.tsx"
+  );
   const pageContents = read(pagePath);
   const smartContents = read(smartSearchPath);
-  const combined = `${pageContents}\n${smartContents}`;
+  const mobileQuickStartContents = read(mobileQuickStartPath);
+  const combined = `${pageContents}\n${smartContents}\n${mobileQuickStartContents}`;
 
   const extractStringLiterals = (source: string) => {
     const literals: string[] = [];
@@ -76,6 +83,10 @@ void test("homepage copy is customer-first and removes tech stack references", (
   assert.ok(
     !containsLiteral("beta"),
     "did not expect beta launch-state copy on homepage surfaces under test"
+  );
+  assert.ok(
+    !containsLiteral("experimental"),
+    "did not expect experimental launch-state copy on homepage surfaces under test"
   );
 });
 
