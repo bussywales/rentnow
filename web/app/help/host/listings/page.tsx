@@ -41,6 +41,8 @@ export default function HostListingsHelpPage() {
 
         <HelpRelatedLinks
           links={[
+            { label: "Plans and pay-per-listing", href: "/help/landlord/listing-monetisation" },
+            { label: "Detailed QR sign kit guide", href: "/help/landlord/qr-sign-kit" },
             { label: "Performance and insights", href: "/help/host/performance" },
             { label: "Move & Ready Services pilot", href: "/help/host/services" },
             { label: "Contact support", href: "/support" },

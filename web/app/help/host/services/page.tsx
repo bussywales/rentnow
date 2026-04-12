@@ -72,6 +72,7 @@ export default function HostServicesHelpPage() {
         links={[
           { label: "Open property-prep requests", href: "/host/services" },
           { label: "Start a prep request", href: "/host/services/new" },
+          { label: "Landlord and host workflow guide", href: "/help/landlord/move-ready-services" },
           { label: "Agent guide", href: "/help/agent/services" },
           { label: "Host listings help", href: "/help/host/listings" },
         ]}

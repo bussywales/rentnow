@@ -33,6 +33,9 @@ const RELATED_SLUGS_BY_ROLE: Record<HelpContextRole, Array<{ slug: string; secti
   landlord: [
     { slug: "getting-started", section: "Dashboard basics" },
     { slug: "core-workflows", section: "Listing workflow" },
+    { slug: "listing-monetisation", section: "Plans and pay-per-listing" },
+    { slug: "qr-sign-kit", section: "QR sign kit" },
+    { slug: "move-ready-services", section: "Move & Ready Services" },
     { slug: "featured-and-payments", section: "Featured workflow" },
     { slug: "verification", section: "Verification" },
     { slug: "troubleshooting", section: "Troubleshooting" },
@@ -41,6 +44,10 @@ const RELATED_SLUGS_BY_ROLE: Record<HelpContextRole, Array<{ slug: string; secti
   agent: [
     { slug: "getting-started", section: "Dashboard basics" },
     { slug: "core-workflows", section: "Portfolio workflow" },
+    { slug: "listing-monetisation", section: "Plans and pay-per-listing" },
+    { slug: "qr-sign-kit", section: "QR sign kit" },
+    { slug: "move-ready-services", section: "Move & Ready Services" },
+    { slug: "referrals", section: "Referrals" },
     { slug: "featured-and-payments", section: "Featured workflow" },
     { slug: "verification", section: "Verification" },
     { slug: "troubleshooting", section: "Troubleshooting" },

@@ -23,7 +23,7 @@ export default function ReferralHelpPage() {
         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Help Centre</p>
         <h1 className="mt-2 text-3xl font-semibold text-slate-900">Referral FAQ</h1>
         <p className="mt-2 text-sm text-slate-600">
-          Simple guidance for Agents/Hosts and Admins: how Active referrals work, how credits are
+          Simple guidance for Agents and Admins: how Active referrals work, how credits are
           earned, and how country cashout rules apply.
         </p>
       </header>
@@ -32,7 +32,7 @@ export default function ReferralHelpPage() {
         <p className="text-sm font-semibold text-slate-900">Jump to section</p>
         <div className="mt-2 flex flex-wrap gap-3 text-sm">
           <a href="#for-agents-hosts" className="font-semibold text-slate-900 underline underline-offset-4">
-            For Agents &amp; Hosts
+            For Agents
           </a>
           <a href="#admins" className="font-semibold text-slate-900 underline underline-offset-4">
             For Admins
@@ -41,7 +41,7 @@ export default function ReferralHelpPage() {
       </section>
 
       <section id="for-agents-hosts" className="space-y-4">
-        <h2 className="text-xl font-semibold text-slate-900">For Agents &amp; Hosts</h2>
+        <h2 className="text-xl font-semibold text-slate-900">For Agents</h2>
 
         <FaqItem id="agent-active-referral" question="1. What counts as an Active referral?">
           <p>
@@ -249,6 +249,9 @@ export default function ReferralHelpPage() {
       </section>
 
       <footer className="flex flex-wrap gap-3 text-sm">
+        <Link href="/help/agent/referrals" className="font-semibold text-slate-900 underline underline-offset-4">
+          Agent referrals guide
+        </Link>
         <Link href="/dashboard/referrals" className="font-semibold text-slate-900 underline underline-offset-4">
           Agent referrals dashboard
         </Link>

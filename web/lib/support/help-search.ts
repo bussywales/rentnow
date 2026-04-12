@@ -1,5 +1,4 @@
 import {
-  HELP_ROLES,
   HELP_SHARED_SECTIONS,
   HELP_ROLE_LABELS,
   HELP_SHARED_LABELS,
@@ -8,6 +7,8 @@ import {
   type HelpRole,
   type HelpSharedSection,
 } from "@/lib/help/docs";
+import { PUBLIC_HELP_ROLES } from "@/lib/help/visibility";
+import { SUPPORT_FAQ_ITEMS } from "@/lib/support/support-content";
 
 type IndexedDoc = {
   id: string;
@@ -75,7 +76,7 @@ function scoreDoc(doc: IndexedDoc, query: string, tokens: string[]) {
 
 async function loadIndexedDocs(): Promise<IndexedDoc[]> {
   const roleDocs = await Promise.all(
-    HELP_ROLES.map(async (role: HelpRole) => {
+    PUBLIC_HELP_ROLES.map(async (role: HelpRole) => {
       const docs = await getHelpDocsForRole(role);
       return docs.map((doc) => ({
         id: `${role}:${doc.slug}`,
@@ -102,7 +103,28 @@ async function loadIndexedDocs(): Promise<IndexedDoc[]> {
     })
   );
 
-  return [...roleDocs.flat(), ...sharedDocs.flat()];
+  const supportFaqDocs = SUPPORT_FAQ_ITEMS.map((item) => ({
+    id: `support-faq:${item.id}`,
+    title: item.question,
+    description: "Support FAQ",
+    body: item.answer,
+    href: "/support",
+    label: "Support FAQ",
+  }));
+
+  return [...roleDocs.flat(), ...sharedDocs.flat(), ...supportFaqDocs];
+}
+
+export async function getSupportHelpIndexForTest(): Promise<Array<{ id: string; href: string; label: string }>> {
+  if (!docsCache) {
+    docsCache = loadIndexedDocs();
+  }
+  const docs = await docsCache;
+  return docs.map((doc) => ({ id: doc.id, href: doc.href, label: doc.label }));
+}
+
+export function resetSupportHelpIndexForTest() {
+  docsCache = null;
 }
 
 export async function searchSupportHelpDocs(
@@ -140,4 +162,3 @@ export async function searchSupportHelpDocs(
       score: doc.score,
     }));
 }
-

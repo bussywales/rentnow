@@ -51,9 +51,14 @@ function buildGroups(roleLabel: "Agent" | "Landlord", rolePath: "/help/agent" | 
       ],
     },
     {
-      title: "Featured & payments",
-      description: "Request featured placement and activate after approval.",
+      title: "Plans & payments",
+      description: "Understand plan coverage, per-listing payments, and featured activation.",
       links: [
+        {
+          label: `${roleLabel} listing monetisation`,
+          href: `${rolePath}/listing-monetisation`,
+          meta: "Plans & PAYG",
+        },
         {
           label: `${roleLabel} featured and payments`,
           href: `${rolePath}/featured-and-payments`,
@@ -63,9 +68,9 @@ function buildGroups(roleLabel: "Agent" | "Landlord", rolePath: "/help/agent" | 
     },
     {
       title: "Referrals",
-      description: "Grow referral activity with clear active milestones.",
+      description: "Track eligible agent referral rewards and active milestones.",
       links: [
-        { label: "Referral FAQ", href: "/help/referrals#for-agents-hosts", meta: "FAQ" },
+        { label: "Agent referrals", href: "/help/agent/referrals", meta: "Guide" },
         {
           label: "How to share your referral link",
           href: "/help/agents/articles/how-to-share-your-referral-link",
