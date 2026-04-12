@@ -288,9 +288,6 @@ export default async function Home() {
         <div className="relative grid items-center gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(400px,460px)] lg:gap-10 xl:grid-cols-[minmax(0,1.15fr)_minmax(420px,470px)] xl:gap-12">
           <div className="flex min-h-[440px] flex-col justify-between">
             <div className="space-y-5">
-              <p className="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100">
-              PropatyHub Beta
-              </p>
               <div className="space-y-4">
                 <h1 className="max-w-[10ch] text-5xl font-semibold leading-[1.02] tracking-[-0.04em] text-white lg:text-[4.25rem] xl:text-[4.7rem]">
                   Find the right place with less friction.

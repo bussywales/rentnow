@@ -69,6 +69,14 @@ void test("homepage copy is customer-first and removes tech stack references", (
     !containsLiteral("OpenAI"),
     "did not expect OpenAI mention on homepage"
   );
+  assert.ok(
+    !containsLiteral("PropatyHub Beta"),
+    "did not expect stale beta badge copy on homepage"
+  );
+  assert.ok(
+    !containsLiteral("beta"),
+    "did not expect beta launch-state copy on homepage surfaces under test"
+  );
 });
 
 void test("homepage trust block renders required copy", () => {
