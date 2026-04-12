@@ -6,15 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { FLOATING_ACTION_RAIL_BASE_BOTTOM_OFFSET_PX, FloatingActionRail } from "@/components/ui/FloatingActionRail";
 import { glassSurface } from "@/lib/ui/glass";
-
-const QUICK_ACTIONS: Array<{ id: string; label: string; href: string }> = [
-  { id: "payments", label: "Payments help", href: "/help/tenant/shortlets" },
-  { id: "pending-booking", label: "Booking pending help", href: "/help/tenant/shortlets-trips-timeline" },
-  { id: "host-approvals", label: "Host approvals help", href: "/help/landlord/shortlets-bookings" },
-  { id: "account-login", label: "Account/login help", href: "/help/troubleshooting/getting-started" },
-  { id: "report-issue", label: "Report an issue", href: "/support" },
-  { id: "contact-support", label: "Contact support", href: "/support" },
-];
+import { buildSupportWidgetQuickActions } from "@/lib/support/widget-quick-actions";
 
 type Props = {
   prefillName?: string | null;
@@ -40,6 +32,7 @@ export function SupportWidget({
   const isShortletsRoute = hasMounted && (pathname?.startsWith("/shortlets") ?? false);
   const isExploreRoute = pathname?.startsWith("/explore") ?? false;
   const isHomeRoute = pathname === "/" || pathname === "/home";
+  const quickActions = buildSupportWidgetQuickActions({ pathname, role: prefillRole });
   const [open, setOpen] = useState(false);
   const [hasBlockingDialog, setHasBlockingDialog] = useState(false);
   const [query, setQuery] = useState("");
@@ -330,8 +323,11 @@ export function SupportWidget({
         >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Support</p>
-              <h2 className="text-base font-semibold text-slate-900">How can we help?</h2>
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Help</p>
+              <h2 className="text-base font-semibold text-slate-900">Find the right help faster</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Search guides, ask the assistant, or reach support when you need a person.
+              </p>
             </div>
             <Button variant="secondary" size="sm" onClick={close}>
               Close
@@ -339,29 +335,32 @@ export function SupportWidget({
           </div>
 
           <label htmlFor="support-widget-query" className="mt-3 block text-xs font-medium text-slate-500">
-            Search
+            Search guides
           </label>
           <input
             id="support-widget-query"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="How can we help?"
+            placeholder="Search listings, billing, bookings, or account help"
             className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
             data-testid="support-widget-search"
           />
 
-          <div className="mt-3 grid grid-cols-1 gap-2">
-            {QUICK_ACTIONS.map((action) => (
-              <Link
-                key={action.id}
-                href={action.href}
-                onClick={close}
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                data-testid={`support-widget-action-${action.id}`}
-              >
-                {action.label}
-              </Link>
-            ))}
+          <div className="mt-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Popular help</p>
+            <div className="mt-2 grid grid-cols-1 gap-2">
+              {quickActions.map((action) => (
+                <Link
+                  key={action.id}
+                  href={action.href}
+                  onClick={close}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  data-testid={`support-widget-action-${action.id}`}
+                >
+                  {action.label}
+                </Link>
+              ))}
+            </div>
           </div>
 
           {query.trim().length >= 2 ? (
@@ -388,7 +387,9 @@ export function SupportWidget({
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-xs text-slate-500">No direct match yet. You can escalate to support.</p>
+                <p className="mt-2 text-xs text-slate-500">
+                  No direct match yet. You can still ask the assistant or contact support.
+                </p>
               )}
             </div>
           ) : null}
@@ -400,20 +401,21 @@ export function SupportWidget({
               className="text-sm font-semibold text-sky-700 underline underline-offset-4"
               data-testid="support-widget-open-support"
             >
-              Open full support page
+              Open full help and support
             </Link>
           </div>
 
           <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Ask assistant</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Ask Assistant</p>
               {assistantBusy ? <p className="text-xs text-slate-400">Thinking…</p> : null}
             </div>
 
             <div className="mt-2 max-h-40 space-y-2 overflow-y-auto pr-1" data-testid="support-widget-chat-thread">
               {chatMessages.length === 0 ? (
                 <p className="text-xs text-slate-500">
-                  Ask a support question and I&apos;ll answer from our help docs.
+                  Ask about listings, billing, bookings, requests, or account access.
+                  I&apos;ll search our help guides first.
                 </p>
               ) : (
                 chatMessages.map((message, index) => (
@@ -440,7 +442,7 @@ export function SupportWidget({
                   event.preventDefault();
                   void handleAssistantSend();
                 }}
-                placeholder="Ask about bookings, payments, approvals..."
+                placeholder="Ask about listings, billing, bookings, or account access"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                 data-testid="support-widget-input"
               />
@@ -458,7 +460,7 @@ export function SupportWidget({
             {shouldEscalate ? (
               <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
                 <p className="text-xs text-amber-800">
-                  This looks like it needs human follow-up{escalationReason ? ` (${escalationReason})` : ""}.
+                  This looks like it needs human follow-up. Share the details and support will pick it up.
                 </p>
                 {escalationTicketId ? (
                   <p

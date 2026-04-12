@@ -28,9 +28,12 @@ void test("support widget exposes open, close, quick actions, and /support fallb
   assert.match(source, /data-testid="support-widget-ticket-success"/);
   assert.match(source, /onClick=\{\(\) => setShowEscalationForm\(true\)\}/);
   assert.match(source, /fetch\("\/api\/support\/escalate"/);
-  assert.match(source, /Open full support page/);
+  assert.match(source, /Open full help and support/);
   assert.match(source, /href="\/support"/);
   assert.match(source, /if\s*\(event\.key === "Escape"\)/);
+  assert.match(source, /buildSupportWidgetQuickActions/);
+  assert.match(source, /Popular help/);
+  assert.match(source, /Ask Assistant/);
   assert.match(source, /FloatingActionRail/);
   assert.match(source, /\[role="dialog"\]\[aria-modal="true"\]/);
   assert.match(source, /const isExploreRoute = pathname\?\.startsWith\("\/explore"\) \?\? false/);
