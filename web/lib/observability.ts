@@ -1,6 +1,7 @@
 import { getEnvPresence } from "@/lib/env";
 
 type LogLevel = "error" | "warn";
+type EventLogLevel = "info" | "warn" | "error";
 
 type FailureLogInput = {
   request: Request;
@@ -187,6 +188,26 @@ type AdminRoleChangeLogInput = {
   reasonProvided?: boolean;
 };
 
+type OperationalEventLogInput = {
+  request?: Request;
+  route: string;
+  level?: EventLogLevel;
+  event: string;
+  details?: Record<string, unknown>;
+};
+
+type ClientRuntimeErrorLogInput = {
+  request: Request;
+  route: string;
+  reportedRoute?: string | null;
+  digest?: string | null;
+  message?: string | null;
+  stack?: string | null;
+  href?: string | null;
+  pathname?: string | null;
+  userAgent?: string | null;
+};
+
 function normalizeError(error: unknown) {
   if (!error) return undefined;
   if (error instanceof Error) {
@@ -218,6 +239,29 @@ export function getRequestId(request?: Request) {
   return `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+export function logOperationalEvent({
+  request,
+  route,
+  level = "info",
+  event,
+  details,
+}: OperationalEventLogInput) {
+  const payload = {
+    level,
+    event,
+    route,
+    requestId: getRequestId(request),
+    ...(details || {}),
+  };
+
+  if (level === "error") {
+    console.error(JSON.stringify(payload));
+    return;
+  }
+
+  console.log(JSON.stringify(payload));
+}
+
 export function logFailure({
   request,
   route,
@@ -240,6 +284,34 @@ export function logFailure({
   };
 
   console.error(JSON.stringify(payload));
+}
+
+export function logClientRuntimeError({
+  request,
+  route,
+  reportedRoute,
+  digest,
+  message,
+  stack,
+  href,
+  pathname,
+  userAgent,
+}: ClientRuntimeErrorLogInput) {
+  console.error(
+    JSON.stringify({
+      level: "error",
+      event: "client_runtime_error",
+      route,
+      requestId: getRequestId(request),
+      env: getEnvPresence(),
+      reportedRoute: reportedRoute || pathname || null,
+      digest: digest || null,
+      href: href || null,
+      pathname: pathname || null,
+      userAgent: userAgent || null,
+      error: normalizeError({ message: message || "Unhandled app error", stack }),
+    })
+  );
 }
 
 export function logApprovalAction({

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 
@@ -10,9 +11,33 @@ type Props = {
 };
 
 export default function GlobalError({ error, reset }: Props) {
+  const pathname = usePathname();
+
   useEffect(() => {
+    const payload = JSON.stringify({
+      digest: error.digest,
+      message: error.message || "Unhandled app error",
+      stack: error.stack,
+      pathname: pathname || undefined,
+      href: typeof window !== "undefined" ? window.location.href : undefined,
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+    });
+
+    const url = "/api/client-errors";
+    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+      const blob = new Blob([payload], { type: "application/json" });
+      navigator.sendBeacon(url, blob);
+    } else {
+      void fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+        keepalive: true,
+      }).catch(() => undefined);
+    }
+
     console.error("Unhandled app error", error);
-  }, [error]);
+  }, [error, pathname]);
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-10">

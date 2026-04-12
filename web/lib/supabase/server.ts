@@ -6,6 +6,7 @@ import {
   shouldSuppressAuthCookieClear,
 } from "@/lib/auth/cookie-guard";
 import { applyServerAuthCookieDefaults } from "@/lib/auth/server-cookie";
+import { getServerSupabaseEnv } from "@/lib/env";
 
 function encodeBase64Url(value: string) {
   return Buffer.from(value, "utf-8")
@@ -15,16 +16,8 @@ function encodeBase64Url(value: string) {
     .replace(/=+$/, "");
 }
 
-const getEnv = () => {
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey =
-    process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return null;
-  return { url, anonKey };
-};
-
 export function hasServerSupabaseEnv() {
-  return !!getEnv();
+  return !!getServerSupabaseEnv();
 }
 
 type CookieStore = Awaited<ReturnType<typeof cookies>>;
@@ -38,7 +31,7 @@ export async function createServerSupabaseClient(options?: {
   allowCookieClear?: boolean;
   debugContext?: { route?: string };
 }) {
-  const env = getEnv();
+  const env = getServerSupabaseEnv();
   if (!env) {
     throw new Error("Supabase env vars missing");
   }

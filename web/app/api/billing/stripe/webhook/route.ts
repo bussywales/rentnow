@@ -6,7 +6,7 @@ import { getStripeClient, getStripeConfigForMode } from "@/lib/billing/stripe";
 import { constructStripeEvent } from "@/lib/billing/stripe-webhook";
 import { parseWebhookInsertError, shouldMarkWebhookProcessed } from "@/lib/billing/stripe-webhook-events";
 import { processStripeEvent } from "@/lib/billing/stripe-event-processor";
-import { logFailure, logStripeWebhookApplied } from "@/lib/observability";
+import { logFailure, logOperationalEvent, logStripeWebhookApplied } from "@/lib/observability";
 
 const routeLabel = "/api/billing/stripe/webhook";
 
@@ -114,15 +114,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Webhook idempotency failed" }, { status: 500 });
   }
   if (idempotency.duplicate) {
-    console.log(
-      JSON.stringify({
-        level: "info",
-        event: "stripe_webhook_duplicate",
-        route: routeLabel,
+    logOperationalEvent({
+      request,
+      route: routeLabel,
+      event: "stripe_webhook_duplicate",
+      details: {
         eventType: event.type,
         eventId: event.id,
-      })
-    );
+      },
+    });
     return NextResponse.json({ received: true });
   }
 

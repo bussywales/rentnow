@@ -2,21 +2,12 @@ import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { User } from "@supabase/supabase-js";
 import type { Profile, UserRole } from "@/lib/types";
+import { logOperationalEvent } from "@/lib/observability";
 
-type SupabaseAuthLike = {
-  auth: {
-    getUser: () => Promise<{
-      data: {
-        user: User | null;
-      };
-      error?: { message?: string | null } | null;
-    }>;
-    refreshSession: () => Promise<{
-      data?: { session?: unknown } | null;
-      error?: { message?: string | null } | null;
-    }>;
-  };
-};
+type SupabaseAuthLike = Pick<
+  Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  "auth"
+>;
 
 const EXPECTED_MISSING_SESSION_MARKERS = [
   "auth session missing",
@@ -119,9 +110,7 @@ export async function resolveSessionUserFromSupabase(
 
 export async function getSession() {
   const supabase = await createServerSupabaseClient();
-  const user = await resolveSessionUserFromSupabase(
-    supabase as unknown as SupabaseAuthLike
-  );
+  const user = await resolveSessionUserFromSupabase(supabase);
   return user ? ({ user } as { user: User }) : null;
 }
 
@@ -139,13 +128,25 @@ export async function getProfile(): Promise<Profile | null> {
       .maybeSingle();
 
     if (error) {
-      console.error("Error fetching profile", error.message);
+      logOperationalEvent({
+        route: "auth:getProfile",
+        level: "error",
+        event: "profile_fetch_failed",
+        details: { message: error.message },
+      });
       return null;
     }
 
     return data as Profile | null;
   } catch (err) {
-    console.warn("Profile fetch failed; returning null", err);
+    logOperationalEvent({
+      route: "auth:getProfile",
+      level: "warn",
+      event: "profile_fetch_exception",
+      details: {
+        error: err instanceof Error ? err.message : String(err),
+      },
+    });
     return null;
   }
 }

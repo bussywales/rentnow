@@ -19,6 +19,7 @@ import {
 } from "@/lib/shortlet/payments.server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
+import { logOperationalEvent } from "@/lib/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -642,16 +643,21 @@ export async function postInternalShortletReconcilePaymentsResponse(
     }
   }
 
-  console.log(`[${routeLabel}] done`, {
-    schemaMode: summary.schemaMode,
-    scanned: summary.scanned,
-    locked: summary.locked,
-    reconciled: summary.reconciled,
-    failedMarked: summary.failedMarked,
-    flaggedForReconcile: summary.flaggedForReconcile,
-    skippedLocked: summary.skippedLocked,
-    skippedTerminal: summary.skippedTerminal,
-    errors: summary.errors.length,
+  logOperationalEvent({
+    request,
+    route: routeLabel,
+    event: "shortlet_payment_reconcile_done",
+    details: {
+      schemaMode: summary.schemaMode,
+      scanned: summary.scanned,
+      locked: summary.locked,
+      reconciled: summary.reconciled,
+      failedMarked: summary.failedMarked,
+      flaggedForReconcile: summary.flaggedForReconcile,
+      skippedLocked: summary.skippedLocked,
+      skippedTerminal: summary.skippedTerminal,
+      errors: summary.errors.length,
+    },
   });
 
   return NextResponse.json(summary);

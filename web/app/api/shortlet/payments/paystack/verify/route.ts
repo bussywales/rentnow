@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/authz";
 import { getPaystackServerConfig, hasPaystackServerEnv, verifyTransaction } from "@/lib/payments/paystack.server";
+import { logOperationalEvent } from "@/lib/observability";
 import { dispatchShortletPaymentSuccess } from "@/lib/shortlet/payment-success.server";
 import {
   getShortletPaymentCheckoutContextByBookingId,
@@ -68,10 +69,6 @@ export async function getShortletPaystackVerifyResponse(
   const referenceParam = request.nextUrl.searchParams.get("reference");
   const bookingParam =
     request.nextUrl.searchParams.get("booking_id") || request.nextUrl.searchParams.get("bookingId");
-  console.log(`[${routeLabel}] start`, {
-    bookingIdParam: bookingParam,
-    referencePresent: Boolean(String(referenceParam || "").trim()),
-  });
   if (!deps.hasServiceRoleEnv()) {
     return NextResponse.json({ error: "Service role not configured" }, { status: 503 });
   }
@@ -109,9 +106,16 @@ export async function getShortletPaystackVerifyResponse(
   const lastRunMs = verifyRequestGuard.get(guardKey) ?? 0;
   verifyRequestGuard.set(guardKey, nowMs);
   if (lastRunMs && nowMs - lastRunMs < VERIFY_MIN_INTERVAL_MS) {
-    console.log(`[${routeLabel}] throttled`, {
-      reference: parsed.data.reference,
-      deltaMs: nowMs - lastRunMs,
+    logOperationalEvent({
+      request,
+      route: routeLabel,
+      event: "shortlet_payment_verify_throttled",
+      details: {
+        reference: parsed.data.reference,
+        deltaMs: nowMs - lastRunMs,
+        bookingIdParam: bookingParam,
+        referencePresent: Boolean(String(referenceParam || "").trim()),
+      },
     });
     return NextResponse.json({ ok: true, status: "throttled" }, { status: 202 });
   }
@@ -167,9 +171,15 @@ export async function getShortletPaystackVerifyResponse(
         providerPayload,
         client: adminClient,
       });
-      console.log(`[${routeLabel}] verification_failed`, {
-        bookingId,
-        reference: parsed.data.reference,
+      logOperationalEvent({
+        request,
+        route: routeLabel,
+        level: "warn",
+        event: "shortlet_payment_verification_failed",
+        details: {
+          bookingId,
+          reference: parsed.data.reference,
+        },
       });
       return NextResponse.json({ ok: false, status: "verification_failed" }, { status: 409 });
     }
@@ -258,11 +268,16 @@ export async function getShortletPaystackVerifyResponse(
       });
     }
 
-    console.log(`[${routeLabel}] confirmed`, {
-      bookingId,
-      reference: parsed.data.reference,
-      transitioned: paid.booking.transitioned,
-      bookingStatus: paid.booking.status,
+    logOperationalEvent({
+      request,
+      route: routeLabel,
+      event: "shortlet_payment_confirmed",
+      details: {
+        bookingId,
+        reference: parsed.data.reference,
+        transitioned: paid.booking.transitioned,
+        bookingStatus: paid.booking.status,
+      },
     });
     return NextResponse.json({
       ok: true,

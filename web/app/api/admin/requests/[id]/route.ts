@@ -8,6 +8,7 @@ import {
   mapPropertyRequestRecord,
   type PropertyRequestRecord,
 } from "@/lib/requests/property-requests";
+import { logOperationalEvent } from "@/lib/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -133,11 +134,16 @@ export async function patchAdminPropertyRequestResponse(
     return NextResponse.json({ error: "Unable to update request" }, { status: 500 });
   }
 
-  console.log("[admin/requests] moderation_action", {
-    requestId,
-    action: parsed.data.action,
-    actorId: auth.user.id,
-    at: now,
+  logOperationalEvent({
+    request: req,
+    route: "/api/admin/requests/[id]",
+    event: "property_request_moderation_action",
+    details: {
+      requestRecordId: requestId,
+      action: parsed.data.action,
+      actorId: auth.user.id,
+      at: now,
+    },
   });
 
   return NextResponse.json({

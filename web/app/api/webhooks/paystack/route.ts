@@ -13,6 +13,7 @@ import {
   validateWebhookSignature,
   verifyTransaction,
 } from "@/lib/payments/paystack.server";
+import { logOperationalEvent } from "@/lib/observability";
 import { dispatchShortletPaymentSuccess } from "@/lib/shortlet/payment-success.server";
 import {
   getShortletPaymentCheckoutContextByBookingId,
@@ -85,7 +86,6 @@ export async function postPaystackWebhookResponse(
   request: NextRequest,
   deps: PaystackWebhookDeps = defaultDeps
 ) {
-  console.log(`[${routeLabel}] start`);
   if (!deps.hasServiceRoleEnv()) {
     return NextResponse.json({ error: "Service role not configured." }, { status: 503 });
   }
@@ -188,9 +188,14 @@ export async function postPaystackWebhookResponse(
       if (webhookEventId) {
         await deps.markPaymentWebhookEventProcessed({ client, id: webhookEventId });
       }
-      console.log(`[${routeLabel}] shortlet_failed_event_processed`, {
-        reference: referenceValue,
-        hadPaymentRecord: Boolean(shortletPayment),
+      logOperationalEvent({
+        request,
+        route: routeLabel,
+        event: "shortlet_failed_event_processed",
+        details: {
+          reference: referenceValue,
+          hadPaymentRecord: Boolean(shortletPayment),
+        },
       });
       return NextResponse.json({ ok: true, shortlet: true });
     }
@@ -358,10 +363,15 @@ export async function postPaystackWebhookResponse(
       if (webhookEventId) {
         await deps.markPaymentWebhookEventProcessed({ client, id: webhookEventId });
       }
-      console.log(`[${routeLabel}] shortlet_payment_confirmed`, {
-        bookingId: paid.booking.bookingId,
-        reference: referenceValue,
-        transitioned: paid.booking.transitioned,
+      logOperationalEvent({
+        request,
+        route: routeLabel,
+        event: "shortlet_payment_confirmed",
+        details: {
+          bookingId: paid.booking.bookingId,
+          reference: referenceValue,
+          transitioned: paid.booking.transitioned,
+        },
       });
 
       return NextResponse.json({
@@ -398,7 +408,14 @@ export async function postPaystackWebhookResponse(
         error: "payment_not_found",
       });
     }
-    console.log(`[${routeLabel}] no_matching_payment_reference`, { reference: referenceValue });
+    logOperationalEvent({
+      request,
+      route: routeLabel,
+      event: "featured_payment_reference_not_found",
+      details: {
+        reference: referenceValue,
+      },
+    });
     return NextResponse.json({ ok: true });
   }
 
@@ -427,9 +444,14 @@ export async function postPaystackWebhookResponse(
     if (webhookEventId) {
       await deps.markPaymentWebhookEventProcessed({ client, id: webhookEventId });
     }
-    console.log(`[${routeLabel}] featured_webhook_processed`, {
-      reference: referenceValue,
-      event: eventValue,
+    logOperationalEvent({
+      request,
+      route: routeLabel,
+      event: "featured_webhook_processed",
+      details: {
+        reference: referenceValue,
+        eventType: eventValue,
+      },
     });
     return NextResponse.json({ ok: true });
   }

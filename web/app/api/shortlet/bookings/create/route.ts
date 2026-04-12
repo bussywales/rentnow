@@ -294,16 +294,8 @@ export async function POST(request: NextRequest) {
     derivedMode = resolveBookingMode(payloadRecord.mode ?? payloadRecord.booking_mode, settings?.booking_mode);
     const propertyCountry = getPropertyCountryCode(propertyData);
     const propertyCurrency = typeof propertyData.currency === "string" ? propertyData.currency : null;
-    const bookingCurrency = propertyCurrency || "NGN";
     const intent = typeof payloadRecord.intent === "string" ? payloadRecord.intent : "shortlet";
 
-    console.log("[shortlet-bookings/create] derived-inputs", {
-      nights: derivedNights,
-      guests: derivedGuests,
-      mode: derivedMode,
-      propertyCountry,
-      bookingCurrency,
-    });
     console.info("[shortlet-bookings/create] derived-inputs-meta", {
       propertyId: property_id,
       intent,

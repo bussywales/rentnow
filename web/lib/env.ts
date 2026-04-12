@@ -2,6 +2,15 @@ export const DEV_MOCKS =
   process.env.NODE_ENV !== "production" &&
   process.env.NEXT_PUBLIC_ENABLE_DEV_MOCKS === "true";
 
+let loggedServerSupabaseUrlFallback = false;
+let loggedServerSupabaseAnonKeyFallback = false;
+
+export function resetServerSupabaseEnvWarningsForTest() {
+  if (process.env.NODE_ENV !== "test") return;
+  loggedServerSupabaseUrlFallback = false;
+  loggedServerSupabaseAnonKeyFallback = false;
+}
+
 function normalizeBaseUrl(value?: string | null) {
   if (!value) return null;
   const trimmed = value.trim().replace(/\/$/, "");
@@ -42,6 +51,47 @@ export function getEnvPresence() {
     RESEND_API_KEY: !!process.env.RESEND_API_KEY,
     RESEND_FROM: !!process.env.RESEND_FROM,
   };
+}
+
+function warnServerSupabaseFallback(serverKey: string, fallbackKey: string) {
+  if (serverKey === "SUPABASE_URL" && !loggedServerSupabaseUrlFallback) {
+    console.warn(
+      `[env] ${serverKey} is missing; server-side Supabase code is falling back to ${fallbackKey}. Define ${serverKey} explicitly to avoid ambiguous runtime config.`
+    );
+    loggedServerSupabaseUrlFallback = true;
+    return;
+  }
+
+  if (serverKey === "SUPABASE_ANON_KEY" && !loggedServerSupabaseAnonKeyFallback) {
+    console.warn(
+      `[env] ${serverKey} is missing; server-side Supabase code is falling back to ${fallbackKey}. Define ${serverKey} explicitly to avoid ambiguous runtime config.`
+    );
+    loggedServerSupabaseAnonKeyFallback = true;
+  }
+}
+
+function resolveServerSupabaseValue(serverKey: string, fallbackKey: string) {
+  const serverValue = process.env[serverKey]?.trim();
+  if (serverValue) return serverValue;
+
+  const fallbackValue = process.env[fallbackKey]?.trim();
+  if (fallbackValue) {
+    warnServerSupabaseFallback(serverKey, fallbackKey);
+    return fallbackValue;
+  }
+
+  return null;
+}
+
+export function getServerSupabaseEnv() {
+  const url = resolveServerSupabaseValue("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL");
+  const anonKey = resolveServerSupabaseValue("SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  if (!url || !anonKey) return null;
+  return { url, anonKey };
+}
+
+export function getServerSupabaseUrl() {
+  return resolveServerSupabaseValue("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL");
 }
 
 function resolveConfiguredSiteUrl() {
