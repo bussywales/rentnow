@@ -14,6 +14,7 @@ export type ListingApprovalState =
 
 export type ListingApprovalGuidance = {
   state: ListingApprovalState;
+  visualStatus: string;
   statusLabel: string;
   summary: string;
   reasonSummary: string | null;
@@ -46,6 +47,29 @@ export function resolveListingApprovalState(listing: DashboardListing): ListingA
   }
 
   return "live";
+}
+
+export function resolveListingApprovalVisualStatus(listing: DashboardListing): string {
+  const normalized = normalizePropertyStatus(listing.status ?? null);
+
+  if (normalized === "live" && isListingExpired(listing)) return "expired";
+  if (
+    normalized === "removed" ||
+    normalized === "paused_occupied" ||
+    normalized === "paused_owner" ||
+    normalized === "paused" ||
+    normalized === "expired" ||
+    normalized === "pending" ||
+    normalized === "changes_requested" ||
+    normalized === "rejected" ||
+    normalized === "draft"
+  ) {
+    return normalized;
+  }
+
+  const state = resolveListingApprovalState(listing);
+  if (state === "paused") return "paused";
+  return state;
 }
 
 export function summarizeListingReviewReason(raw: unknown): string | null {
@@ -82,6 +106,7 @@ function buildPausedSummary(listing: DashboardListing) {
 
 export function buildListingApprovalGuidance(listing: DashboardListing): ListingApprovalGuidance {
   const state = resolveListingApprovalState(listing);
+  const visualStatus = resolveListingApprovalVisualStatus(listing);
   const topIssue = listing.readiness.issues[0]?.code;
   const baseEditHref = `/host/properties/${listing.id}/edit`;
   const reviewReason = summarizeListingReviewReason(listing.rejection_reason);
@@ -90,7 +115,8 @@ export function buildListingApprovalGuidance(listing: DashboardListing): Listing
     case "draft":
       return {
         state,
-        statusLabel: mapStatusLabel("draft"),
+        visualStatus,
+        statusLabel: mapStatusLabel(visualStatus),
         summary: "Finish the required listing details, then submit it for approval.",
         reasonSummary: null,
         nextActionLabel: "Finish setup",
@@ -99,7 +125,8 @@ export function buildListingApprovalGuidance(listing: DashboardListing): Listing
     case "pending":
       return {
         state,
-        statusLabel: mapStatusLabel("pending"),
+        visualStatus,
+        statusLabel: mapStatusLabel(visualStatus),
         summary: "This listing is with the review team. No action is needed unless feedback comes back.",
         reasonSummary: null,
         nextActionLabel: "View status",
@@ -108,7 +135,8 @@ export function buildListingApprovalGuidance(listing: DashboardListing): Listing
     case "changes_requested":
       return {
         state,
-        statusLabel: mapStatusLabel("changes_requested"),
+        visualStatus,
+        statusLabel: mapStatusLabel(visualStatus),
         summary: "Review the requested fixes, update the listing, and resubmit for approval.",
         reasonSummary: reviewReason,
         nextActionLabel: "Fix and resubmit",
@@ -117,7 +145,8 @@ export function buildListingApprovalGuidance(listing: DashboardListing): Listing
     case "rejected":
       return {
         state,
-        statusLabel: mapStatusLabel("rejected"),
+        visualStatus,
+        statusLabel: mapStatusLabel(visualStatus),
         summary: "This listing was not approved. Review the feedback before submitting it again.",
         reasonSummary: reviewReason,
         nextActionLabel: "Review feedback",
@@ -126,7 +155,8 @@ export function buildListingApprovalGuidance(listing: DashboardListing): Listing
     case "paused":
       return {
         state,
-        statusLabel: mapStatusLabel(normalizePropertyStatus(listing.status ?? null) || "paused"),
+        visualStatus,
+        statusLabel: mapStatusLabel(visualStatus),
         summary: buildPausedSummary(listing),
         reasonSummary: null,
         nextActionLabel: "Review listing",
@@ -135,7 +165,8 @@ export function buildListingApprovalGuidance(listing: DashboardListing): Listing
     default:
       return {
         state: "live",
-        statusLabel: mapStatusLabel("live"),
+        visualStatus,
+        statusLabel: mapStatusLabel(visualStatus),
         summary: "This listing is live in the marketplace. Keep its details current and monitor performance.",
         reasonSummary: null,
         nextActionLabel: "Open live listing",

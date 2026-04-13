@@ -10,6 +10,7 @@ import { SafeImage } from "@/components/ui/SafeImage";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
 import { resolvePropertyImageUrl } from "@/lib/properties/image-url";
 import { mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
+import { resolveListingApprovalVisualStatus } from "@/lib/host/listing-approval";
 import { resolveImageLoadingProfile, shouldPriorityImage } from "@/lib/images/loading-profile";
 import {
   getHostListingTileAspectClass,
@@ -114,6 +115,7 @@ export function HostListingsMasonryGrid({
 
       <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2 md:gap-4 lg:grid-cols-3">
         {visibleListings.map((listing, index) => {
+          const visualStatus = resolveListingApprovalVisualStatus(listing);
           const imageUrl = resolveStableListingImageSrc(
             stableImageSrcByListingId,
             listing.id,
@@ -202,10 +204,10 @@ export function HostListingsMasonryGrid({
                 <div className="absolute inset-x-0 top-0 z-[1] flex items-start justify-between p-2.5">
                   <span
                     className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold backdrop-blur ${statusChipClass(
-                      listing.status ?? null
+                      visualStatus
                     )}`}
                   >
-                    {mapStatusLabel(listing.status)}
+                    {mapStatusLabel(visualStatus)}
                   </span>
                   {hasMultipleImages ? (
                     <span className="rounded-full border border-white/30 bg-black/45 px-2 py-0.5 text-[10px] font-semibold text-white">

@@ -9,6 +9,28 @@ import type { UserRole } from "@/lib/types";
 export type ListingMonetizationReason = "PAYMENT_REQUIRED" | "BILLING_REQUIRED";
 export type ListingMonetizationContext = "submission" | "renewal" | "reactivation";
 
+export function buildListingEntitlementIdempotencyKey(input: {
+  context: ListingMonetizationContext;
+  listingId: string;
+  listingStatus?: string | null;
+  submittedAt?: string | null;
+  expiresAt?: string | null;
+  pausedAt?: string | null;
+  statusUpdatedAt?: string | null;
+}) {
+  const normalizedStatus = String(input.listingStatus || "unknown").trim().toLowerCase() || "unknown";
+
+  if (input.context === "renewal") {
+    return `listing:${input.listingId}:renewal:${input.expiresAt || "none"}`;
+  }
+
+  if (input.context === "reactivation") {
+    return `listing:${input.listingId}:reactivation:${normalizedStatus}:${input.pausedAt || input.statusUpdatedAt || input.expiresAt || "none"}`;
+  }
+
+  return `listing:${input.listingId}:submission:${normalizedStatus}:${input.submittedAt || input.statusUpdatedAt || "none"}`;
+}
+
 export type ListingPublishEntitlementResult =
   | {
       ok: true;

@@ -10,6 +10,7 @@ import { resolveImageLoadingProfile, shouldPriorityImage } from "@/lib/images/lo
 import { selectHostFeaturedStripListings } from "@/lib/host/featured-strip";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
 import { mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
+import { resolveListingApprovalVisualStatus } from "@/lib/host/listing-approval";
 import type { DashboardListing } from "@/lib/properties/host-dashboard";
 
 type Props = {
@@ -161,6 +162,7 @@ export function HostFeaturedStrip({
           className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-5 pb-1 pr-5 scroll-px-5 sm:px-7 sm:pr-7 sm:scroll-px-7"
         >
           {featuredListings.map((listing, index) => {
+            const visualStatus = resolveListingApprovalVisualStatus(listing);
             const imageUrl = resolveStableListingImageSrc(
               stableImageSrcByListingId,
               listing.id,
@@ -207,10 +209,10 @@ export function HostFeaturedStrip({
                     <div className="flex items-center justify-between gap-2">
                       <span
                         className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statusChipClass(
-                          listing.status ?? null
+                          visualStatus
                         )}`}
                       >
-                        {mapStatusLabel(listing.status)}
+                        {mapStatusLabel(visualStatus)}
                       </span>
                     </div>
                     <p className="line-clamp-1 text-sm font-semibold text-slate-900">

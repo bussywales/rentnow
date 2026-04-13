@@ -90,7 +90,7 @@ void test("renew returns payment required when no listing entitlement exists", a
   assert.equal(capture.updatePayload, null);
 });
 
-void test("renew succeeds when listing already has a valid one-off entitlement", async () => {
+void test("renew succeeds when consumeListingCredit reports the request was already handled idempotently", async () => {
   const capture = { updatePayload: null as Record<string, unknown> | null };
   const supabase = buildSupabaseStub(
     {

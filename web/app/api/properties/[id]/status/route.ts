@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
@@ -18,6 +17,7 @@ import { requireLegalAcceptance } from "@/lib/legal/guard.server";
 import { getPaygConfig } from "@/lib/billing/payg";
 import { consumeListingCredit, issueTrialCreditsIfEligible } from "@/lib/billing/listing-credits.server";
 import {
+  buildListingEntitlementIdempotencyKey,
   buildListingMonetizationResumeUrl,
   ensureListingPublishEntitlement,
 } from "@/lib/billing/listing-publish-entitlement.server";
@@ -25,6 +25,22 @@ import {
 export const dynamic = "force-dynamic";
 
 const routeLabel = "/api/properties/[id]/status";
+
+type ListingStatusRow = {
+  id: string;
+  owner_id: string;
+  status: string | null;
+  is_active: boolean | null;
+  is_approved: boolean | null;
+  approved_at?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  location_label?: string | null;
+  location_place_id?: string | null;
+  paused_at?: string | null;
+  expires_at?: string | null;
+  status_updated_at?: string | null;
+};
 
 const bodySchema = z
   .object({
@@ -116,10 +132,10 @@ export async function postPropertyStatusResponse(
   const { data: listing, error: fetchError } = await lookupClient
     .from("properties")
     .select(
-      "id, owner_id, status, is_active, is_approved, approved_at, latitude, longitude, location_label, location_place_id"
+      "id, owner_id, status, is_active, is_approved, approved_at, latitude, longitude, location_label, location_place_id, paused_at, expires_at, status_updated_at"
     )
     .eq("id", propertyId)
-    .maybeSingle();
+    .maybeSingle<ListingStatusRow>();
 
   if (fetchError || !listing) {
     deps.logFailure({
@@ -214,7 +230,14 @@ export async function postPropertyStatusResponse(
     if (!adminClient) {
       return NextResponse.json({ error: "Service role not configured" }, { status: 503 });
     }
-    const idempotencyKey = crypto.randomUUID();
+    const idempotencyKey = buildListingEntitlementIdempotencyKey({
+      context: "reactivation",
+      listingId: propertyId,
+      listingStatus: listing.status,
+      pausedAt: listing.paused_at ?? null,
+      expiresAt: listing.expires_at ?? null,
+      statusUpdatedAt: listing.status_updated_at ?? null,
+    });
     const ownerRole = listing.owner_id !== auth.user.id && role === "agent" ? "landlord" : role;
     const entitlement = await ensureListingPublishEntitlement(
       {

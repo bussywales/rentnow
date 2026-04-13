@@ -76,6 +76,12 @@ void test("listing approval guidance surfaces next actions and stored review rea
   });
 
   const pending = makeListing({ id: "pending-1", title: "Pending", status: "pending" });
+  const expiredLive = makeListing({
+    id: "expired-live",
+    title: "Expired live",
+    status: "live",
+    expires_at: "2026-04-03T00:00:00.000Z",
+  });
 
   const changesGuidance = buildListingApprovalGuidance(changesRequested);
   assert.equal(changesGuidance.nextActionLabel, "Fix and resubmit");
@@ -88,6 +94,10 @@ void test("listing approval guidance surfaces next actions and stored review rea
   const pendingGuidance = buildListingApprovalGuidance(pending);
   assert.equal(pendingGuidance.nextActionLabel, "View status");
   assert.match(pendingGuidance.summary, /review team/i);
+
+  const expiredGuidance = buildListingApprovalGuidance(expiredLive);
+  assert.equal(expiredGuidance.statusLabel, "Expired");
+  assert.match(expiredGuidance.summary, /visibility expired/i);
 });
 
 void test("listing approval reason summary falls back to plain text when no structured reasons exist", () => {

@@ -8,6 +8,7 @@ import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { getPaygConfig } from "@/lib/billing/payg";
 import { consumeListingCredit, issueTrialCreditsIfEligible } from "@/lib/billing/listing-credits.server";
 import {
+  buildListingEntitlementIdempotencyKey,
   buildListingMonetizationResumeUrl,
   ensureListingPublishEntitlement,
   type ListingMonetizationContext,
@@ -48,6 +49,7 @@ type ListingRow = {
   city?: string | null;
   country_code?: string | null;
   status?: string | null;
+  status_updated_at?: string | null;
   submitted_at?: string | null;
   is_active?: boolean | null;
   is_approved?: boolean | null;
@@ -135,7 +137,6 @@ export async function postPropertySubmitResponse(
   }
 
   const payload = bodySchema.parse(await request.json().catch(() => ({})));
-  const idempotencyKey = payload?.idempotencyKey || crypto.randomUUID();
   const qualityTelemetry = normalizeListingQualitySubmitTelemetry(payload?.qualityTelemetry);
 
   const adminClient = deps.hasServiceRoleEnv() ? deps.createServiceRoleClient() : null;
@@ -144,7 +145,7 @@ export async function postPropertySubmitResponse(
   const { data: listing, error: listingError } = await lookupClient
     .from("properties")
     .select(
-      "id, owner_id, title, city, country_code, status, submitted_at, is_active, is_approved, latitude, longitude, location_label, location_place_id, listing_intent, rental_type, listing_type"
+      "id, owner_id, title, city, country_code, status, status_updated_at, submitted_at, is_active, is_approved, latitude, longitude, location_label, location_place_id, listing_intent, rental_type, listing_type"
     )
     .eq("id", propertyId)
     .maybeSingle<ListingRow>();
@@ -234,6 +235,15 @@ export async function postPropertySubmitResponse(
   }
 
   const sessionKey = deps.resolveEventSessionKey({ request, userId: auth.user.id });
+  const idempotencyKey =
+    payload?.idempotencyKey ||
+    buildListingEntitlementIdempotencyKey({
+      context: resolveSubmitMonetizationContext(listing.status),
+      listingId: propertyId,
+      listingStatus: listing.status,
+      submittedAt: listing.submitted_at ?? null,
+      statusUpdatedAt: listing.status_updated_at ?? null,
+    });
   await deps.logPropertyEvent({
     supabase,
     propertyId,

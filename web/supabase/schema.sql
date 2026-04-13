@@ -833,23 +833,6 @@ BEGIN
     );
   END IF;
 
-  SELECT id, credit_id, source, idempotency_key
-  INTO existing_row
-  FROM public.listing_credit_consumptions
-  WHERE listing_id = in_listing_id
-  LIMIT 1;
-
-  IF existing_row.id IS NOT NULL THEN
-    RETURN jsonb_build_object(
-      'ok', true,
-      'consumed', false,
-      'credit_id', existing_row.credit_id,
-      'source', existing_row.source,
-      'idempotency_key', existing_row.idempotency_key,
-      'already_consumed', true
-    );
-  END IF;
-
   IF NOT EXISTS (
     SELECT 1
     FROM public.properties p

@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { requireUser, getUserRole } from "@/lib/authz";
@@ -11,6 +10,7 @@ import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 import { getPaygConfig } from "@/lib/billing/payg";
 import { consumeListingCredit, issueTrialCreditsIfEligible } from "@/lib/billing/listing-credits.server";
 import {
+  buildListingEntitlementIdempotencyKey,
   buildListingMonetizationResumeUrl,
   ensureListingPublishEntitlement,
 } from "@/lib/billing/listing-publish-entitlement.server";
@@ -112,7 +112,12 @@ export async function postPropertyRenewResponse(
     const adminClient = deps.createServiceRoleClient();
     const ownerRole: UserRole | null =
       property.owner_id !== auth.user.id && role === "agent" ? "landlord" : role;
-    const idempotencyKey = crypto.randomUUID();
+    const idempotencyKey = buildListingEntitlementIdempotencyKey({
+      context: "renewal",
+      listingId: id,
+      listingStatus: property.status,
+      expiresAt: property.expires_at ?? null,
+    });
     const entitlement = await ensureListingPublishEntitlement(
       {
         adminClient,

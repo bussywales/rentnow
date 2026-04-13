@@ -8,6 +8,7 @@ import { HostListingActionsMenu } from "@/components/host/HostListingActionsMenu
 import { resolveStableListingImageSrc } from "@/lib/host/listing-image-stability";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
 import { mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
+import { resolveListingApprovalVisualStatus } from "@/lib/host/listing-approval";
 import type { DashboardListing } from "@/lib/properties/host-dashboard";
 
 type Props = {
@@ -108,6 +109,7 @@ export function HostListingsRail({ listings }: Props) {
           className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {listings.map((listing) => {
+            const visualStatus = resolveListingApprovalVisualStatus(listing);
             const imageUrl = resolveStableListingImageSrc(
               stableImageSrcByListingId,
               listing.id,
@@ -150,10 +152,10 @@ export function HostListingsRail({ listings }: Props) {
                   <div className="flex items-center justify-between gap-2">
                     <span
                       className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statusChipClass(
-                        listing.status ?? null
+                        visualStatus
                       )}`}
                     >
-                      {mapStatusLabel(listing.status)}
+                      {mapStatusLabel(visualStatus)}
                     </span>
                     <span className="text-[11px] font-semibold text-slate-500">
                       Score {listing.readiness.score}
