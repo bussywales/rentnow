@@ -134,7 +134,10 @@ CREATE TABLE public.property_events (
     'client_page_lead_viewed',
     'client_page_lead_status_updated',
     'listing_submit_attempted',
+    'listing_quality_guidance_viewed',
+    'listing_quality_fix_clicked',
     'listing_submit_blocked_no_credits',
+    'listing_auto_approved',
     'listing_payment_started',
     'listing_payment_succeeded',
     'listing_credit_consumed',
@@ -499,6 +502,16 @@ ALTER TABLE public.shortlet_booking_reviews ENABLE ROW LEVEL SECURITY;
 
 GRANT SELECT ON public.shortlet_booking_reviews TO anon, authenticated;
 GRANT INSERT, UPDATE ON public.shortlet_booking_reviews TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.touch_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
 
 CREATE POLICY shortlet_booking_reviews_public_read ON public.shortlet_booking_reviews
   FOR SELECT USING (visibility = 'public' AND moderation_status = 'published');
@@ -978,7 +991,10 @@ ALTER TABLE public.property_events
     'client_page_lead_viewed',
     'client_page_lead_status_updated',
     'listing_submit_attempted',
+    'listing_quality_guidance_viewed',
+    'listing_quality_fix_clicked',
     'listing_submit_blocked_no_credits',
+    'listing_auto_approved',
     'listing_payment_started',
     'listing_payment_succeeded',
     'listing_credit_consumed',

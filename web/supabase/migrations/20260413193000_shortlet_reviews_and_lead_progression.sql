@@ -4,6 +4,16 @@ alter table public.listing_leads
   add column if not exists viewing_confirmed_at timestamptz null,
   add column if not exists off_platform_handoff_at timestamptz null;
 
+create or replace function public.touch_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
 create table if not exists public.shortlet_booking_reviews (
   id uuid primary key default gen_random_uuid(),
   booking_id uuid not null references public.shortlet_bookings(id) on delete cascade,
@@ -108,7 +118,10 @@ alter table public.property_events
     'client_page_lead_viewed',
     'client_page_lead_status_updated',
     'listing_submit_attempted',
+    'listing_quality_guidance_viewed',
+    'listing_quality_fix_clicked',
     'listing_submit_blocked_no_credits',
+    'listing_auto_approved',
     'listing_payment_started',
     'listing_payment_succeeded',
     'listing_credit_consumed',
