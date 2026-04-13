@@ -140,6 +140,9 @@ CREATE TABLE public.property_events (
     'listing_credit_consumed',
     'agent_network_shared',
     'viewing_requested',
+    'enquiry_replied',
+    'viewing_confirmed',
+    'contact_exchange_attempted',
     'share_open',
     'featured_impression'
   ))
@@ -453,6 +456,10 @@ CREATE TABLE public.listing_leads (
   message TEXT NOT NULL,
   message_original TEXT,
   contact_exchange_flags JSONB,
+  replied_at TIMESTAMPTZ,
+  viewing_requested_at TIMESTAMPTZ,
+  viewing_confirmed_at TIMESTAMPTZ,
+  off_platform_handoff_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -462,6 +469,71 @@ CREATE INDEX idx_listing_leads_owner ON public.listing_leads (owner_id, created_
 CREATE INDEX idx_listing_leads_buyer ON public.listing_leads (buyer_id, created_at desc);
 CREATE INDEX idx_listing_leads_status ON public.listing_leads (status);
 CREATE INDEX idx_listing_leads_thread_id ON public.listing_leads (thread_id);
+
+CREATE TABLE public.shortlet_booking_reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  booking_id UUID NOT NULL REFERENCES public.shortlet_bookings (id) ON DELETE CASCADE,
+  property_id UUID NOT NULL REFERENCES public.properties (id) ON DELETE CASCADE,
+  reviewer_user_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  reviewee_user_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  reviewer_role TEXT NOT NULL,
+  reviewee_role TEXT NOT NULL,
+  direction TEXT NOT NULL,
+  visibility TEXT NOT NULL DEFAULT 'public',
+  moderation_status TEXT NOT NULL DEFAULT 'published',
+  rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  body TEXT NOT NULL,
+  public_response TEXT,
+  public_response_updated_at TIMESTAMPTZ,
+  published_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (booking_id, direction)
+);
+
+CREATE INDEX idx_shortlet_booking_reviews_reviewee_user_id ON public.shortlet_booking_reviews (reviewee_user_id, created_at DESC);
+CREATE INDEX idx_shortlet_booking_reviews_property_id ON public.shortlet_booking_reviews (property_id, created_at DESC);
+CREATE INDEX idx_shortlet_booking_reviews_visibility ON public.shortlet_booking_reviews (visibility, moderation_status, created_at DESC);
+
+ALTER TABLE public.shortlet_booking_reviews ENABLE ROW LEVEL SECURITY;
+
+GRANT SELECT ON public.shortlet_booking_reviews TO anon, authenticated;
+GRANT INSERT, UPDATE ON public.shortlet_booking_reviews TO authenticated;
+
+CREATE POLICY shortlet_booking_reviews_public_read ON public.shortlet_booking_reviews
+  FOR SELECT USING (visibility = 'public' AND moderation_status = 'published');
+
+CREATE POLICY shortlet_booking_reviews_guest_insert ON public.shortlet_booking_reviews
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    reviewer_user_id = auth.uid()
+    AND direction = 'guest_to_host'
+    AND EXISTS (
+      SELECT 1
+      FROM public.shortlet_bookings b
+      WHERE b.id = booking_id
+        AND b.guest_user_id = auth.uid()
+        AND b.host_user_id = reviewee_user_id
+        AND b.property_id = property_id
+        AND b.status = 'completed'
+    )
+  );
+
+CREATE POLICY shortlet_booking_reviews_host_update ON public.shortlet_booking_reviews
+  FOR UPDATE TO authenticated
+  USING (
+    reviewee_user_id = auth.uid()
+    AND direction = 'guest_to_host'
+  )
+  WITH CHECK (
+    reviewee_user_id = auth.uid()
+    AND direction = 'guest_to_host'
+  );
+
+DROP TRIGGER IF EXISTS trg_shortlet_booking_reviews_updated_at ON public.shortlet_booking_reviews;
+CREATE TRIGGER trg_shortlet_booking_reviews_updated_at
+BEFORE UPDATE ON public.shortlet_booking_reviews
+FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
 -- PROPERTY SHARE LINKS
 CREATE TABLE public.property_share_links (
@@ -912,6 +984,9 @@ ALTER TABLE public.property_events
     'listing_credit_consumed',
     'agent_network_shared',
     'viewing_requested',
+    'enquiry_replied',
+    'viewing_confirmed',
+    'contact_exchange_attempted',
     'share_open',
     'featured_impression'
   ));

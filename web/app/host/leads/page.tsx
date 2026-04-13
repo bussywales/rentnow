@@ -20,6 +20,10 @@ type LeadRow = {
   timeline?: string | null;
   message?: string | null;
   contact_exchange_flags?: Record<string, unknown> | null;
+  replied_at?: string | null;
+  viewing_requested_at?: string | null;
+  viewing_confirmed_at?: string | null;
+  off_platform_handoff_at?: string | null;
   properties?: {
     id?: string | null;
     title?: string | null;
@@ -80,7 +84,7 @@ export default async function HostLeadsPage() {
   const { data, error } = await supabase
     .from("listing_leads")
     .select(
-      `id, property_id, thread_id, status, intent, budget_min, budget_max, financing_status, timeline, message, contact_exchange_flags, created_at, updated_at,
+      `id, property_id, thread_id, status, intent, budget_min, budget_max, financing_status, timeline, message, contact_exchange_flags, replied_at, viewing_requested_at, viewing_confirmed_at, off_platform_handoff_at, created_at, updated_at,
       properties:properties(id, title, city, state_region, listing_intent),
       buyer:profiles!listing_leads_buyer_id_fkey(id, full_name),
       lead_attributions:lead_attributions(id, client_page_id, agent_user_id, presenting_agent_id, owner_user_id, listing_id, source, created_at,

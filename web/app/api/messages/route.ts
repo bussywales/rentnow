@@ -5,6 +5,7 @@ import { getUserRole, requireUser } from "@/lib/authz";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { logFailure } from "@/lib/observability";
+import { logPropertyEvent } from "@/lib/analytics/property-events.server";
 import { mockProperties } from "@/lib/mock";
 import {
   buildMessagingPermission,
@@ -27,6 +28,7 @@ import {
   CONTACT_EXCHANGE_BLOCK_MESSAGE,
   sanitizeMessageContent,
 } from "@/lib/messaging/contact-exchange";
+import { touchLeadProgression } from "@/lib/leads/progression.server";
 import { getContactExchangeMode } from "@/lib/settings/app-settings.server";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import type { Message } from "@/lib/types";
@@ -469,6 +471,45 @@ export async function POST(request: Request) {
       .from("message_threads")
       .update({ last_post_at: new Date().toISOString() })
       .eq("id", threadRow.id);
+
+    const occurredAt = new Date().toISOString();
+    if (role === "landlord" || role === "agent") {
+      void touchLeadProgression({
+        client: supabase,
+        propertyId: payload.property_id,
+        buyerId: tenantId,
+        event: "enquiry_replied",
+        occurredAt,
+      });
+      void logPropertyEvent({
+        supabase,
+        propertyId: payload.property_id,
+        eventType: "enquiry_replied",
+        actorUserId: auth.user.id,
+        actorRole: role,
+        meta: { source: "messages_send" },
+      });
+    }
+
+    if (sanitized.meta) {
+      void touchLeadProgression({
+        client: supabase,
+        propertyId: payload.property_id,
+        buyerId: tenantId,
+        event: "contact_exchange_attempted",
+        occurredAt,
+        moderationMeta: sanitized.meta,
+      });
+      void logPropertyEvent({
+        supabase,
+        propertyId: payload.property_id,
+        eventType: "contact_exchange_attempted",
+        actorUserId: auth.user.id,
+        actorRole: role,
+        meta: { source: "messages_send", moderation: sanitized.meta },
+      });
+    }
+
     return NextResponse.json({ message: withDeliveryState(data) });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unable to send message";

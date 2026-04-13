@@ -14,6 +14,7 @@ import {
   validateLeadProperty,
   type LeadPropertyInput,
 } from "@/lib/leads/lead-create";
+import { touchLeadProgression } from "@/lib/leads/progression.server";
 import { buildLeadSystemMessage } from "@/lib/leads/lead-schema";
 import type { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -26,6 +27,7 @@ type LeadCreateResult =
       threadId: string;
       message: Message | null;
       leadIntent: LeadIntent;
+      contactExchangeMeta: Record<string, unknown> | null;
     }
   | {
       ok: false;
@@ -130,6 +132,17 @@ export async function createLeadThreadAndMessage(input: LeadCreateInput): Promis
     };
   }
 
+  if (sanitized.meta) {
+    await touchLeadProgression({
+      client: input.supabase,
+      propertyId: property.id,
+      buyerId: input.buyerId,
+      event: "contact_exchange_attempted",
+      occurredAt: now,
+      moderationMeta: sanitized.meta,
+    });
+  }
+
   const systemMessage = buildLeadSystemMessage(sanitized.text, property.listing_intent);
   const { data: posted, error: postError } = await input.supabase
     .from("messages")
@@ -169,5 +182,6 @@ export async function createLeadThreadAndMessage(input: LeadCreateInput): Promis
     threadId: threadRow.id,
     message: posted ? withDeliveryState(posted as Message) : null,
     leadIntent,
+    contactExchangeMeta: sanitized.meta ?? null,
   };
 }

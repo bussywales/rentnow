@@ -17,6 +17,9 @@ export const PROPERTY_EVENT_TYPES = [
   "listing_credit_consumed",
   "agent_network_shared",
   "viewing_requested",
+  "enquiry_replied",
+  "viewing_confirmed",
+  "contact_exchange_attempted",
   "share_open",
   "featured_impression",
 ] as const;

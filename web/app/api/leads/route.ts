@@ -31,7 +31,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("listing_leads")
     .select(
-      `id, property_id, owner_id, buyer_id, thread_id, status, intent, budget_min, budget_max, financing_status, timeline, message, contact_exchange_flags, created_at, updated_at,
+      `id, property_id, owner_id, buyer_id, thread_id, status, intent, budget_min, budget_max, financing_status, timeline, message, contact_exchange_flags, replied_at, viewing_requested_at, viewing_confirmed_at, off_platform_handoff_at, created_at, updated_at,
       properties:properties(id, title, city, state_region, country_code),
       buyer:profiles!listing_leads_buyer_id_fkey(id, full_name, role),
       owner:profiles!listing_leads_owner_id_fkey(id, full_name, role),
@@ -221,6 +221,17 @@ export async function POST(request: Request) {
     sessionKey,
     meta: { intent: leadResult.leadIntent },
   });
+  if (leadResult.contactExchangeMeta) {
+    void logPropertyEvent({
+      supabase,
+      propertyId: property.id,
+      eventType: "contact_exchange_attempted",
+      actorUserId: auth.user.id,
+      actorRole: role,
+      sessionKey,
+      meta: { source: "lead_created", moderation: leadResult.contactExchangeMeta },
+    });
+  }
 
   if (clientPage && hasServiceRoleEnv()) {
     const adminClient = createServiceRoleClient() as unknown as UntypedAdminClient;

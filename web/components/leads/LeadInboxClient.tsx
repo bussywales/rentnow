@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { cn } from "@/components/ui/cn";
+import { resolveLeadProgressionSignals } from "@/lib/leads/progression";
 import { normalizeLeadTag } from "@/lib/leads/lead-notes";
 import type { LeadStatus } from "@/lib/leads/types";
 
@@ -23,6 +24,10 @@ export type LeadInboxRow = {
   created_at?: string | null;
   updated_at?: string | null;
   contact_exchange_flags?: Record<string, unknown> | null;
+  replied_at?: string | null;
+  viewing_requested_at?: string | null;
+  viewing_confirmed_at?: string | null;
+  off_platform_handoff_at?: string | null;
   properties?: {
     id?: string | null;
     title?: string | null;
@@ -230,6 +235,22 @@ function resolveLeadSource(lead: LeadInboxRow) {
   const moderation = flags.moderation as Record<string, unknown> | undefined;
   const source = typeof moderation?.source === "string" ? moderation.source : null;
   return source ? source.toLowerCase() : "direct";
+}
+
+function resolveLeadProgression(lead: LeadInboxRow) {
+  return resolveLeadProgressionSignals({
+    repliedAt: lead.replied_at ?? null,
+    viewingRequestedAt: lead.viewing_requested_at ?? null,
+    viewingConfirmedAt: lead.viewing_confirmed_at ?? null,
+    offPlatformHandoffAt: lead.off_platform_handoff_at ?? null,
+    contactExchangeFlags: lead.contact_exchange_flags ?? null,
+  });
+}
+
+function progressionToneClass(tone: "neutral" | "positive" | "warning") {
+  if (tone === "positive") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (tone === "warning") return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-slate-200 bg-slate-50 text-slate-600";
 }
 
 export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadInboxProps) {
@@ -741,6 +762,7 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
             const attribution = resolveLeadAttribution(lead);
             const presenterName = resolvePresenterName(lead);
             const commissionLabel = resolveCommissionLabel(lead);
+            const progression = resolveLeadProgression(lead);
             return (
               <button
                 key={lead.id}
@@ -790,6 +812,18 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
                         Commission agreed: {commissionLabel}
                       </span>
                     )}
+                    {progression.length ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {progression.map((signal) => (
+                          <span
+                            key={signal.key}
+                            className={`inline-flex w-fit rounded-full border px-2 py-0.5 text-[11px] font-semibold ${progressionToneClass(signal.tone)}`}
+                          >
+                            {signal.label}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                     <p className="text-xs text-slate-400">{formatDate(lead.created_at)}</p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -886,11 +920,40 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
                   <div>Financing: {selectedLead.financing_status || "Not provided"}</div>
                   <div>Timeline: {selectedLead.timeline || "Not provided"}</div>
                 </div>
+                {resolveLeadProgression(selectedLead).length ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {resolveLeadProgression(selectedLead).map((signal) => (
+                      <span
+                        key={signal.key}
+                        className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${progressionToneClass(signal.tone)}`}
+                      >
+                        {signal.label}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
                 {selectedLead.message && (
                   <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600">
                     {selectedLead.message}
                   </div>
                 )}
+                {(selectedLead.replied_at ||
+                  selectedLead.viewing_requested_at ||
+                  selectedLead.viewing_confirmed_at ||
+                  selectedLead.off_platform_handoff_at) ? (
+                  <div className="mt-3 grid gap-2 text-[11px] text-slate-500">
+                    {selectedLead.replied_at ? <div>Replied: {formatDate(selectedLead.replied_at)}</div> : null}
+                    {selectedLead.viewing_requested_at ? (
+                      <div>Viewing requested: {formatDate(selectedLead.viewing_requested_at)}</div>
+                    ) : null}
+                    {selectedLead.viewing_confirmed_at ? (
+                      <div>Viewing confirmed: {formatDate(selectedLead.viewing_confirmed_at)}</div>
+                    ) : null}
+                    {selectedLead.off_platform_handoff_at ? (
+                      <div>Contact exchange attempted: {formatDate(selectedLead.off_platform_handoff_at)}</div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
               {selectedAttribution?.clientPageId && (

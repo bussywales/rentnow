@@ -11,6 +11,7 @@ import { HostIdentityBlock } from "@/components/properties/HostIdentityBlock";
 import { SaveButton } from "@/components/properties/SaveButton";
 import { PropertyTrustCues } from "@/components/properties/PropertyTrustCues";
 import { PublicPropertyShareButton } from "@/components/properties/PublicPropertyShareButton";
+import { PublicHostReviewSummary } from "@/components/reviews/PublicHostReviewSummary";
 import { RequestViewingCtaSection } from "@/components/viewings/RequestViewingCtaSection";
 import { TrustIdentityPill } from "@/components/trust/TrustIdentityPill";
 import { PropertySharePanel } from "@/components/properties/PropertySharePanel";
@@ -62,6 +63,7 @@ import {
   formatShortletCancellationLabel,
   resolveShortletCancellationPolicy,
 } from "@/lib/shortlet/cancellation";
+import { getPublicHostReviewSummaryByHostIds, listPublicHostReviews } from "@/lib/shortlet/reviews.server";
 import { CtaHashAnchorClient } from "@/components/properties/CtaHashAnchorClient";
 import { resolvePropertyDetailWithFallback } from "@/lib/properties/property-detail-resilience";
 import { BRAND_OG_SHARE_IMAGE } from "@/lib/brand";
@@ -438,6 +440,8 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   let isHost = false;
   let currentUser: Profile | null = null;
   let hostTrust: TrustMarkerState | null = null;
+  let hostReviewSummary = null;
+  let hostReviews: Awaited<ReturnType<typeof listPublicHostReviews>>["reviews"] = [];
   let fastResponder = false;
   let similar: Property[] = [];
   let similarTrustSnapshots: Record<string, TrustMarkerState> = {};
@@ -611,6 +615,25 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
         fastResponder = false;
       }
       try {
+        const [reviewSummaryMap, hostReviewResult] = await Promise.all([
+          getPublicHostReviewSummaryByHostIds({
+            client: supabase,
+            hostUserIds: [property.owner_id],
+          }),
+          listPublicHostReviews({
+            client: supabase,
+            hostUserId: property.owner_id,
+            limit: 2,
+          }),
+        ]);
+        hostReviewSummary = reviewSummaryMap[property.owner_id] ?? null;
+        hostReviews = hostReviewResult.reviews;
+      } catch (err) {
+        console.warn("[property-detail] host review lookup failed", err);
+        hostReviewSummary = null;
+        hostReviews = [];
+      }
+      try {
         const similarOwnerIds = Array.from(new Set(similar.map((item) => item.owner_id).filter(Boolean)));
         const similarIds = similar.map((item) => item.id).filter(Boolean);
         if (similarOwnerIds.length) {
@@ -637,6 +660,8 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
       hostProfileCity = null;
       hostProfileIsPublicAdvertiser = false;
       hostProfileHref = null;
+      hostReviewSummary = null;
+      hostReviews = [];
     }
   }
 
@@ -1001,6 +1026,14 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </div>
             )}
           </div>
+          {hostReviewSummary?.reviewCount ? (
+            <PublicHostReviewSummary
+              summary={hostReviewSummary}
+              reviews={hostReviews}
+              compact
+              title="Completed-stay reputation"
+            />
+          ) : null}
           {isTenant && showTenantCheckinBadge && (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <h3 className="text-lg font-semibold text-slate-900">Host check-in</h3>

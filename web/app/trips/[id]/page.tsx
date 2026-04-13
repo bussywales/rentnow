@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { TripCoordinationPanel } from "@/components/trips/TripCoordinationPanel";
+import { TripReviewCard } from "@/components/trips/TripReviewCard";
 import { TripTimeline } from "@/components/trips/TripTimeline";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getServerAuthUser } from "@/lib/auth/server-session";
@@ -12,6 +13,7 @@ import {
   getGuestShortletBookingById,
   getLatestShortletPaymentStatusForBooking,
 } from "@/lib/shortlet/shortlet.server";
+import { getBookingReviewState } from "@/lib/shortlet/reviews.server";
 
 export const dynamic = "force-dynamic";
 
@@ -156,6 +158,14 @@ export default async function TripDetailPage({
       return null;
     }
   })();
+  const reviewState = booking.status === "completed"
+    ? await getBookingReviewState({
+        client,
+        bookingId: booking.id,
+        viewerUserId: user.id,
+      }).catch(() => null)
+    : null;
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4">
       <TripTimeline
@@ -251,6 +261,14 @@ export default async function TripDetailPage({
           checkinDetails={checkinDetails}
           respondByIso={booking.expires_at}
           latestHostNote={latestHostNote}
+        />
+      ) : null}
+
+      {booking.status === "completed" ? (
+        <TripReviewCard
+          bookingId={booking.id}
+          initialReview={reviewState?.review ?? null}
+          canLeaveReview={reviewState?.canLeaveReview ?? false}
         />
       ) : null}
     </div>

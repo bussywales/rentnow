@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { ListingTrustBadges } from "@/components/properties/ListingTrustBadges";
+import { PublicHostReviewSummary } from "@/components/reviews/PublicHostReviewSummary";
 import { Button } from "@/components/ui/Button";
 import { PublicAdvertiserShareButton } from "@/components/advertisers/PublicAdvertiserShareButton";
 import { resolveServerRole } from "@/lib/auth/role";
@@ -15,6 +16,10 @@ import { orderImagesWithCover } from "@/lib/properties/images";
 import { getListingPopularitySignals } from "@/lib/properties/popularity.server";
 import type { ListingSocialProof } from "@/lib/properties/listing-trust-badges";
 import { fetchSavedPropertyIds } from "@/lib/saved-properties.server";
+import {
+  getPublicHostReviewSummaryByHostIds,
+  listPublicHostReviews,
+} from "@/lib/shortlet/reviews.server";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 import type { Property } from "@/lib/types";
@@ -160,6 +165,18 @@ export async function PublicAdvertiserProfilePage({
   ]);
 
   const advertiserTrust = trustSnapshots[advertiserId] ?? null;
+  const [reviewSummaryMap, hostReviewResult] = await Promise.all([
+    getPublicHostReviewSummaryByHostIds({
+      client: supabase,
+      hostUserIds: [advertiserId],
+    }),
+    listPublicHostReviews({
+      client: supabase,
+      hostUserId: advertiserId,
+      limit: 3,
+    }),
+  ]);
+  const advertiserReviewSummary = reviewSummaryMap[advertiserId] ?? null;
   const activeListingCount = listings.length;
   const popularListingCount = listings.filter(
     (listing) => socialProofByListing[listing.id]?.popular
@@ -241,6 +258,14 @@ export async function PublicAdvertiserProfilePage({
           </Link>
         </div>
       </section>
+
+      {advertiserReviewSummary?.reviewCount ? (
+        <PublicHostReviewSummary
+          summary={advertiserReviewSummary}
+          reviews={hostReviewResult.reviews}
+          title={`${roleLabel} stay reviews`}
+        />
+      ) : null}
 
       <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
         <p className="font-semibold">Stay safe: never pay before viewing.</p>

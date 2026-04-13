@@ -5,11 +5,13 @@ import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getThreadDetail } from "@/lib/messaging/threads";
 import { getMessagingPermission } from "@/lib/messaging/permissions";
 import { normalizeRole } from "@/lib/roles";
+import { logPropertyEvent } from "@/lib/analytics/property-events.server";
 import {
   CONTACT_EXCHANGE_BLOCK_CODE,
   CONTACT_EXCHANGE_BLOCK_MESSAGE,
   sanitizeMessageContent,
 } from "@/lib/messaging/contact-exchange";
+import { touchLeadProgression } from "@/lib/leads/progression.server";
 import { getContactExchangeMode } from "@/lib/settings/app-settings.server";
 import { isListingPubliclyVisible } from "@/lib/properties/expiry";
 
@@ -189,6 +191,43 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   }
 
   await auth.supabase.from("message_threads").update({ last_post_at: now }).eq("id", detail.thread.id);
+
+  if (role === "landlord" || role === "agent") {
+    void touchLeadProgression({
+      client: auth.supabase,
+      propertyId: detail.thread.property_id,
+      buyerId: detail.thread.tenant_id,
+      event: "enquiry_replied",
+      occurredAt: now,
+    });
+    void logPropertyEvent({
+      supabase: auth.supabase,
+      propertyId: detail.thread.property_id,
+      eventType: "enquiry_replied",
+      actorUserId: auth.user.id,
+      actorRole: role,
+      meta: { source: "message_thread_reply" },
+    });
+  }
+
+  if (sanitized.meta) {
+    void touchLeadProgression({
+      client: auth.supabase,
+      propertyId: detail.thread.property_id,
+      buyerId: detail.thread.tenant_id,
+      event: "contact_exchange_attempted",
+      occurredAt: now,
+      moderationMeta: sanitized.meta,
+    });
+    void logPropertyEvent({
+      supabase: auth.supabase,
+      propertyId: detail.thread.property_id,
+      eventType: "contact_exchange_attempted",
+      actorUserId: auth.user.id,
+      actorRole: role,
+      meta: { source: "message_thread_reply", moderation: sanitized.meta },
+    });
+  }
 
   return NextResponse.json({ message });
 }

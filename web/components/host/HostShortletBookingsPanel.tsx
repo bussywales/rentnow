@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/Textarea";
 import {
   parseHostBookingInboxFilterParam,
   parseHostBookingQueryParam,
@@ -20,6 +21,7 @@ import {
   type HostInboxSlaTier,
 } from "@/lib/shortlet/host-inbox-triage";
 import { resolveShortletBookingStatusLabel } from "@/lib/shortlet/return-status";
+import type { PublicShortletStayReview } from "@/lib/shortlet/reviews";
 import type {
   HostShortletBookingSummary,
   HostShortletSettingSummary,
@@ -38,6 +40,11 @@ type BookingCoordination = {
   checkinStatus: "sent" | "not_sent" | "unavailable";
   canSendCheckin: boolean;
   sentAt: string | null;
+};
+
+type BookingReviewStatePayload = {
+  canRespond: boolean;
+  review: PublicShortletStayReview | null;
 };
 
 function formatMoney(currency: string, amountMinor: number): string {
@@ -158,6 +165,11 @@ export function HostShortletBookingsPanel(props: {
   const [notesError, setNotesError] = useState<string | null>(null);
   const [selectedNotes, setSelectedNotes] = useState<BookingNote[]>([]);
   const [selectedCoordination, setSelectedCoordination] = useState<BookingCoordination | null>(null);
+  const [selectedReviewState, setSelectedReviewState] = useState<BookingReviewStatePayload | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewResponseDraft, setReviewResponseDraft] = useState("");
+  const [reviewSaving, setReviewSaving] = useState(false);
 
   useEffect(() => {
     setRows(props.initialRows);
@@ -215,6 +227,10 @@ export function HostShortletBookingsPanel(props: {
       setNotesError(null);
       setNotesLoading(false);
       setSelectedCoordination(null);
+      setSelectedReviewState(null);
+      setReviewLoading(false);
+      setReviewError(null);
+      setReviewResponseDraft("");
       return;
     }
 
@@ -251,6 +267,57 @@ export function HostShortletBookingsPanel(props: {
       active = false;
     };
   }, [selectedBookingId]);
+
+  useEffect(() => {
+    const activeRow = selectedBookingId
+      ? rows.find((row) => row.id === selectedBookingId) ?? null
+      : null;
+    if (!selectedBookingId || activeRow?.status !== "completed") {
+      setSelectedReviewState(null);
+      setReviewLoading(false);
+      setReviewError(null);
+      setReviewResponseDraft("");
+      return;
+    }
+
+    let active = true;
+    setReviewLoading(true);
+    setReviewError(null);
+
+    void fetch(`/api/shortlet/bookings/${selectedBookingId}/review`, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as
+          | { review?: PublicShortletStayReview | null; canRespond?: boolean; error?: string }
+          | null;
+        if (!active) return;
+        if (!response.ok) {
+          throw new Error(payload?.error || "Unable to load review");
+        }
+        const nextState = {
+          canRespond: !!payload?.canRespond,
+          review: payload?.review ?? null,
+        };
+        setSelectedReviewState(nextState);
+        setReviewResponseDraft(nextState.review?.publicResponse ?? "");
+      })
+      .catch((loadError) => {
+        if (!active) return;
+        setSelectedReviewState(null);
+        setReviewResponseDraft("");
+        setReviewError(loadError instanceof Error ? loadError.message : "Unable to load review");
+      })
+      .finally(() => {
+        if (active) setReviewLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [rows, selectedBookingId]);
 
   useEffect(() => {
     setSelectedIds([]);
@@ -430,6 +497,49 @@ export function HostShortletBookingsPanel(props: {
       setError(sendError instanceof Error ? sendError.message : "Unable to send check-in details");
     } finally {
       setSendingCheckinId(null);
+    }
+  }
+
+  async function saveReviewResponse() {
+    if (!selectedRow || selectedRow.status !== "completed" || !selectedReviewState?.review) return;
+    if (!selectedReviewState.canRespond) return;
+
+    const responseText = reviewResponseDraft.trim();
+    if (responseText.length < 8) {
+      setReviewError("Host response must be at least 8 characters.");
+      return;
+    }
+
+    setReviewSaving(true);
+    setReviewError(null);
+    setNotice(null);
+    try {
+      const response = await fetch(`/api/shortlet/bookings/${selectedRow.id}/review`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ response: responseText }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { review?: PublicShortletStayReview; error?: string }
+        | null;
+      if (!response.ok || !payload?.review) {
+        throw new Error(payload?.error || "Unable to save response");
+      }
+      setSelectedReviewState((current) =>
+        current
+          ? {
+              ...current,
+              review: payload.review ?? current.review,
+            }
+          : current
+      );
+      setReviewResponseDraft(payload.review.publicResponse ?? responseText);
+      setNotice("Public response saved.");
+    } catch (saveError) {
+      setReviewError(saveError instanceof Error ? saveError.message : "Unable to save response");
+    } finally {
+      setReviewSaving(false);
     }
   }
 
@@ -1037,6 +1147,76 @@ export function HostShortletBookingsPanel(props: {
                         <p className="mt-2 text-xs text-slate-500">No guest notes yet.</p>
                       )}
                     </div>
+
+                    {selectedRow.status === "completed" ? (
+                      <div
+                        className="rounded-xl border border-slate-200 bg-white p-3"
+                        data-testid="host-booking-review-panel"
+                      >
+                        <p className="text-xs uppercase tracking-[0.12em] text-slate-500">
+                          Completed-stay review
+                        </p>
+                        {reviewLoading ? (
+                          <p className="mt-2 text-xs text-slate-500">Loading review...</p>
+                        ) : reviewError ? (
+                          <p className="mt-2 text-xs text-rose-600">{reviewError}</p>
+                        ) : selectedReviewState?.review ? (
+                          <div className="mt-3 space-y-3">
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-sm font-semibold text-slate-900">
+                                  {selectedReviewState.review.rating}/5
+                                </p>
+                                <p className="text-[11px] text-slate-500">
+                                  {[
+                                    selectedReviewState.review.stayDateLabel,
+                                    formatDateTime(selectedReviewState.review.createdAt),
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" • ")}
+                                </p>
+                              </div>
+                              <p className="mt-2 text-xs text-slate-700">
+                                {selectedReviewState.review.body}
+                              </p>
+                            </div>
+                            <div className="space-y-2">
+                              <label
+                                htmlFor="host-review-response"
+                                className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500"
+                              >
+                                Public response
+                              </label>
+                              <Textarea
+                                id="host-review-response"
+                                rows={4}
+                                value={reviewResponseDraft}
+                                onChange={(event) => setReviewResponseDraft(event.target.value)}
+                                placeholder="Thank the guest and add a short, factual response."
+                                disabled={!selectedReviewState.canRespond || reviewSaving}
+                              />
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-[11px] text-slate-500">
+                                  Visible on published stay reviews.
+                                </p>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => void saveReviewResponse()}
+                                  disabled={!selectedReviewState.canRespond || reviewSaving}
+                                >
+                                  {reviewSaving ? "Saving..." : "Save response"}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-xs text-slate-500">
+                            No completed-stay review has been published for this booking yet.
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
                   </>
                 );
               })()}

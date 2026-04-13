@@ -4,12 +4,14 @@ import { requireRole } from "@/lib/authz";
 import { hasServerSupabaseEnv, createServerSupabaseClient } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
 import { logAuditEvent } from "@/lib/audit/audit-log";
+import { logPropertyEvent } from "@/lib/analytics/property-events.server";
 import { assertPreferredTimesInAvailability } from "@/lib/availability/slots";
 import {
   CONTACT_EXCHANGE_BLOCK_CODE,
   CONTACT_EXCHANGE_BLOCK_MESSAGE,
   sanitizeMessageContent,
 } from "@/lib/messaging/contact-exchange";
+import { touchLeadProgression } from "@/lib/leads/progression.server";
 import { getContactExchangeMode } from "@/lib/settings/app-settings.server";
 
 const routeLabel = "/api/viewings/respond";
@@ -45,6 +47,7 @@ export async function PATCH(request: Request) {
 
   const supabase = await createServerSupabaseClient();
   let hostMessage = body.hostMessage ?? null;
+  let contactExchangeMeta: Record<string, unknown> | null = null;
   if (hostMessage) {
     const contactMode = await getContactExchangeMode(supabase);
     const sanitized = sanitizeMessageContent(hostMessage, contactMode);
@@ -54,6 +57,7 @@ export async function PATCH(request: Request) {
         { status: 400 }
       );
     }
+    contactExchangeMeta = sanitized.meta ?? null;
     hostMessage = sanitized.text;
   }
   const { data: reqRow, error: reqError } = await supabase
@@ -194,6 +198,41 @@ export async function PATCH(request: Request) {
     outcome: "ok",
     meta: { action: body.action },
   });
+
+  if (body.action === "approve") {
+    void touchLeadProgression({
+      client: supabase,
+      propertyId: reqRow.property_id,
+      buyerId: reqRow.tenant_id,
+      event: "viewing_confirmed",
+    });
+    void logPropertyEvent({
+      supabase,
+      propertyId: reqRow.property_id,
+      eventType: "viewing_confirmed",
+      actorUserId: auth.user.id,
+      actorRole: auth.role,
+      meta: { source: "viewing_response" },
+    });
+  }
+
+  if (contactExchangeMeta) {
+    void touchLeadProgression({
+      client: supabase,
+      propertyId: reqRow.property_id,
+      buyerId: reqRow.tenant_id,
+      event: "contact_exchange_attempted",
+      moderationMeta: contactExchangeMeta,
+    });
+    void logPropertyEvent({
+      supabase,
+      propertyId: reqRow.property_id,
+      eventType: "contact_exchange_attempted",
+      actorUserId: auth.user.id,
+      actorRole: auth.role,
+      meta: { source: "viewing_response", moderation: contactExchangeMeta },
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -24,6 +24,10 @@ type LeadRow = {
   timeline?: string | null;
   message?: string | null;
   contact_exchange_flags?: Record<string, unknown> | null;
+  replied_at?: string | null;
+  viewing_requested_at?: string | null;
+  viewing_confirmed_at?: string | null;
+  off_platform_handoff_at?: string | null;
   properties?: {
     id?: string;
     title?: string | null;
@@ -85,7 +89,7 @@ export default async function AdminLeadsPage() {
   const { data, error } = await adminClient
     .from("listing_leads")
     .select(
-      `id, property_id, status, intent, budget_min, budget_max, financing_status, timeline, message, contact_exchange_flags, created_at, updated_at, thread_id,
+      `id, property_id, status, intent, budget_min, budget_max, financing_status, timeline, message, contact_exchange_flags, replied_at, viewing_requested_at, viewing_confirmed_at, off_platform_handoff_at, created_at, updated_at, thread_id,
       properties:properties(id, title, city, state_region, listing_intent),
       buyer:profiles!listing_leads_buyer_id_fkey(id, full_name),
       owner:profiles!listing_leads_owner_id_fkey(id, full_name),

@@ -18,6 +18,7 @@ import { getContactExchangeMode } from "@/lib/settings/app-settings.server";
 import { ensureSessionCookie } from "@/lib/analytics/session.server";
 import { logPropertyEvent } from "@/lib/analytics/property-events.server";
 import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
+import { touchLeadProgression } from "@/lib/leads/progression.server";
 import { normalizeListingIntent } from "@/lib/listing-intents";
 
 const routeLabel = "/api/viewings/request";
@@ -157,6 +158,7 @@ async function handleViewingRequest(request: Request, handlerLabel: "request" | 
   }
 
   const supabase = auth.supabase;
+  let contactExchangeMeta: Record<string, unknown> | null = null;
   if (payload.message) {
     const contactMode = await getContactExchangeMode(supabase);
     const sanitized = sanitizeMessageContent(payload.message, contactMode);
@@ -166,6 +168,7 @@ async function handleViewingRequest(request: Request, handlerLabel: "request" | 
         { status: 400 }
       );
     }
+    contactExchangeMeta = sanitized.meta ?? null;
     payload = { ...payload, message: sanitized.text };
   }
   try {
@@ -287,6 +290,30 @@ async function handleViewingRequest(request: Request, handlerLabel: "request" | 
       sessionKey,
       meta: { source: "viewing_request" },
     });
+    void touchLeadProgression({
+      client: supabase,
+      propertyId: payload.propertyId,
+      buyerId: auth.user.id,
+      event: "viewing_requested",
+    });
+    if (contactExchangeMeta) {
+      void touchLeadProgression({
+        client: supabase,
+        propertyId: payload.propertyId,
+        buyerId: auth.user.id,
+        event: "contact_exchange_attempted",
+        moderationMeta: contactExchangeMeta,
+      });
+      void logPropertyEvent({
+        supabase,
+        propertyId: payload.propertyId,
+        eventType: "contact_exchange_attempted",
+        actorUserId: auth.user.id,
+        actorRole: auth.role,
+        sessionKey,
+        meta: { source: "viewing_request", moderation: contactExchangeMeta },
+      });
+    }
     return res;
   } catch (err) {
     logFailure({

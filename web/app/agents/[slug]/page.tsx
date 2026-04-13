@@ -13,6 +13,12 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import AgentStorefrontListingsClient from "@/components/agents/AgentStorefrontListingsClient";
 import AgentStorefrontHero from "@/components/agents/AgentStorefrontHero";
 import AgentContactPanel from "@/components/agents/AgentContactPanel";
+import { PublicHostReviewSummary } from "@/components/reviews/PublicHostReviewSummary";
+import {
+  getPublicHostReviewSummaryByHostIds,
+  listPublicHostReviews,
+} from "@/lib/shortlet/reviews.server";
+import type { HostReviewSummary } from "@/lib/shortlet/reviews";
 import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -330,6 +336,24 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
   const trustChips = data.metrics
     ? buildStorefrontCredibilityChips(data.metrics)
     : [];
+  const reviewClient = hasServerSupabaseEnv() ? await createServerSupabaseClient() : null;
+  const [agentReviewSummaryMap, agentReviewResult]: [
+    Record<string, HostReviewSummary>,
+    Awaited<ReturnType<typeof listPublicHostReviews>>,
+  ] = reviewClient
+    ? await Promise.all([
+        getPublicHostReviewSummaryByHostIds({
+          client: reviewClient,
+          hostUserIds: [agent.id],
+        }),
+        listPublicHostReviews({
+          client: reviewClient,
+          hostUserId: agent.id,
+          limit: 3,
+        }),
+      ])
+    : [Object.create(null) as Record<string, HostReviewSummary>, { reviews: [], error: null }];
+  const agentReviewSummary = agentReviewSummaryMap[agent.id] ?? null;
 
   let isOwnerOrAdmin = false;
   if (hasServerSupabaseEnv()) {
@@ -363,6 +387,14 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
         trustChips={trustChips}
         contactAnchor="contact-agent"
       />
+
+      {agentReviewSummary?.reviewCount ? (
+        <PublicHostReviewSummary
+          summary={agentReviewSummary}
+          reviews={agentReviewResult.reviews}
+          title="Completed-stay reputation"
+        />
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr),360px] lg:items-start">
         <section className="space-y-4">
