@@ -17,7 +17,7 @@ import { AdminAnalyticsSectionNav } from "@/components/admin/AdminAnalyticsSecti
 export const dynamic = "force-dynamic";
 
 type AdminExploreV2AnalyticsPageProps = {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 const MARKET_OPTIONS: Array<{ value: ExploreV2ConversionMarketFilter; label: string }> = [
@@ -138,6 +138,7 @@ function orderCtaCopyRows(rows: ReadonlyArray<ExploreV2ConversionCtaCopyBreakdow
 export default async function AdminExploreV2AnalyticsPage({
   searchParams,
 }: AdminExploreV2AnalyticsPageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : {};
   const { supabase, user } = await getServerAuthUser();
   if (!user) {
     redirect("/auth/required?redirect=/admin/analytics/explore-v2&reason=auth");
@@ -149,11 +150,11 @@ export default async function AdminExploreV2AnalyticsPage({
   }
 
   const query = resolveExploreV2ConversionQuery({
-    date: pickSearchParam(searchParams, "date"),
-    start: pickSearchParam(searchParams, "start"),
-    end: pickSearchParam(searchParams, "end"),
-    market: pickSearchParam(searchParams, "market"),
-    intent: pickSearchParam(searchParams, "intent"),
+    date: pickSearchParam(resolvedSearchParams, "date"),
+    start: pickSearchParam(resolvedSearchParams, "start"),
+    end: pickSearchParam(resolvedSearchParams, "end"),
+    market: pickSearchParam(resolvedSearchParams, "market"),
+    intent: pickSearchParam(resolvedSearchParams, "intent"),
   });
 
   const dataClient = hasServiceRoleEnv() ? createServiceRoleClient() : supabase;
