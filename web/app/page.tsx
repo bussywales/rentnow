@@ -293,7 +293,7 @@ export default async function Home() {
                   Find the right place with less friction.
                 </h1>
                 <p className="max-w-xl text-lg leading-8 text-slate-200">
-                  Rent, buy, or book a short stay from one front door, then jump straight into the discovery flow that fits your market and intent.
+                  Rent, buy, or book a short stay in one place, then move straight into the search flow that fits your market and intent.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-3 pt-2">

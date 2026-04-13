@@ -112,3 +112,21 @@ void test("homepage trust block renders required copy", () => {
     "expected no hidden fees bullet"
   );
 });
+
+void test("homepage hero supporting copy keeps the search story natural and product-aligned", () => {
+  const pagePath = path.join(process.cwd(), "app", "page.tsx");
+  const contents = read(pagePath);
+
+  assert.ok(
+    contents.includes(
+      "Rent, buy, or book a short stay in one place, then move straight into the search flow that fits your market and intent."
+    ),
+    "expected refined hero supporting sentence"
+  );
+  assert.ok(
+    !contents.includes(
+      "Rent, buy, or book a short stay from one front door, then jump straight into the discovery flow that fits your market and intent."
+    ),
+    "did not expect the retired awkward hero sentence"
+  );
+});
