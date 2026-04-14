@@ -23,10 +23,20 @@ void test("property sign kit modal owns preview and export controls", () => {
   assert.match(source, /property-sign-kit-modal/);
   assert.match(source, /previewOptions\.map/);
   assert.match(source, /onPreviewModeChange/);
+  assert.match(source, /Show price on export/);
+  assert.match(source, /Affects preview and PDF exports only\./);
   assert.match(source, /Export selected format/);
   assert.match(source, /Also export/);
   assert.match(source, /Copy tracked link/);
   assert.match(source, /Live listing safeguard/);
+});
+
+void test("property share panel passes the export price toggle through preview and pdf generation", () => {
+  const source = readFileSync(panelPath, "utf8");
+  assert.match(source, /const \[showPriceOnExport, setShowPriceOnExport\] = useState\(true\)/);
+  assert.match(source, /showPrice: showPriceOnExport/);
+  assert.match(source, /showPriceOnExport=\{showPriceOnExport\}/);
+  assert.match(source, /onShowPriceOnExportChange=\{setShowPriceOnExport\}/);
 });
 
 void test("share route gates sign kit generation to live listings", () => {

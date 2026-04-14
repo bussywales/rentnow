@@ -85,6 +85,7 @@ export function PropertySharePanel({
   const [qrLoading, setQrLoading] = useState(false);
   const [trackedEventShareId, setTrackedEventShareId] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("sign");
+  const [showPriceOnExport, setShowPriceOnExport] = useState(true);
 
   const signKitEligible = useMemo(
     () =>
@@ -306,6 +307,7 @@ export function PropertySharePanel({
         title: safeTitle,
         locationLabel: safeLocation,
         priceLabel,
+        showPrice: showPriceOnExport,
         trackedShareUrl: trackedShareLink || shareLink || "",
       });
       downloadBytes(
@@ -480,6 +482,8 @@ export function PropertySharePanel({
         onOpenChange={setSignKitOpen}
         previewMode={previewMode}
         onPreviewModeChange={setPreviewMode}
+        showPriceOnExport={showPriceOnExport}
+        onShowPriceOnExportChange={setShowPriceOnExport}
         previewOptions={PREVIEW_OPTIONS}
         qrLoading={qrLoading}
         qrSvg={qrSvg}

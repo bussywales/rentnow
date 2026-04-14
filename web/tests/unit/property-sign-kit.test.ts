@@ -77,6 +77,35 @@ void test("sign kit pdf generation normalizes unsupported unicode punctuation in
   assert.ok(bytes.byteLength > 0);
 });
 
+void test("sign kit pdf generation supports hiding price without breaking export composition", async () => {
+  const signBytes = await buildPropertySignKitPdf({
+    template: "sign",
+    qrPngDataUrl:
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z0xQAAAAASUVORK5CYII=",
+    headline: "For sale",
+    title: "Elegant 4-bed mansion in Ikorodu",
+    locationLabel: "Ikorodu, Lagos, Nigeria",
+    priceLabel: "NGN 46,000,000",
+    showPrice: false,
+    trackedShareUrl: "https://www.propatyhub.com/share/property/token-123",
+  });
+
+  const flyerBytes = await buildPropertySignKitPdf({
+    template: "flyer",
+    qrPngDataUrl:
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z0xQAAAAASUVORK5CYII=",
+    headline: "For sale",
+    title: "Elegant 4-bed mansion in Ikorodu",
+    locationLabel: "Ikorodu, Lagos, Nigeria",
+    priceLabel: "NGN 46,000,000",
+    showPrice: false,
+    trackedShareUrl: "https://www.propatyhub.com/share/property/token-123",
+  });
+
+  assert.ok(signBytes.byteLength > 0);
+  assert.ok(flyerBytes.byteLength > 0);
+});
+
 void test("sign kit export copy stays property-first and avoids utility-style collateral text", () => {
   const source = readFileSync(
     "/Users/olubusayoadewale/rentnow/web/lib/sharing/property-sign-kit.ts",
@@ -84,8 +113,11 @@ void test("sign kit export copy stays property-first and avoids utility-style co
   );
 
   assert.match(source, /Scan for full details/);
+  assert.match(source, /Open the live listing on PropatyHub/);
   assert.doesNotMatch(source, /Tracked through a controlled PropatyHub share link/);
   assert.doesNotMatch(source, /Tracked through a PropatyHub share link/);
   assert.doesNotMatch(source, /Designed for handouts, counters, and reception desks/);
   assert.doesNotMatch(source, /Display where passers-by can scan comfortably from a short distance/);
+  assert.doesNotMatch(source, /ASKING PRICE/);
+  assert.doesNotMatch(source, /Premium listing card/);
 });

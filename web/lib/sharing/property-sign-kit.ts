@@ -15,6 +15,7 @@ export type PropertySignKitPdfInput = {
   title: string;
   locationLabel: string;
   priceLabel: string;
+  showPrice?: boolean;
   trackedShareUrl: string;
 };
 
@@ -202,7 +203,8 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
   const border = rgb(0.87, 0.9, 0.95);
   const white = rgb(1, 1, 1);
   const ink = rgb(0.14, 0.19, 0.3);
-  const qrSize = input.template === "sign" ? 185 : 138;
+  const showPrice = input.showPrice !== false;
+  const qrSize = input.template === "sign" ? 184 : 148;
 
   page.drawRectangle({ x: 0, y: 0, width, height, color: rgb(1, 1, 1) });
 
@@ -211,18 +213,18 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
     const shellY = margin;
     const shellWidth = width - margin * 2;
     const shellHeight = height - margin * 2;
-    const headerHeight = 154;
+    const headerHeight = 164;
     const headerY = shellY + shellHeight - headerHeight;
-    const bodyY = shellY + 34;
-    const bodyHeight = headerY - bodyY - 26;
+    const bodyY = shellY + 28;
+    const bodyHeight = headerY - bodyY - 28;
     const bodyTop = bodyY + bodyHeight;
-    const bodyLeft = shellX + 26;
-    const qrPanelWidth = 196;
-    const qrPanelX = shellX + shellWidth - qrPanelWidth - 24;
-    const qrPanelY = bodyY + 32;
-    const qrPanelHeight = bodyHeight - 64;
-    const leftWidth = qrPanelX - bodyLeft - 34;
-    const qrMountSize = 168;
+    const bodyLeft = shellX + 28;
+    const qrPanelWidth = 224;
+    const qrPanelX = shellX + shellWidth - qrPanelWidth - 26;
+    const qrPanelY = bodyY + 24;
+    const qrPanelHeight = bodyHeight - 48;
+    const leftWidth = qrPanelX - bodyLeft - 32;
+    const qrMountSize = 186;
 
     page.drawRectangle({
       x: shellX,
@@ -242,7 +244,7 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       color: dark,
     });
 
-    drawPdfText(page, "PropatyHub sign kit", {
+    drawPdfText(page, "PropatyHub", {
       x: shellX + 24,
       y: headerY + headerHeight - 34,
       size: 11,
@@ -252,64 +254,47 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
 
     drawPdfText(page, input.headline.toUpperCase(), {
       x: shellX + 24,
-      y: headerY + 52,
-      size: 58,
+      y: headerY + 48,
+      size: 60,
       font: fontBold,
       color: white,
     });
 
-    const titleLines = wrapPdfText(fontBold, truncateText(input.title, 72), 31, leftWidth);
+    const titleLines = wrapPdfText(fontBold, truncateText(input.title, 72), 32, leftWidth);
     drawTextBlock({
       page,
       lines: titleLines,
       font: fontBold,
       x: bodyLeft,
-      y: bodyTop - 22,
-      size: 31,
-      lineHeight: 36,
+      y: bodyTop - 8,
+      size: 32,
+      lineHeight: 37,
       color: ink,
     });
 
-    const titleBlockHeight = titleLines.length * 36;
+    const titleBlockHeight = titleLines.length * 37;
     const locationLines = wrapPdfText(fontRegular, truncateText(input.locationLabel, 86), 15, leftWidth);
     drawTextBlock({
       page,
       lines: locationLines,
       font: fontRegular,
       x: bodyLeft,
-      y: bodyTop - 44 - titleBlockHeight,
+      y: bodyTop - 38 - titleBlockHeight,
       size: 15,
       lineHeight: 19,
       color: slate,
     });
 
     const locationBlockHeight = locationLines.length * 19;
-    const priceLabelY = bodyTop - 86 - titleBlockHeight - locationBlockHeight;
-    drawPdfText(page, "ASKING PRICE", {
-      x: bodyLeft,
-      y: priceLabelY,
-      size: 10,
-      font: fontBold,
-      color: slate,
-    });
-    drawPdfText(page, input.priceLabel, {
-      x: bodyLeft,
-      y: priceLabelY - 40,
-      size: 31,
-      font: fontBold,
-      color: accent,
-    });
-
-    drawTextBlock({
-      page,
-      lines: wrapPdfText(fontRegular, "Scan for full details", 14, leftWidth),
-      font: fontRegular,
-      x: bodyLeft,
-      y: bodyY + 88,
-      size: 14,
-      lineHeight: 16,
-      color: slate,
-    });
+    if (showPrice) {
+      drawPdfText(page, input.priceLabel, {
+        x: bodyLeft,
+        y: bodyTop - 86 - titleBlockHeight - locationBlockHeight,
+        size: 31,
+        font: fontBold,
+        color: accent,
+      });
+    }
 
     page.drawRectangle({
       x: qrPanelX,
@@ -321,55 +306,43 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       borderWidth: 1,
     });
 
-    drawPdfText(page, "Scan for full details", {
-      x: qrPanelX + 22,
-      y: qrPanelY + qrPanelHeight - 38,
-      size: 12,
-      font: fontBold,
-      color: ink,
-    });
-
     page.drawRectangle({
-      x: qrPanelX + 14,
-      y: qrPanelY + 90,
-      width: qrPanelWidth - 28,
-      height: qrMountSize + 26,
+      x: qrPanelX + 18,
+      y: qrPanelY + 92,
+      width: qrPanelWidth - 36,
+      height: qrMountSize + 34,
       color: white,
       borderColor: border,
       borderWidth: 1,
     });
     page.drawImage(qrImage, {
-      x: qrPanelX + 22,
-      y: qrPanelY + 103,
+      x: qrPanelX + 28,
+      y: qrPanelY + 108,
       width: qrMountSize,
       height: qrMountSize,
     });
-    drawTextBlock({
-      page,
-      lines: wrapPdfText(fontRegular, "View photos, price, and contact", 10, qrPanelWidth - 44),
-      font: fontRegular,
-      x: qrPanelX + 22,
+    drawPdfText(page, "Scan for full details", {
+      x: qrPanelX + 28,
       y: qrPanelY + 56,
-      size: 10,
-      lineHeight: 12,
-      color: slate,
+      size: 14,
+      font: fontBold,
+      color: ink,
     });
-
-    page.drawRectangle({
-      x: shellX,
-      y: bodyY,
-      width: shellWidth,
-      height: 1,
-      color: border,
+    drawPdfText(page, "Open the live listing on PropatyHub", {
+      x: qrPanelX + 28,
+      y: qrPanelY + 34,
+      size: 10,
+      font: fontRegular,
+      color: slate,
     });
   } else {
     const shellX = margin;
     const shellY = margin;
     const shellWidth = width - margin * 2;
     const shellHeight = height - margin * 2;
-    const headerHeight = 44;
+    const headerHeight = 40;
     const headerY = shellY + shellHeight - headerHeight;
-    const qrPanelWidth = 182;
+    const qrPanelWidth = 196;
     const qrPanelX = shellX + shellWidth - qrPanelWidth;
     const qrPanelY = shellY;
     const qrPanelHeight = shellHeight;
@@ -394,7 +367,7 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       color: dark,
     });
 
-    drawPdfText(page, "PropatyHub QR card", {
+    drawPdfText(page, "PropatyHub", {
       x: shellX + 18,
       y: headerY + 16,
       size: 12,
@@ -415,13 +388,15 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       background: dark,
       color: white,
     });
-    drawPdfText(page, input.priceLabel, {
-      x: leftX + headlinePillWidth + 18,
-      y: badgeY + 4,
-      size: 16,
-      font: fontBold,
-      color: accent,
-    });
+    if (showPrice) {
+      drawPdfText(page, input.priceLabel, {
+        x: leftX + headlinePillWidth + 18,
+        y: badgeY + 4,
+        size: 16,
+        font: fontBold,
+        color: accent,
+      });
+    }
 
     const titleLines = wrapPdfText(fontBold, truncateText(input.title, 58), 34, leftWidth);
     drawTextBlock({
@@ -458,43 +433,32 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       borderWidth: 1,
     });
     page.drawRectangle({
-      x: qrPanelX + 18,
-      y: qrPanelY + 96,
-      width: qrPanelWidth - 36,
-      height: qrSize + 28,
+      x: qrPanelX + 16,
+      y: qrPanelY + 92,
+      width: qrPanelWidth - 32,
+      height: qrSize + 32,
       color: white,
       borderColor: border,
       borderWidth: 1,
     });
     page.drawImage(qrImage, {
-      x: qrPanelX + 26,
-      y: qrPanelY + 110,
+      x: qrPanelX + 24,
+      y: qrPanelY + 108,
       width: qrSize,
       height: qrSize,
     });
     drawPdfText(page, "Scan for full details", {
-      x: qrPanelX + 26,
-      y: qrPanelY + 58,
-      size: 12,
+      x: qrPanelX + 24,
+      y: qrPanelY + 56,
+      size: 13,
       font: fontBold,
       color: ink,
     });
-    drawTextBlock({
-      page,
-      lines: wrapPdfText(fontRegular, "View photos, pricing, and contact", 10, qrPanelWidth - 52),
-      font: fontRegular,
-      x: qrPanelX + 26,
-      y: qrPanelY + 38,
+    drawPdfText(page, "Open the live listing on PropatyHub", {
+      x: qrPanelX + 24,
+      y: qrPanelY + 36,
       size: 10,
-      lineHeight: 12,
-      color: slate,
-    });
-
-    drawPdfText(page, "Premium listing card", {
-      x: leftX,
-      y: shellY + 24,
-      size: 11,
-      font: fontBold,
+      font: fontRegular,
       color: slate,
     });
   }
