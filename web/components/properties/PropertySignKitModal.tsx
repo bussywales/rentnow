@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useId, useMemo, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { BottomSheet } from "@/components/ui/BottomSheet";
@@ -60,30 +61,34 @@ function PreviewCanvas({
 }) {
   if (previewMode === "sign") {
     return (
-      <div className="mx-auto max-w-[920px] overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_28px_70px_rgba(15,23,42,0.16)]">
-        <div className="bg-slate-950 px-6 py-6 text-white sm:px-8 sm:py-7 lg:px-10">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-200">PropatyHub</p>
-          <p className="mt-4 text-5xl font-semibold uppercase tracking-[0.04em] sm:text-6xl">{headline}</p>
-        </div>
-        <div className="grid items-stretch gap-6 px-6 py-6 sm:px-8 sm:py-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:px-10 lg:py-10">
-          <div className="flex min-h-[420px] flex-col">
-            <div className="space-y-4">
-              <p className="max-w-2xl text-3xl font-semibold leading-tight text-slate-950 sm:text-[2.8rem]">{title}</p>
-              <p className="max-w-xl text-base leading-7 text-slate-600 sm:text-lg">{locationLabel}</p>
-              {showPrice ? (
-                <p className="text-3xl font-semibold leading-none text-sky-700 sm:text-[2.7rem]">{priceLabel}</p>
-              ) : null}
-            </div>
-            <div className="mt-auto pt-10">
-              <div className="h-px w-full bg-slate-200" />
-              <p className="pt-4 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Street-facing listing collateral</p>
-            </div>
+      <div className="mx-auto max-w-[760px] overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-[0_28px_70px_rgba(15,23,42,0.16)]">
+        <div className="flex items-end justify-between gap-6 bg-slate-950 px-6 py-5 text-white sm:px-8 sm:py-6">
+          <p className="text-5xl font-semibold uppercase tracking-[0.03em] sm:text-6xl">{headline}</p>
+          <div className="flex shrink-0 flex-col items-end">
+            <Image
+              src="/brand/propatyhub-sign-kit-mark.png"
+              alt="PropatyHub"
+              className="h-20 w-20 object-contain sm:h-24 sm:w-24"
+              width={96}
+              height={96}
+            />
+            <p className="mt-2 text-xl font-semibold leading-none text-white">PropatyHub</p>
+            <p className="mt-1 text-[11px] leading-none text-sky-100">www.propatyhub.com</p>
           </div>
-          <div className="rounded-[32px] border border-slate-200 bg-[linear-gradient(180deg,#f5f9ff_0%,#eef5ff_100%)] p-5 shadow-[0_18px_38px_rgba(15,23,42,0.08)] sm:p-6">
-            <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mx-auto aspect-square max-w-[230px] [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: qrSvg }} />
-              <p className="mt-5 text-center text-lg font-semibold text-slate-950">Scan for full details</p>
-              <p className="mt-2 text-center text-sm leading-6 text-slate-500">Open the live listing, photos, and contact details.</p>
+        </div>
+        <div className="px-6 py-6 sm:px-8 sm:py-8">
+          <div className="space-y-2">
+            <p className="max-w-2xl text-3xl font-semibold leading-tight text-slate-950 sm:text-[2.9rem]">{title}</p>
+            <p className="max-w-2xl text-base leading-7 text-slate-500 sm:text-lg">{locationLabel}</p>
+            {showPrice ? <p className="pt-1 text-3xl font-semibold leading-none text-sky-700 sm:text-[2.55rem]">{priceLabel}</p> : null}
+          </div>
+          <div className="mt-6 rounded-[6px] border border-slate-200 bg-[#f3f8fe] p-5 sm:p-6">
+            <div className="mx-auto max-w-[430px] rounded-[4px] bg-white p-5 shadow-[0_8px_20px_rgba(15,23,42,0.08)] sm:p-6">
+              <div className="mx-auto aspect-square max-w-[330px] [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: qrSvg }} />
+            </div>
+            <div className="mt-5 text-center">
+              <p className="text-lg font-semibold text-slate-950">Scan for full details</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">Open the live listing on PropatyHub</p>
             </div>
           </div>
         </div>

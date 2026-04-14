@@ -26,6 +26,7 @@ const QR_SIGN_SOURCE = "qr_sign";
 const QR_UTM_SOURCE = "qr";
 const QR_UTM_MEDIUM = "offline_sign";
 const QR_UTM_CAMPAIGN = "listing_sign_kit";
+const SIGN_KIT_MARK_PUBLIC_PATH = "/brand/propatyhub-sign-kit-mark.png";
 
 export function isPropertySignKitEligible(input: PropertySignKitEligibilityInput) {
   return input.status === "live" && input.isApproved === true && input.isActive !== false;
@@ -85,6 +86,22 @@ function dataUrlToUint8Array(dataUrl: string) {
     return bytes;
   }
   return Uint8Array.from(globalThis.Buffer.from(base64, "base64"));
+}
+
+async function loadSignKitMarkBytes() {
+  if (typeof window === "undefined") {
+    const [{ readFile }, path] = await Promise.all([import("node:fs/promises"), import("node:path")]);
+    return new Uint8Array(
+      await readFile(path.join(process.cwd(), "public", "brand", "propatyhub-sign-kit-mark.png")),
+    );
+  }
+
+  const response = await fetch(SIGN_KIT_MARK_PUBLIC_PATH);
+  if (!response.ok) {
+    throw new Error("Unable to load sign kit brand mark.");
+  }
+
+  return new Uint8Array(await response.arrayBuffer());
 }
 
 function wrapPdfText(font: PdfFont, text: string, size: number, maxWidth: number) {
@@ -192,6 +209,7 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
   const fontRegular = await pdf.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const qrImage = await pdf.embedPng(dataUrlToUint8Array(input.qrPngDataUrl));
+  const signKitMark = input.template === "sign" ? await pdf.embedPng(await loadSignKitMarkBytes()) : null;
 
   const width = page.getWidth();
   const height = page.getHeight();
@@ -213,18 +231,13 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
     const shellY = margin;
     const shellWidth = width - margin * 2;
     const shellHeight = height - margin * 2;
-    const headerHeight = 164;
+    const headerHeight = 148;
     const headerY = shellY + shellHeight - headerHeight;
-    const bodyY = shellY + 28;
-    const bodyHeight = headerY - bodyY - 28;
-    const bodyTop = bodyY + bodyHeight;
-    const bodyLeft = shellX + 28;
-    const qrPanelWidth = 224;
-    const qrPanelX = shellX + shellWidth - qrPanelWidth - 26;
-    const qrPanelY = bodyY + 24;
-    const qrPanelHeight = bodyHeight - 48;
-    const leftWidth = qrPanelX - bodyLeft - 32;
-    const qrMountSize = 186;
+    const bodyLeft = shellX + 20;
+    const bodyRight = shellX + shellWidth - 20;
+    const bodyTop = headerY - 18;
+    const bodyBottom = shellY + 16;
+    const bodyWidth = bodyRight - bodyLeft;
 
     page.drawRectangle({
       x: shellX,
@@ -244,94 +257,131 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       color: dark,
     });
 
-    drawPdfText(page, "PropatyHub", {
-      x: shellX + 24,
-      y: headerY + headerHeight - 34,
-      size: 11,
-      font: fontBold,
-      color: rgb(0.67, 0.84, 1),
-    });
-
     drawPdfText(page, input.headline.toUpperCase(), {
-      x: shellX + 24,
-      y: headerY + 48,
-      size: 60,
+      x: shellX + 18,
+      y: headerY + 50,
+      size: 54,
       font: fontBold,
       color: white,
     });
 
-    const titleLines = wrapPdfText(fontBold, truncateText(input.title, 72), 32, leftWidth);
+    if (signKitMark) {
+      page.drawImage(signKitMark, {
+        x: shellX + shellWidth - 152,
+        y: headerY + 28,
+        width: 86,
+        height: 86,
+      });
+    }
+
+    drawPdfText(page, "PropatyHub", {
+      x: shellX + shellWidth - 118,
+      y: headerY + 20,
+      size: 16,
+      font: fontBold,
+      color: white,
+    });
+    drawPdfText(page, "www.propatyhub.com", {
+      x: shellX + shellWidth - 118,
+      y: headerY + 7,
+      size: 8.5,
+      font: fontRegular,
+      color: rgb(0.83, 0.91, 1),
+    });
+
+    const titleLines = wrapPdfText(fontBold, truncateText(input.title, 72), 28, bodyWidth);
     drawTextBlock({
       page,
       lines: titleLines,
       font: fontBold,
       x: bodyLeft,
-      y: bodyTop - 8,
-      size: 32,
-      lineHeight: 37,
+      y: bodyTop - 4,
+      size: 28,
+      lineHeight: 32,
       color: ink,
     });
 
-    const titleBlockHeight = titleLines.length * 37;
-    const locationLines = wrapPdfText(fontRegular, truncateText(input.locationLabel, 86), 15, leftWidth);
+    const titleBlockHeight = titleLines.length * 32;
+    const locationLines = wrapPdfText(fontRegular, truncateText(input.locationLabel, 90), 14, bodyWidth);
+    const locationY = bodyTop - 18 - titleBlockHeight;
     drawTextBlock({
       page,
       lines: locationLines,
       font: fontRegular,
       x: bodyLeft,
-      y: bodyTop - 38 - titleBlockHeight,
-      size: 15,
-      lineHeight: 19,
+      y: locationY,
+      size: 14,
+      lineHeight: 18,
       color: slate,
     });
 
-    const locationBlockHeight = locationLines.length * 19;
+    const locationBlockHeight = locationLines.length * 18;
+    let stackBottom = locationY - locationBlockHeight;
     if (showPrice) {
+      const priceY = stackBottom - 18;
       drawPdfText(page, input.priceLabel, {
         x: bodyLeft,
-        y: bodyTop - 86 - titleBlockHeight - locationBlockHeight,
-        size: 31,
+        y: priceY,
+        size: 24,
         font: fontBold,
         color: accent,
       });
+      stackBottom = priceY - 12;
+    } else {
+      stackBottom -= 6;
     }
 
+    const scanSupportY = bodyBottom + 8;
+    const scanInstructionY = scanSupportY + 14;
+    const qrOuterTop = stackBottom - 18;
+    const qrOuterSize = Math.min(bodyWidth - 20, qrOuterTop - (scanInstructionY + 26));
+    const qrOuterX = shellX + (shellWidth - qrOuterSize) / 2;
+    const qrOuterY = scanInstructionY + 34;
+    const qrMountSize = qrOuterSize - 44;
+    const qrMountX = qrOuterX + (qrOuterSize - qrMountSize) / 2;
+    const qrMountY = qrOuterY + (qrOuterSize - qrMountSize) / 2;
+    const qrImageSize = qrMountSize - 28;
+
     page.drawRectangle({
-      x: qrPanelX,
-      y: qrPanelY,
-      width: qrPanelWidth,
-      height: qrPanelHeight,
+      x: qrOuterX,
+      y: qrOuterY,
+      width: qrOuterSize,
+      height: qrOuterSize,
       color: pale,
       borderColor: border,
       borderWidth: 1,
     });
 
     page.drawRectangle({
-      x: qrPanelX + 18,
-      y: qrPanelY + 92,
-      width: qrPanelWidth - 36,
-      height: qrMountSize + 34,
+      x: qrMountX,
+      y: qrMountY,
+      width: qrMountSize,
+      height: qrMountSize,
       color: white,
       borderColor: border,
       borderWidth: 1,
     });
+
     page.drawImage(qrImage, {
-      x: qrPanelX + 28,
-      y: qrPanelY + 108,
-      width: qrMountSize,
-      height: qrMountSize,
+      x: qrMountX + 14,
+      y: qrMountY + 14,
+      width: qrImageSize,
+      height: qrImageSize,
     });
+
+    const scanInstructionWidth = fontBold.widthOfTextAtSize("Scan for full details", 14);
     drawPdfText(page, "Scan for full details", {
-      x: qrPanelX + 28,
-      y: qrPanelY + 56,
+      x: shellX + (shellWidth - scanInstructionWidth) / 2,
+      y: scanInstructionY,
       size: 14,
       font: fontBold,
       color: ink,
     });
+    const supportWidth = fontRegular.widthOfTextAtSize("Open the live listing on PropatyHub", 9);
     drawPdfText(page, "Open the live listing on PropatyHub", {
-      x: qrPanelX + 28,
-      y: qrPanelY + 34,
-      size: 10,
+      x: shellX + (shellWidth - supportWidth) / 2,
+      y: scanSupportY,
+      size: 9,
       font: fontRegular,
       color: slate,
     });

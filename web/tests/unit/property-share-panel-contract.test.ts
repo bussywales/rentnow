@@ -29,6 +29,8 @@ void test("property sign kit modal owns preview and export controls", () => {
   assert.match(source, /Also export/);
   assert.match(source, /Copy tracked link/);
   assert.match(source, /Live listing safeguard/);
+  assert.match(source, /propatyhub-sign-kit-mark\.png/);
+  assert.doesNotMatch(source, /Street-facing listing collateral/);
 });
 
 void test("property share panel passes the export price toggle through preview and pdf generation", () => {

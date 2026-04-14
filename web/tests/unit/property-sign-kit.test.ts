@@ -114,10 +114,12 @@ void test("sign kit export copy stays property-first and avoids utility-style co
 
   assert.match(source, /Scan for full details/);
   assert.match(source, /Open the live listing on PropatyHub/);
+  assert.match(source, /propatyhub-sign-kit-mark\.png/);
   assert.doesNotMatch(source, /Tracked through a controlled PropatyHub share link/);
   assert.doesNotMatch(source, /Tracked through a PropatyHub share link/);
   assert.doesNotMatch(source, /Designed for handouts, counters, and reception desks/);
   assert.doesNotMatch(source, /Display where passers-by can scan comfortably from a short distance/);
   assert.doesNotMatch(source, /ASKING PRICE/);
   assert.doesNotMatch(source, /Premium listing card/);
+  assert.doesNotMatch(source, /Street-facing listing collateral/);
 });
