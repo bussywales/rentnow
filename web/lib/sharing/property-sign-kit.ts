@@ -295,12 +295,13 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
     });
 
     const titleLines = wrapPdfText(fontBold, truncateText(input.title, 72), 28, bodyWidth);
+    const titleY = bodyTop - 12;
     drawTextBlock({
       page,
       lines: titleLines,
       font: fontBold,
       x: bodyLeft,
-      y: bodyTop - 4,
+      y: titleY,
       size: 28,
       lineHeight: 32,
       color: ink,
@@ -308,7 +309,7 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
 
     const titleBlockHeight = titleLines.length * 32;
     const locationLines = wrapPdfText(fontRegular, truncateText(input.locationLabel, 90), 14, bodyWidth);
-    const locationY = bodyTop - 18 - titleBlockHeight;
+    const locationY = titleY - 12 - titleBlockHeight;
     drawTextBlock({
       page,
       lines: locationLines,

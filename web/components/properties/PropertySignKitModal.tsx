@@ -77,7 +77,7 @@ function PreviewCanvas({
           </div>
         </div>
         <div className="px-6 py-6 sm:px-8 sm:py-8">
-          <div className="space-y-2">
+          <div className="space-y-1.5 pt-2">
             <p className="max-w-2xl text-3xl font-semibold leading-tight text-slate-950 sm:text-[2.9rem]">{title}</p>
             <p className="max-w-2xl text-base leading-7 text-slate-500 sm:text-lg">{locationLabel}</p>
             {showPrice ? <p className="pt-1 text-3xl font-semibold leading-none text-sky-700 sm:text-[2.55rem]">{priceLabel}</p> : null}
