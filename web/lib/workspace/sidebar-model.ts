@@ -50,6 +50,7 @@ export function getWorkspaceSidebarSections(
         items: [
           { key: "admin", label: "Admin", href: "/admin" },
           { key: "support-requests", label: "Support requests", href: "/admin/support" },
+          { key: "listing-transfers", label: "Listing transfers", href: "/admin/listing-transfers" },
           { key: "stay-reviews", label: "Stay reviews", href: "/admin/reviews" },
           { key: "help-tutorials", label: "Help Tutorials", href: "/admin/help/tutorials" },
         ],
@@ -60,6 +61,7 @@ export function getWorkspaceSidebarSections(
   const coreItems: WorkspaceSidebarItem[] = [
     { key: "overview", label: "Overview", href: "/host" },
     { key: "listings", label: "Listings", href: "/host/listings" },
+    { key: "listing-transfers", label: "Listing transfers", href: "/host/transfers" },
     { key: "prep-services", label: "Prep Services", href: "/host/services" },
     { key: "property-requests", label: "Property Requests", href: "/requests" },
     {

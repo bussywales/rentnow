@@ -15,6 +15,8 @@ import { normalizeFocusParam, normalizeStepParam, type StepId } from "@/lib/prop
 import { isListingExpired } from "@/lib/properties/expiry";
 import { RenewListingButton } from "@/components/host/RenewListingButton";
 import { resolvePropertyImageUrl, resolveSupabasePublicUrlFromPath } from "@/lib/properties/image-url";
+import { ListingOwnershipTransferPanel } from "@/components/host/ListingOwnershipTransferPanel";
+import { getListingTransferPanelState } from "@/lib/properties/listing-ownership-transfer.server";
 
 export const dynamic = "force-dynamic";
 
@@ -276,6 +278,11 @@ export default async function EditPropertyPage({ params, searchParams }: Props) 
   }
 
   const isExpired = isListingExpired(property);
+  const canTransferOwnership =
+    (role === "landlord" || role === "agent") && property.owner_id === user.id;
+  const transferRequests = canTransferOwnership
+    ? await getListingTransferPanelState({ propertyId: property.id, ownerId: user.id }).catch(() => [])
+    : [];
 
   return (
     <div className="space-y-4">
@@ -305,6 +312,14 @@ export default async function EditPropertyPage({ params, searchParams }: Props) 
           updatedAt={property.updated_at}
         />
       )}
+      {canTransferOwnership ? (
+        <ListingOwnershipTransferPanel
+          propertyId={property.id}
+          propertyTitle={property.title}
+          propertyStatus={property.status}
+          transfers={transferRequests}
+        />
+      ) : null}
       <PropertyStepper
         initialData={property}
         initialStep={initialStep}

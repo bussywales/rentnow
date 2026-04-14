@@ -24,7 +24,7 @@ void test("landlord sidebar items are limited to core host workspace links", () 
   assert.deepEqual(sections.map((section) => section.label), ["Core"]);
   assert.deepEqual(
     items.map((item) => item.href),
-    ["/host", "/host/listings", "/host/services", "/requests", "/host/bookings", "/host/calendar", "/host/earnings"]
+    ["/host", "/host/listings", "/host/transfers", "/host/services", "/requests", "/host/bookings", "/host/calendar", "/host/earnings"]
   );
   assert.equal(items.find((item) => item.href === "/host/bookings")?.badgeCount, 4);
   assert.equal(
@@ -54,6 +54,7 @@ void test("agent sidebar extends landlord links with agent workspace links", () 
   assert.ok(items.some((item) => item.href === "/profile/clients"));
   assert.ok(items.some((item) => item.href === "/host/leads"));
   assert.ok(items.some((item) => item.href === "/host/services"));
+  assert.ok(items.some((item) => item.href === "/host/transfers"));
   assert.ok(items.some((item) => item.href === "/requests"));
   assert.ok(items.some((item) => item.href === "/dashboard/referrals"));
   assert.ok(items.some((item) => item.href === "/dashboard/messages"));
@@ -76,6 +77,7 @@ void test("admin sidebar exposes tutorial authoring in the internal admin sectio
     [
       { label: "Admin", href: "/admin" },
       { label: "Support requests", href: "/admin/support" },
+      { label: "Listing transfers", href: "/admin/listing-transfers" },
       { label: "Stay reviews", href: "/admin/reviews" },
       { label: "Help Tutorials", href: "/admin/help/tutorials" },
     ]
