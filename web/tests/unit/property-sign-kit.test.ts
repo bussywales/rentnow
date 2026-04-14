@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { buildPropertyShareRedirect } from "@/lib/sharing/property-share";
 import {
@@ -74,4 +75,17 @@ void test("sign kit pdf generation normalizes unsupported unicode punctuation in
 
   assert.ok(bytes instanceof Uint8Array);
   assert.ok(bytes.byteLength > 0);
+});
+
+void test("sign kit export copy stays property-first and avoids utility-style collateral text", () => {
+  const source = readFileSync(
+    "/Users/olubusayoadewale/rentnow/web/lib/sharing/property-sign-kit.ts",
+    "utf8"
+  );
+
+  assert.match(source, /Scan for full details/);
+  assert.doesNotMatch(source, /Tracked through a controlled PropatyHub share link/);
+  assert.doesNotMatch(source, /Tracked through a PropatyHub share link/);
+  assert.doesNotMatch(source, /Designed for handouts, counters, and reception desks/);
+  assert.doesNotMatch(source, /Display where passers-by can scan comfortably from a short distance/);
 });
