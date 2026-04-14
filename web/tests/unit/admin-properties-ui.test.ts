@@ -31,6 +31,10 @@ void test("admin overview + listings registry are wired to new workspaces", () =
     "expected link to /admin/support in overview"
   );
   assert.ok(
+    adminContents.includes("href=\"/admin/reviews\""),
+    "expected link to /admin/reviews in overview"
+  );
+  assert.ok(
     adminContents.includes("Analytics"),
     "expected Analytics label in admin control panel links"
   );
@@ -41,6 +45,10 @@ void test("admin overview + listings registry are wired to new workspaces", () =
   assert.ok(
     adminContents.includes("Support requests"),
     "expected Support requests label in admin control panel links"
+  );
+  assert.ok(
+    adminContents.includes("Stay reviews"),
+    "expected Stay reviews label in admin control panel links"
   );
   assert.ok(
     !adminContents.includes("href=\"/admin/insights\""),

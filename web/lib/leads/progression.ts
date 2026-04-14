@@ -14,6 +14,17 @@ export type LeadProgressionSignal = {
   tone: LeadProgressionTone;
 };
 
+export type LeadProgressionSummary = {
+  totalEnquiries: number;
+  awaitingReplyCount: number;
+  repliedCount: number;
+  viewingRequestedCount: number;
+  viewingConfirmedCount: number;
+  offPlatformCount: number;
+  replyRate: number;
+  viewingConfirmRate: number;
+};
+
 function asObject(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
@@ -71,4 +82,24 @@ export function resolveLeadProgressionSignals(input: LeadProgressionSnapshot): L
     signals.push({ key: "off_platform", label: "Contact exchange attempted", tone: "warning" });
   }
   return signals;
+}
+
+export function buildLeadProgressionSummary(rows: LeadProgressionSnapshot[]): LeadProgressionSummary {
+  const totalEnquiries = rows.length;
+  const repliedCount = rows.filter((row) => !!row.repliedAt).length;
+  const viewingRequestedCount = rows.filter((row) => !!row.viewingRequestedAt).length;
+  const viewingConfirmedCount = rows.filter((row) => !!row.viewingConfirmedAt).length;
+  const offPlatformCount = rows.filter((row) => !!row.offPlatformHandoffAt).length;
+  const awaitingReplyCount = rows.filter((row) => !row.repliedAt).length;
+
+  return {
+    totalEnquiries,
+    awaitingReplyCount,
+    repliedCount,
+    viewingRequestedCount,
+    viewingConfirmedCount,
+    offPlatformCount,
+    replyRate: totalEnquiries ? Math.round((repliedCount / totalEnquiries) * 100) : 0,
+    viewingConfirmRate: totalEnquiries ? Math.round((viewingConfirmedCount / totalEnquiries) * 100) : 0,
+  };
 }

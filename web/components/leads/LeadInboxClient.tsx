@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { cn } from "@/components/ui/cn";
-import { resolveLeadProgressionSignals } from "@/lib/leads/progression";
+import {
+  buildLeadProgressionSummary,
+  resolveLeadProgressionSignals,
+} from "@/lib/leads/progression";
 import { normalizeLeadTag } from "@/lib/leads/lead-notes";
 import type { LeadStatus } from "@/lib/leads/types";
 
@@ -444,31 +447,19 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
     });
   }, [rows, selectedTab, dateFilter, intentFilter, cityFilter, sourceFilter, clientPageFilter]);
 
-  const highlights = useMemo(() => {
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const weekStart = new Date();
-    weekStart.setDate(weekStart.getDate() - 7);
-    weekStart.setHours(0, 0, 0, 0);
-
-    const todayLeads = rows.filter((lead) => toTimestamp(lead.created_at) >= startOfDay.getTime());
-    const weekLeads = rows.filter((lead) => toTimestamp(lead.created_at) >= weekStart.getTime());
-
-    const wonToday = todayLeads.filter((lead) => lead.status === "WON").length;
-    const wonWeek = weekLeads.filter((lead) => lead.status === "WON").length;
-
-    const todayConversion = todayLeads.length
-      ? Math.round((wonToday / todayLeads.length) * 100)
-      : 0;
-    const weekConversion = weekLeads.length ? Math.round((wonWeek / weekLeads.length) * 100) : 0;
-
-    return {
-      todayCount: todayLeads.length,
-      todayConversion,
-      weekCount: weekLeads.length,
-      weekConversion,
-    };
-  }, [rows]);
+  const progressionSummary = useMemo(
+    () =>
+      buildLeadProgressionSummary(
+        filteredRows.map((lead) => ({
+          repliedAt: lead.replied_at ?? null,
+          viewingRequestedAt: lead.viewing_requested_at ?? null,
+          viewingConfirmedAt: lead.viewing_confirmed_at ?? null,
+          offPlatformHandoffAt: lead.off_platform_handoff_at ?? null,
+          contactExchangeFlags: lead.contact_exchange_flags ?? null,
+        }))
+      ),
+    [filteredRows]
+  );
 
   const handleSelectLead = (lead: LeadInboxRow) => {
     setSelectedId(lead.id);
@@ -617,16 +608,36 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="lead-progression-summary">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Today</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">{highlights.todayCount}</p>
-          <p className="text-xs text-slate-500">{highlights.todayConversion}% conversion</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">In scope</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900">{progressionSummary.totalEnquiries}</p>
+          <p className="text-xs text-slate-500">Enquiries in the current view</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">This week</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">{highlights.weekCount}</p>
-          <p className="text-xs text-slate-500">{highlights.weekConversion}% conversion</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Awaiting reply</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900">{progressionSummary.awaitingReplyCount}</p>
+          <p className="text-xs text-slate-500">{progressionSummary.replyRate}% have a recorded reply</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Replied</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900">{progressionSummary.repliedCount}</p>
+          <p className="text-xs text-slate-500">Leads with a tracked reply</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Viewing requested</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900">{progressionSummary.viewingRequestedCount}</p>
+          <p className="text-xs text-slate-500">{progressionSummary.viewingConfirmedCount} confirmed</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Viewing confirmed</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900">{progressionSummary.viewingConfirmedCount}</p>
+          <p className="text-xs text-slate-500">{progressionSummary.viewingConfirmRate}% of enquiries in scope</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Contact exchange</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900">{progressionSummary.offPlatformCount}</p>
+          <p className="text-xs text-slate-500">Detected off-platform handoff attempts</p>
         </div>
       </div>
 
@@ -941,17 +952,22 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
                   selectedLead.viewing_requested_at ||
                   selectedLead.viewing_confirmed_at ||
                   selectedLead.off_platform_handoff_at) ? (
-                  <div className="mt-3 grid gap-2 text-[11px] text-slate-500">
-                    {selectedLead.replied_at ? <div>Replied: {formatDate(selectedLead.replied_at)}</div> : null}
-                    {selectedLead.viewing_requested_at ? (
-                      <div>Viewing requested: {formatDate(selectedLead.viewing_requested_at)}</div>
-                    ) : null}
-                    {selectedLead.viewing_confirmed_at ? (
-                      <div>Viewing confirmed: {formatDate(selectedLead.viewing_confirmed_at)}</div>
-                    ) : null}
-                    {selectedLead.off_platform_handoff_at ? (
-                      <div>Contact exchange attempted: {formatDate(selectedLead.off_platform_handoff_at)}</div>
-                    ) : null}
+                  <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[11px] text-slate-600">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      Progression
+                    </p>
+                    <div className="mt-2 grid gap-1.5">
+                      {selectedLead.replied_at ? <div>Replied: {formatDate(selectedLead.replied_at)}</div> : null}
+                      {selectedLead.viewing_requested_at ? (
+                        <div>Viewing requested: {formatDate(selectedLead.viewing_requested_at)}</div>
+                      ) : null}
+                      {selectedLead.viewing_confirmed_at ? (
+                        <div>Viewing confirmed: {formatDate(selectedLead.viewing_confirmed_at)}</div>
+                      ) : null}
+                      {selectedLead.off_platform_handoff_at ? (
+                        <div>Contact exchange attempted: {formatDate(selectedLead.off_platform_handoff_at)}</div>
+                      ) : null}
+                    </div>
                   </div>
                 ) : null}
               </div>

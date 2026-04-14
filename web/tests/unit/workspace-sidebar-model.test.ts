@@ -76,6 +76,7 @@ void test("admin sidebar exposes tutorial authoring in the internal admin sectio
     [
       { label: "Admin", href: "/admin" },
       { label: "Support requests", href: "/admin/support" },
+      { label: "Stay reviews", href: "/admin/reviews" },
       { label: "Help Tutorials", href: "/admin/help/tutorials" },
     ]
   );

@@ -12,7 +12,10 @@ void test("trust workstream wires public review summaries into the key public su
   const advertiserPage = read("components/advertisers/PublicAdvertiserProfilePage.tsx");
   const agentStorefrontPage = read("app/agents/[slug]/page.tsx");
   const tripPage = read("app/trips/[id]/page.tsx");
+  const tripsPanel = read("components/tenant/TenantTripsPanel.tsx");
   const hostBookingsPanel = read("components/host/HostShortletBookingsPanel.tsx");
+  const hostBookingsPage = read("app/host/bookings/page.tsx");
+  const adminReviewsPage = read("app/admin/reviews/page.tsx");
 
   assert.ok(
     propertyPage.includes("PublicHostReviewSummary"),
@@ -31,8 +34,20 @@ void test("trust workstream wires public review summaries into the key public su
     "expected completed trip page to render the completed-stay review card"
   );
   assert.ok(
+    tripsPanel.includes('row.status === "completed"'),
+    "expected completed trips to keep a route back to the review surface"
+  );
+  assert.ok(
     hostBookingsPanel.includes("Completed-stay review"),
     "expected host booking drawer to expose the completed-stay review panel"
+  );
+  assert.ok(
+    hostBookingsPage.includes("host-bookings-review-summary"),
+    "expected host bookings page to surface compact review summary cards"
+  );
+  assert.ok(
+    adminReviewsPage.includes("Stay reviews"),
+    "expected admin reviews page to expose the lightweight review visibility surface"
   );
 });
 
@@ -79,5 +94,13 @@ void test("conversion workstream adds new property event types and progression c
   assert.ok(
     leadInboxClient.includes("Contact exchange attempted"),
     "expected lead inbox UI to expose off-platform handoff visibility"
+  );
+  assert.ok(
+    leadInboxClient.includes("lead-progression-summary"),
+    "expected lead inbox to surface top-level progression summary consumption"
+  );
+  assert.ok(
+    leadInboxClient.includes("Viewing confirmed"),
+    "expected lead inbox to surface viewing confirmation progress clearly"
   );
 });

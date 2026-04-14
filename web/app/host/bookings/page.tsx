@@ -7,6 +7,7 @@ import { readActingAsFromCookies } from "@/lib/acting-as.server";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { getUserRole } from "@/lib/authz";
 import { getServerAuthUser } from "@/lib/auth/server-session";
+import { getHostReviewOpsSummaryByHostIds } from "@/lib/shortlet/reviews.server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import {
   listHostShortletBookings,
@@ -60,6 +61,12 @@ export default async function HostBookingsPage({ searchParams }: PageProps) {
 
   let rows: HostShortletBookingSummary[] = [];
   let settingsRows: HostShortletSettingSummary[] = [];
+  let reviewSummary: {
+    averageRating: number | null;
+    reviewCount: number;
+    recommendRate: number | null;
+    awaitingResponseCount: number;
+  } | null = null;
   let loadError: string | null = null;
 
   try {
@@ -79,6 +86,12 @@ export default async function HostBookingsPage({ searchParams }: PageProps) {
         limit: 120,
       }),
     ]);
+
+    const reviewSummaryMap = await getHostReviewOpsSummaryByHostIds({
+      client: shortletClient as unknown as SupabaseClient,
+      hostUserIds: [ownerId],
+    });
+    reviewSummary = reviewSummaryMap[ownerId] ?? null;
   } catch (error) {
     loadError = error instanceof Error ? error.message : "Unable to load host bookings.";
   }
@@ -111,6 +124,32 @@ export default async function HostBookingsPage({ searchParams }: PageProps) {
           {loadError}
         </div>
       ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="host-bookings-review-summary">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Completed-stay reviews</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900">{reviewSummary?.reviewCount ?? 0}</p>
+          <p className="text-xs text-slate-500">Published guest reviews from completed stays</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Average rating</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900">
+            {reviewSummary?.averageRating !== null && reviewSummary?.averageRating !== undefined
+              ? `${reviewSummary.averageRating.toFixed(1)}/5`
+              : "—"}
+          </p>
+          <p className="text-xs text-slate-500">
+            {reviewSummary?.recommendRate !== null && reviewSummary?.recommendRate !== undefined
+              ? `${reviewSummary.recommendRate}% recommend`
+              : "No recommendation signal yet"}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Awaiting response</p>
+          <p className="mt-2 text-2xl font-semibold text-slate-900">{reviewSummary?.awaitingResponseCount ?? 0}</p>
+          <p className="text-xs text-slate-500">Reviews you can respond to from the booking drawer</p>
+        </div>
+      </div>
 
       <div id="host-bookings" className="scroll-mt-28">
         <HostShortletBookingsPanel

@@ -51,7 +51,10 @@ function shouldShowDetailsCta(row: GuestShortletBookingSummary): boolean {
     checkOut: row.check_out,
   });
   if (bucket === "pending") return true;
-  if (bucket === "upcoming" && (row.status === "confirmed" || row.status === "completed")) {
+  if (bucket === "upcoming" && row.status === "confirmed") {
+    return true;
+  }
+  if (bucket === "past" && row.status === "completed") {
     return true;
   }
   return false;
