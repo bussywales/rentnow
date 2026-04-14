@@ -9,10 +9,11 @@ const sharePagePath = "/Users/olubusayoadewale/rentnow/web/app/share/property/[t
 
 void test("property share panel uses the sidebar as a launcher for the qr sign kit", () => {
   const source = readFileSync(panelPath, "utf8");
-  assert.match(source, /Private share controls/);
-  assert.match(source, /Generate QR sign kit/);
-  assert.match(source, /Open QR sign kit/);
-  assert.doesNotMatch(source, /Download the selected asset/);
+  assert.match(source, /Private tracked link/);
+  assert.match(source, /QR sign kit/);
+  assert.match(source, /Open sign kit/);
+  assert.match(source, /Live listing safeguard/);
+  assert.doesNotMatch(source, /Open QR sign kit/);
 });
 
 void test("property sign kit modal owns preview and export controls", () => {
@@ -20,7 +21,8 @@ void test("property sign kit modal owns preview and export controls", () => {
   assert.match(source, /property-sign-kit-modal/);
   assert.match(source, /previewOptions\.map/);
   assert.match(source, /onPreviewModeChange/);
-  assert.match(source, /Download the selected asset/);
+  assert.match(source, /Export selected format/);
+  assert.match(source, /Also export/);
   assert.match(source, /Copy tracked link/);
   assert.match(source, /Live listing safeguard/);
 });

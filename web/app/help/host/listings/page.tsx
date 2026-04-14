@@ -15,10 +15,10 @@ export default function HostListingsHelpPage() {
     >
       <div className="space-y-4">
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Generate QR sign kits for live listings</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Open QR sign kits for live listings</h2>
           <div className="mt-3 space-y-3 text-sm text-slate-700">
             <p>
-              Open a live listing you manage and use <span className="font-semibold text-slate-900">Generate QR sign kit</span>
+              Open a live listing you manage and use <span className="font-semibold text-slate-900">Open sign kit</span>
               {" "}inside the listing share panel.
             </p>
             <p>

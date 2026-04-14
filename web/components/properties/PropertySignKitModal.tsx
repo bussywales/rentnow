@@ -56,26 +56,48 @@ function PreviewCanvas({
 }) {
   if (previewMode === "sign") {
     return (
-      <div className="mx-auto max-w-[900px] rounded-[32px] border border-slate-200 bg-white shadow-[0_28px_70px_rgba(15,23,42,0.16)]">
-        <div className="rounded-t-[32px] bg-slate-950 px-6 py-6 text-white sm:px-8 sm:py-7">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-200">PropatyHub</p>
-          <p className="mt-4 text-3xl font-semibold uppercase tracking-[0.08em] sm:text-5xl">{headline}</p>
-        </div>
-        <div className="grid gap-6 p-6 sm:grid-cols-[minmax(0,1fr)_260px] sm:p-8 lg:gap-8 lg:p-10">
-          <div className="space-y-5">
-            <div>
-              <p className="text-2xl font-semibold leading-tight text-slate-950 sm:text-4xl">{title}</p>
-              <p className="mt-3 max-w-2xl text-base text-slate-600 sm:text-lg">{locationLabel}</p>
+      <div className="mx-auto max-w-[920px] overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_28px_70px_rgba(15,23,42,0.16)]">
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="px-6 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-10">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-700">PropatyHub sign kit</p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <span className="rounded-full bg-slate-950 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
+                {headline}
+              </span>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Live listing QR
+              </span>
             </div>
-            <p className="text-2xl font-semibold text-sky-700 sm:text-4xl">{priceLabel}</p>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-              Scans open the live PropatyHub listing while this property remains active.
+            <div className="mt-8 space-y-4">
+              <p className="text-3xl font-semibold leading-tight text-slate-950 sm:text-[2.6rem]">{title}</p>
+              <p className="max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">{locationLabel}</p>
+            </div>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <span className="rounded-full bg-sky-50 px-4 py-2 text-lg font-semibold text-sky-700 sm:text-2xl">{priceLabel}</span>
+              <p className="text-sm text-slate-500">Print-ready asset for windows, boards, and counter displays.</p>
             </div>
           </div>
-          <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-5 shadow-sm">
-            <div className="mx-auto aspect-square max-w-[220px] [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: qrSvg }} />
-            <p className="mt-4 text-center text-sm font-semibold text-slate-900">Scan to view this listing</p>
-            <p className="mt-1 text-center text-xs text-slate-500">Tracked through a PropatyHub share link</p>
+          <div className="flex flex-col justify-between bg-slate-950 px-6 py-6 text-white sm:px-8 sm:py-8">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-200">Scan to open</p>
+              <div className="mt-4 rounded-[28px] bg-white p-5 shadow-[0_18px_35px_rgba(15,23,42,0.24)]">
+                <div className="mx-auto aspect-square max-w-[220px] [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: qrSvg }} />
+              </div>
+            </div>
+            <div className="mt-6 space-y-2">
+              <p className="text-lg font-semibold">Scan to view this listing</p>
+              <p className="text-sm leading-6 text-slate-300">This tracked QR stays tied to the live PropatyHub listing and stops exposing stale content when the listing is no longer active.</p>
+            </div>
+          </div>
+        </div>
+        <div className="grid gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 text-sm text-slate-600 sm:grid-cols-2 sm:px-8 lg:px-10">
+          <div>
+            <p className="font-semibold text-slate-900">Placement</p>
+            <p className="mt-1">Best for property boards, reception areas, and print displays with room for a full listing headline.</p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-900">Scan instruction</p>
+            <p className="mt-1">Keep the QR visible and unobstructed so searchers can open the full live listing from their phone.</p>
           </div>
         </div>
       </div>
@@ -84,25 +106,28 @@ function PreviewCanvas({
 
   if (previewMode === "flyer") {
     return (
-      <div className="mx-auto max-w-[640px] rounded-[32px] border border-slate-200 bg-white p-6 shadow-[0_28px_70px_rgba(15,23,42,0.16)] sm:p-8">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">{headline}</p>
-            <p className="mt-3 text-2xl font-semibold text-slate-950 sm:text-3xl">{title}</p>
-            <p className="mt-3 max-w-xl text-sm text-slate-600 sm:text-base">{locationLabel}</p>
+      <div className="mx-auto max-w-[720px] overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_28px_70px_rgba(15,23,42,0.16)]">
+        <div className="grid sm:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="px-6 py-6 sm:px-8 sm:py-8">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700">PropatyHub QR card</p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <span className="rounded-full bg-slate-950 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
+                {headline}
+              </span>
+              <span className="rounded-full bg-sky-50 px-3 py-1 text-sm font-semibold text-sky-700">{priceLabel}</span>
+            </div>
+            <p className="mt-5 text-2xl font-semibold leading-tight text-slate-950 sm:text-3xl">{title}</p>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">{locationLabel}</p>
+            <div className="mt-6 rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              Compact format for counters, brochure stacks, reception desks, and handouts.
+            </div>
           </div>
-          <p className="text-base font-semibold text-sky-700 sm:text-xl">{priceLabel}</p>
-        </div>
-        <div className="mt-6 grid gap-5 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-center">
-          <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
-            <div className="mx-auto aspect-square max-w-[150px] [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: qrSvg }} />
-          </div>
-          <div className="space-y-3">
-            <p className="text-base font-semibold text-slate-900">Compact handout format</p>
-            <p className="text-sm leading-6 text-slate-600">
-              Use this version for reception desks, flyer trays, window counters, or compact printed inserts.
-            </p>
-            <p className="text-xs text-slate-500">The QR remains tied to the tracked PropatyHub listing link.</p>
+          <div className="border-t border-slate-200 bg-slate-50 px-6 py-6 sm:border-l sm:border-t-0 sm:px-5 sm:py-8">
+            <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mx-auto aspect-square max-w-[150px] [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: qrSvg }} />
+            </div>
+            <p className="mt-4 text-center text-sm font-semibold text-slate-900">Scan to view this listing</p>
+            <p className="mt-1 text-center text-xs leading-5 text-slate-500">Compact tracked QR asset for high-intent offline sharing.</p>
           </div>
         </div>
       </div>
@@ -110,15 +135,16 @@ function PreviewCanvas({
   }
 
   return (
-    <div className="mx-auto flex max-w-[460px] flex-col items-center rounded-[32px] border border-slate-200 bg-white px-8 py-8 text-center shadow-[0_28px_70px_rgba(15,23,42,0.16)] sm:px-10 sm:py-10">
-      <div className="w-full max-w-[260px] rounded-[28px] border border-slate-200 bg-slate-50 p-5 shadow-sm">
+    <div className="mx-auto flex max-w-[420px] flex-col items-center rounded-[32px] border border-slate-200 bg-white px-8 py-8 text-center shadow-[0_28px_70px_rgba(15,23,42,0.16)] sm:px-10 sm:py-10">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-700">PropatyHub QR only</p>
+      <div className="mt-5 w-full max-w-[260px] rounded-[28px] border border-slate-200 bg-slate-50 p-5 shadow-sm">
         <div className="mx-auto aspect-square max-w-[210px] [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: qrSvg }} />
       </div>
       <p className="mt-6 text-xl font-semibold text-slate-950">Standalone QR asset</p>
       <p className="mt-3 max-w-sm text-sm leading-6 text-slate-600">
         Best when you only need the tracked QR image for an existing print layout or signage mockup.
       </p>
-      <p className="mt-4 text-xs text-slate-500">No raw listing URL. This always routes through the controlled PropatyHub share path.</p>
+      <p className="mt-4 text-xs text-slate-500">Minimal, clean, and still tied to the controlled PropatyHub share path.</p>
     </div>
   );
 }
@@ -166,14 +192,14 @@ function PropertySignKitModalBody({
             <p className="text-sm font-semibold text-slate-950">{previewTitle}</p>
             <p className="mt-1 text-sm text-slate-500">Review the selected asset at a readable scale before you export it.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid gap-2 sm:grid-cols-3">
             {previewOptions.map((option) => (
               <button
                 key={option.value}
                 type="button"
                 onClick={() => onPreviewModeChange(option.value)}
                 className={cn(
-                  "rounded-full border px-3 py-2 text-xs font-semibold transition sm:text-sm",
+                  "min-w-[118px] rounded-[20px] border px-3 py-3 text-left text-xs transition sm:text-sm",
                   previewMode === option.value
                     ? "border-slate-900 bg-slate-900 text-white shadow-sm"
                     : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
@@ -181,7 +207,10 @@ function PropertySignKitModalBody({
                 aria-pressed={previewMode === option.value}
                 data-testid={`property-sign-kit-preview-${option.value}`}
               >
-                {option.label}
+                <span className="block font-semibold">{option.label}</span>
+                <span className={cn("mt-1 block text-[11px] leading-5", previewMode === option.value ? "text-slate-300" : "text-slate-500")}>
+                  {option.hint}
+                </span>
               </button>
             ))}
           </div>
@@ -207,8 +236,8 @@ function PropertySignKitModalBody({
         </div>
 
         <div className="space-y-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm font-semibold text-slate-900">Download the selected asset</p>
-          <p className="text-xs text-slate-500">Use the primary action for the current preview. Alternative exports stay available below.</p>
+          <p className="text-sm font-semibold text-slate-900">Export selected format</p>
+          <p className="text-xs text-slate-500">Use the primary export for the preview you are looking at. Alternate formats stay available below.</p>
           <Button
             size="md"
             type="button"
@@ -225,25 +254,28 @@ function PropertySignKitModalBody({
           >
             {primaryDownloadLabel}
           </Button>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-            <Button size="sm" type="button" variant="secondary" onClick={onDownloadSign} disabled={assetBusy !== null}>
-              {assetBusy === "sign" ? "Preparing…" : "Sign sheet PDF"}
-            </Button>
-            <Button size="sm" type="button" variant="secondary" onClick={onDownloadFlyer} disabled={assetBusy !== null}>
-              {assetBusy === "flyer" ? "Preparing…" : "QR card PDF"}
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Also export</p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              <Button size="sm" type="button" variant="secondary" onClick={onDownloadSign} disabled={assetBusy !== null} className="w-full whitespace-nowrap">
+                {assetBusy === "sign" ? "Preparing…" : "Sign sheet PDF"}
+              </Button>
+              <Button size="sm" type="button" variant="secondary" onClick={onDownloadFlyer} disabled={assetBusy !== null} className="w-full whitespace-nowrap">
+                {assetBusy === "flyer" ? "Preparing…" : "QR card PDF"}
+              </Button>
+            </div>
+            <Button size="sm" type="button" variant="ghost" onClick={onDownloadQr} className="w-full justify-center border border-transparent text-slate-700 hover:border-slate-200 hover:bg-white">
+              Download QR PNG
             </Button>
           </div>
-          <Button size="sm" type="button" variant="ghost" onClick={onDownloadQr} className="w-full justify-start">
-            Download QR PNG
-          </Button>
         </div>
 
         <div className="space-y-3 rounded-[24px] border border-slate-200 bg-white p-4">
           <div>
             <p className="text-sm font-semibold text-slate-900">Tracked link</p>
-            <p className="mt-1 text-xs text-slate-500">Use this controlled PropatyHub URL for WhatsApp, email, print notes, or manual sharing.</p>
+            <p className="mt-1 text-xs text-slate-500">Use this controlled PropatyHub URL in WhatsApp, email, print notes, or manual handoff copy.</p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-600 break-all">
+          <div className="rounded-[20px] border border-slate-200 bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-600 break-all">
             {trackedShareLink}
           </div>
           <Button

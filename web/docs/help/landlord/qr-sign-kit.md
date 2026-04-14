@@ -32,7 +32,7 @@ If a listing is draft, pending, paused, rejected, removed, or otherwise inactive
 
 1. Open the live listing.
 2. Open the listing share panel.
-3. Select **Open QR sign kit**.
+3. Select **Open sign kit**.
 4. Choose the asset view you want to preview.
 5. Download the selected asset or copy the tracked listing link.
 

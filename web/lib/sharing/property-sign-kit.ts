@@ -131,116 +131,302 @@ function drawTextBlock(input: {
 
 export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
   const pdf = await PDFDocument.create();
-  const page = pdf.addPage([595.28, 841.89]);
+  const page =
+    input.template === "sign" ? pdf.addPage([595.28, 841.89]) : pdf.addPage([595.28, 360]);
   const fontRegular = await pdf.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const qrImage = await pdf.embedPng(dataUrlToUint8Array(input.qrPngDataUrl));
 
   const width = page.getWidth();
   const height = page.getHeight();
-  const margin = 40;
+  const margin = input.template === "sign" ? 38 : 30;
   const dark = rgb(0.09, 0.15, 0.26);
   const slate = rgb(0.39, 0.46, 0.58);
   const accent = rgb(0.04, 0.47, 0.76);
-  const qrSize = input.template === "sign" ? 210 : 150;
+  const pale = rgb(0.95, 0.97, 1);
+  const border = rgb(0.87, 0.9, 0.95);
+  const qrSize = input.template === "sign" ? 185 : 138;
 
   page.drawRectangle({ x: 0, y: 0, width, height, color: rgb(1, 1, 1) });
-  page.drawRectangle({ x: 0, y: height - 120, width, height: 120, color: dark });
-  page.drawText("PropatyHub", {
-    x: margin,
-    y: height - 54,
-    size: 16,
-    font: fontBold,
-    color: rgb(1, 1, 1),
-  });
 
-  const headlineSize = input.template === "sign" ? 32 : 24;
-  page.drawText(input.headline.toUpperCase(), {
-    x: margin,
-    y: height - 110,
-    size: headlineSize,
-    font: fontBold,
-    color: rgb(1, 1, 1),
-  });
+  if (input.template === "sign") {
+    const rightPanelWidth = 214;
+    const rightPanelX = width - rightPanelWidth;
+    const topY = height - margin;
 
-  const titleLines = wrapText(truncateText(input.title, input.template === "sign" ? 80 : 65), input.template === "sign" ? 28 : 26);
-  drawTextBlock({
-    page,
-    lines: titleLines,
-    font: fontBold,
-    x: margin,
-    y: height - 180,
-    size: input.template === "sign" ? 22 : 18,
-    lineHeight: input.template === "sign" ? 28 : 22,
-    color: dark,
-  });
+    page.drawRectangle({
+      x: rightPanelX,
+      y: 0,
+      width: rightPanelWidth,
+      height,
+      color: dark,
+    });
 
-  const locationY = height - (input.template === "sign" ? 270 : 235);
-  const detailLines = wrapText(truncateText(input.locationLabel, 90), input.template === "sign" ? 34 : 32);
-  drawTextBlock({
-    page,
-    lines: detailLines,
-    font: fontRegular,
-    x: margin,
-    y: locationY,
-    size: 14,
-    lineHeight: 18,
-    color: slate,
-  });
-
-  page.drawText(input.priceLabel, {
-    x: margin,
-    y: locationY - 54,
-    size: input.template === "sign" ? 24 : 20,
-    font: fontBold,
-    color: accent,
-  });
-
-  const qrX = width - margin - qrSize;
-  const qrY = input.template === "sign" ? 250 : 330;
-  page.drawRectangle({
-    x: qrX - 12,
-    y: qrY - 12,
-    width: qrSize + 24,
-    height: qrSize + 24,
-    borderWidth: 1,
-    borderColor: rgb(0.87, 0.9, 0.95),
-    color: rgb(1, 1, 1),
-  });
-  page.drawImage(qrImage, { x: qrX, y: qrY, width: qrSize, height: qrSize });
-
-  page.drawText("Scan to view this listing", {
-    x: qrX - 8,
-    y: qrY - 36,
-    size: 12,
-    font: fontBold,
-    color: dark,
-  });
-
-  const urlLines = wrapText(truncateText(input.trackedShareUrl, input.template === "sign" ? 90 : 76), input.template === "sign" ? 42 : 36);
-  drawTextBlock({
-    page,
-    lines: urlLines,
-    font: fontRegular,
-    x: margin,
-    y: input.template === "sign" ? 150 : 210,
-    size: 10,
-    lineHeight: 13,
-    color: slate,
-  });
-
-  page.drawText(
-    input.template === "sign"
-      ? "Print, place near the property, and replace if the listing is withdrawn."
-      : "Compact flyer card for windows, counters, and printed handouts.",
-    {
+    page.drawText("PropatyHub sign kit", {
       x: margin,
-      y: 90,
+      y: topY - 4,
+      size: 12,
+      font: fontBold,
+      color: accent,
+    });
+
+    page.drawText(input.headline.toUpperCase(), {
+      x: margin,
+      y: topY - 42,
+      size: 14,
+      font: fontBold,
+      color: rgb(1, 1, 1),
+    });
+
+    page.drawRectangle({
+      x: margin,
+      y: topY - 54,
+      width: 116,
+      height: 24,
+      color: dark,
+    });
+    page.drawText(input.headline.toUpperCase(), {
+      x: margin + 12,
+      y: topY - 46,
+      size: 10,
+      font: fontBold,
+      color: rgb(1, 1, 1),
+    });
+
+    const titleLines = wrapText(truncateText(input.title, 78), 28);
+    drawTextBlock({
+      page,
+      lines: titleLines,
+      font: fontBold,
+      x: margin,
+      y: topY - 92,
+      size: 24,
+      lineHeight: 29,
+      color: dark,
+    });
+
+    const locationLines = wrapText(truncateText(input.locationLabel, 96), 36);
+    drawTextBlock({
+      page,
+      lines: locationLines,
+      font: fontRegular,
+      x: margin,
+      y: topY - 196,
+      size: 14,
+      lineHeight: 19,
+      color: slate,
+    });
+
+    page.drawText(input.priceLabel, {
+      x: margin,
+      y: topY - 288,
+      size: 24,
+      font: fontBold,
+      color: accent,
+    });
+
+    page.drawRectangle({
+      x: margin,
+      y: 134,
+      width: rightPanelX - margin * 2,
+      height: 90,
+      color: pale,
+      borderColor: border,
+      borderWidth: 1,
+    });
+    page.drawText("Best for boards, reception desks, and full-size printed displays.", {
+      x: margin + 16,
+      y: 188,
+      size: 12,
+      font: fontBold,
+      color: dark,
+    });
+    page.drawText("Keep the QR clear and replace the sign if the listing is withdrawn or no longer active.", {
+      x: margin + 16,
+      y: 164,
       size: 11,
       font: fontRegular,
       color: slate,
-    }
-  );
+    });
+
+    page.drawText("Scan to open", {
+      x: rightPanelX + 34,
+      y: topY - 16,
+      size: 12,
+      font: fontBold,
+      color: rgb(0.79, 0.89, 1),
+    });
+
+    page.drawRectangle({
+      x: rightPanelX + 18,
+      y: 382,
+      width: rightPanelWidth - 36,
+      height: qrSize + 34,
+      color: rgb(1, 1, 1),
+    });
+    page.drawImage(qrImage, {
+      x: rightPanelX + 33,
+      y: 399,
+      width: qrSize,
+      height: qrSize,
+    });
+    page.drawText("Scan to view this listing", {
+      x: rightPanelX + 33,
+      y: 360,
+      size: 13,
+      font: fontBold,
+      color: rgb(1, 1, 1),
+    });
+    page.drawText("Tracked through a controlled PropatyHub link.", {
+      x: rightPanelX + 33,
+      y: 340,
+      size: 10,
+      font: fontRegular,
+      color: rgb(0.79, 0.83, 0.9),
+    });
+
+    const urlLines = wrapText(truncateText(input.trackedShareUrl, 64), 28);
+    drawTextBlock({
+      page,
+      lines: urlLines,
+      font: fontRegular,
+      x: rightPanelX + 20,
+      y: 120,
+      size: 9,
+      lineHeight: 12,
+      color: rgb(0.79, 0.83, 0.9),
+    });
+  } else {
+    const topY = height - margin;
+    const qrPanelWidth = 190;
+    const qrPanelX = width - margin - qrPanelWidth;
+    const qrPanelY = 44;
+
+    page.drawText("PropatyHub QR card", {
+      x: margin,
+      y: topY - 2,
+      size: 11,
+      font: fontBold,
+      color: accent,
+    });
+
+    page.drawRectangle({
+      x: margin,
+      y: topY - 42,
+      width: 92,
+      height: 22,
+      color: dark,
+    });
+    page.drawText(input.headline.toUpperCase(), {
+      x: margin + 10,
+      y: topY - 34,
+      size: 9,
+      font: fontBold,
+      color: rgb(1, 1, 1),
+    });
+
+    page.drawRectangle({
+      x: margin + 102,
+      y: topY - 42,
+      width: 110,
+      height: 22,
+      color: pale,
+      borderColor: border,
+      borderWidth: 1,
+    });
+    page.drawText(input.priceLabel, {
+      x: margin + 112,
+      y: topY - 34,
+      size: 9,
+      font: fontBold,
+      color: accent,
+    });
+
+    const titleLines = wrapText(truncateText(input.title, 56), 24);
+    drawTextBlock({
+      page,
+      lines: titleLines,
+      font: fontBold,
+      x: margin,
+      y: topY - 76,
+      size: 19,
+      lineHeight: 24,
+      color: dark,
+    });
+
+    const locationLines = wrapText(truncateText(input.locationLabel, 84), 30);
+    drawTextBlock({
+      page,
+      lines: locationLines,
+      font: fontRegular,
+      x: margin,
+      y: topY - 142,
+      size: 12,
+      lineHeight: 16,
+      color: slate,
+    });
+
+    page.drawRectangle({
+      x: margin,
+      y: 48,
+      width: qrPanelX - margin - 18,
+      height: 66,
+      color: pale,
+      borderColor: border,
+      borderWidth: 1,
+    });
+    page.drawText("Compact handout for counters, flyer trays, and reception desks.", {
+      x: margin + 14,
+      y: 88,
+      size: 11,
+      font: fontBold,
+      color: dark,
+    });
+    page.drawText("Use when you need the listing to scan well without taking over the whole print layout.", {
+      x: margin + 14,
+      y: 68,
+      size: 10,
+      font: fontRegular,
+      color: slate,
+    });
+
+    page.drawRectangle({
+      x: qrPanelX,
+      y: qrPanelY,
+      width: qrPanelWidth,
+      height: height - qrPanelY - margin,
+      color: pale,
+      borderColor: border,
+      borderWidth: 1,
+    });
+    page.drawRectangle({
+      x: qrPanelX + 18,
+      y: qrPanelY + 62,
+      width: qrPanelWidth - 36,
+      height: qrSize + 28,
+      color: rgb(1, 1, 1),
+    });
+    page.drawImage(qrImage, {
+      x: qrPanelX + 26,
+      y: qrPanelY + 76,
+      width: qrSize,
+      height: qrSize,
+    });
+    page.drawText("Scan to view this listing", {
+      x: qrPanelX + 26,
+      y: qrPanelY + 38,
+      size: 11,
+      font: fontBold,
+      color: dark,
+    });
+    page.drawText("Tracked through a PropatyHub share link.", {
+      x: qrPanelX + 26,
+      y: qrPanelY + 22,
+      size: 9,
+      font: fontRegular,
+      color: slate,
+    });
+  }
 
   return pdf.save();
 }

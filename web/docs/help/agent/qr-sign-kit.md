@@ -28,7 +28,7 @@ The QR sign kit is available only for live listings. If the listing is not curre
 
 1. Open the live listing.
 2. Open the listing share panel.
-3. Choose **Open QR sign kit**.
+3. Choose **Open sign kit**.
 4. Switch between **Sign kit**, **QR card**, and **QR only**.
 5. Download the selected asset or copy the tracked link.
 
