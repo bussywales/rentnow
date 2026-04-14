@@ -60,6 +60,12 @@ import {
 import { mapSearchFilterToListingIntents, normalizeListingIntent } from "@/lib/listing-intents";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
 import { shouldPriorityImage } from "@/lib/images/loading-profile";
+import {
+  hasBoreholeWater,
+  hasBroadbandOrFibre,
+  hasSecurityFeature,
+  hasStructuredPowerBackup,
+} from "@/lib/properties/local-living";
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = {
   searchParams?: Promise<SearchParams>;
@@ -189,6 +195,10 @@ function applyMockFilters(
     if (filters.stay === "shortlet" && !isShortletProperty(property)) return false;
     if (filters.rentalType && property.rental_type !== filters.rentalType) return false;
     if (filters.furnished !== null && property.furnished !== filters.furnished) return false;
+    if (filters.powerBackup && !hasStructuredPowerBackup(property)) return false;
+    if (filters.waterBorehole && !hasBoreholeWater(property)) return false;
+    if (filters.broadbandReady && !hasBroadbandOrFibre(property)) return false;
+    if (filters.securityFeature && !hasSecurityFeature(property)) return false;
     if (filters.amenities.length) {
       const available = new Set((property.amenities || []).map((item) => item.toLowerCase()));
       const needsAll = filters.amenities.every((item) => available.has(item.toLowerCase()));

@@ -41,6 +41,7 @@ import { orderImagesWithCover } from "@/lib/properties/images";
 import { resolveBackHref } from "@/lib/properties/back-href";
 import { derivePhotoTrust } from "@/lib/properties/photo-trust";
 import { normalizeListingTitleForDisplay } from "@/lib/properties/listing-quality";
+import { buildLocalLivingFacts } from "@/lib/properties/local-living";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { isListingExpired } from "@/lib/properties/expiry";
 import { includeDemoListingsForViewerFromSettings } from "@/lib/settings/demo";
@@ -753,6 +754,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
     depositLabel ? { label: "Security deposit", value: depositLabel } : null,
     petsLabel ? { label: "Pets", value: petsLabel } : null,
   ].filter(Boolean) as Array<{ label: string; value: string }>;
+  const localLivingFacts = buildLocalLivingFacts(property);
   const rentSubtext =
     property.rental_type === "short_let"
       ? "Short stay pricing"
@@ -985,6 +987,37 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                   </div>
                 ))}
               </dl>
+            </div>
+          )}
+          {localLivingFacts.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold text-slate-900">Local living details</h3>
+                <p className="text-xs text-slate-500">
+                  Owner-provided practical details for this specific listing.
+                </p>
+              </div>
+              <dl className="mt-3 space-y-2 text-sm text-slate-700">
+                {localLivingFacts.map((fact) => (
+                  <div key={fact.key} className="flex items-start justify-between gap-3">
+                    <dt className="text-slate-500">{fact.label}</dt>
+                    <dd
+                      className={
+                        fact.tone === "warning"
+                          ? "text-right font-semibold text-amber-700"
+                          : "text-right font-semibold text-slate-900"
+                      }
+                    >
+                      {fact.value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              {property.flood_risk_disclosure ? (
+                <p className="mt-3 text-xs text-slate-500">
+                  Flood disclosure is owner-provided and should be verified before you commit.
+                </p>
+              ) : null}
             </div>
           )}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

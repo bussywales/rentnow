@@ -24,6 +24,10 @@ test("filtersToSearchParams serializes parsed filters", () => {
     stay: "shortlet",
     rentalType: "short_let",
     furnished: true,
+    powerBackup: true,
+    waterBorehole: true,
+    broadbandReady: true,
+    securityFeature: true,
     amenities: ["wifi", "parking"],
   };
 
@@ -41,6 +45,10 @@ test("filtersToSearchParams serializes parsed filters", () => {
   assert.equal(params.get("stay"), null);
   assert.equal(params.get("rentalType"), "short_let");
   assert.equal(params.get("furnished"), "true");
+  assert.equal(params.get("powerBackup"), "true");
+  assert.equal(params.get("waterBorehole"), "true");
+  assert.equal(params.get("broadbandReady"), "true");
+  assert.equal(params.get("securityFeature"), "true");
   assert.equal(params.get("amenities"), "wifi,parking");
 });
 
@@ -58,6 +66,10 @@ test("filtersToSearchParams forces rent intent when stay=shortlet", () => {
     stay: "shortlet",
     rentalType: null,
     furnished: null,
+    powerBackup: null,
+    waterBorehole: null,
+    broadbandReady: null,
+    securityFeature: null,
     amenities: [],
   };
 
@@ -79,6 +91,10 @@ test("filtersToSearchParams omits intent when set to all", () => {
     listingIntent: "all",
     rentalType: null,
     furnished: null,
+    powerBackup: null,
+    waterBorehole: null,
+    broadbandReady: null,
+    securityFeature: null,
     amenities: [],
   };
 
@@ -106,6 +122,32 @@ test("parseFilters clamps negative numeric values to zero", () => {
   assert.equal(savedParsed.minPrice, 0);
   assert.equal(savedParsed.maxPrice, 0);
   assert.equal(savedParsed.bedrooms, 0);
+});
+
+test("parseFilters reads compact local living filters", () => {
+  const parsed = parseFiltersFromParams({
+    powerBackup: "true",
+    waterBorehole: "true",
+    broadbandReady: "true",
+    securityFeature: "true",
+  });
+
+  assert.equal(parsed.powerBackup, true);
+  assert.equal(parsed.waterBorehole, true);
+  assert.equal(parsed.broadbandReady, true);
+  assert.equal(parsed.securityFeature, true);
+
+  const savedParsed = parseFiltersFromSavedSearch({
+    powerBackup: true,
+    waterBorehole: "true",
+    broadbandReady: true,
+    securityFeature: "true",
+  });
+
+  assert.equal(savedParsed.powerBackup, true);
+  assert.equal(savedParsed.waterBorehole, true);
+  assert.equal(savedParsed.broadbandReady, true);
+  assert.equal(savedParsed.securityFeature, true);
 });
 
 test("stay shortlet parses from query and saved search", () => {
@@ -171,6 +213,10 @@ test("propertyMatchesFilters enforces exact bedrooms unless minimum is selected"
     listingIntent: undefined,
     rentalType: null,
     furnished: null,
+    powerBackup: null,
+    waterBorehole: null,
+    broadbandReady: null,
+    securityFeature: null,
     amenities: [],
   };
 
@@ -217,6 +263,10 @@ test("propertyMatchesFilters enforces stay=shortlet", () => {
     stay: "shortlet",
     rentalType: null,
     furnished: null,
+    powerBackup: null,
+    waterBorehole: null,
+    broadbandReady: null,
+    securityFeature: null,
     amenities: [],
   };
 
@@ -256,6 +306,10 @@ test("propertyMatchesFilters treats shortlet as rent intent and off-plan as buy 
     stay: null,
     rentalType: null,
     furnished: null,
+    powerBackup: null,
+    waterBorehole: null,
+    broadbandReady: null,
+    securityFeature: null,
     amenities: [],
   };
   const buyFilters: ParsedSearchFilters = {
@@ -279,6 +333,10 @@ test("hasActiveFilters only returns true for real search filters", () => {
     propertyType: null,
     rentalType: null,
     furnished: null,
+    powerBackup: null,
+    waterBorehole: null,
+    broadbandReady: null,
+    securityFeature: null,
     amenities: [],
   };
 
@@ -305,8 +363,55 @@ test("filtersToChips renders shortlet as a single intent chip", () => {
     stay: "shortlet",
     rentalType: null,
     furnished: null,
+    powerBackup: null,
+    waterBorehole: null,
+    broadbandReady: null,
+    securityFeature: null,
     amenities: [],
   });
 
   assert.deepEqual(chips, [{ label: "Intent", value: "Shortlet" }]);
+});
+
+test("propertyMatchesFilters respects structured local living filters", () => {
+  const property = {
+    city: "Abuja",
+    price: 1200,
+    currency: "USD",
+    bedrooms: 2,
+    rental_type: "long_term" as const,
+    furnished: true,
+    listing_type: "apartment" as const,
+    backup_power_type: "inverter",
+    water_supply_type: "mixed",
+    internet_availability: "fibre",
+    security_type: "gated_estate",
+    amenities: [],
+  };
+
+  const filters: ParsedSearchFilters = {
+    city: null,
+    minPrice: null,
+    maxPrice: null,
+    currency: null,
+    bedrooms: null,
+    bedroomsMode: "exact",
+    includeSimilarOptions: false,
+    propertyType: null,
+    listingIntent: undefined,
+    stay: null,
+    rentalType: null,
+    furnished: null,
+    powerBackup: true,
+    waterBorehole: true,
+    broadbandReady: true,
+    securityFeature: true,
+    amenities: [],
+  };
+
+  assert.equal(propertyMatchesFilters(property, filters), true);
+  assert.equal(
+    propertyMatchesFilters({ ...property, backup_power_type: "none" }, filters),
+    false
+  );
 });

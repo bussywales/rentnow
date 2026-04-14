@@ -56,6 +56,22 @@ void test("property details step includes listing detail fields", () => {
     contents.includes("Description & features"),
     "expected description card heading to render"
   );
+  assert.ok(
+    contents.includes("Local living details"),
+    "expected local living details section in details step"
+  );
+  assert.ok(
+    contents.includes("Backup power"),
+    "expected backup power field in details step"
+  );
+  assert.ok(
+    contents.includes("Water source"),
+    "expected water source field in details step"
+  );
+  assert.ok(
+    contents.includes("Flood disclosure"),
+    "expected flood disclosure field in details step"
+  );
 });
 
 void test("property basics step includes location inputs", () => {

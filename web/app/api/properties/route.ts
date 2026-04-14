@@ -14,6 +14,14 @@ import { getDemoListingsVisibilityPolicy } from "@/lib/settings/demo";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
 import { normalizeCountryForCreate } from "@/lib/properties/country-normalize";
 import {
+  BACKUP_POWER_TYPE_OPTIONS,
+  FLOOD_RISK_DISCLOSURE_OPTIONS,
+  INTERNET_AVAILABILITY_OPTIONS,
+  ROAD_ACCESS_QUALITY_OPTIONS,
+  SECURITY_TYPE_OPTIONS,
+  WATER_SUPPLY_TYPE_OPTIONS,
+} from "@/lib/properties/local-living";
+import {
   mapZodErrorToFieldErrors,
   optionalIntNonnegative,
   optionalNonnegativeNumber,
@@ -106,6 +114,32 @@ export const propertySchema = z
   deposit_amount: optionalNonnegativeNumber(),
   deposit_currency: z.string().min(2).optional().nullable(),
   pets_allowed: z.boolean().optional(),
+  backup_power_type: z
+    .enum(BACKUP_POWER_TYPE_OPTIONS.map((option) => option.value) as [string, ...string[]])
+    .optional()
+    .nullable(),
+  water_supply_type: z
+    .enum(WATER_SUPPLY_TYPE_OPTIONS.map((option) => option.value) as [string, ...string[]])
+    .optional()
+    .nullable(),
+  internet_availability: z
+    .enum(INTERNET_AVAILABILITY_OPTIONS.map((option) => option.value) as [string, ...string[]])
+    .optional()
+    .nullable(),
+  security_type: z
+    .enum(SECURITY_TYPE_OPTIONS.map((option) => option.value) as [string, ...string[]])
+    .optional()
+    .nullable(),
+  road_access_quality: z
+    .enum(ROAD_ACCESS_QUALITY_OPTIONS.map((option) => option.value) as [string, ...string[]])
+    .optional()
+    .nullable(),
+  flood_risk_disclosure: z
+    .enum(
+      FLOOD_RISK_DISCLOSURE_OPTIONS.map((option) => option.value) as [string, ...string[]]
+    )
+    .optional()
+    .nullable(),
   amenities: z.array(z.string()).optional().nullable(),
   available_from: z.string().optional().nullable(),
   max_guests: optionalIntNonnegative(),
@@ -273,6 +307,12 @@ export async function POST(request: Request) {
       deposit_currency: normalizedDepositCurrency,
       bathroom_type: rest.bathroom_type ?? null,
       pets_allowed: typeof rest.pets_allowed === "boolean" ? rest.pets_allowed : false,
+      backup_power_type: rest.backup_power_type ?? null,
+      water_supply_type: rest.water_supply_type ?? null,
+      internet_availability: rest.internet_availability ?? null,
+      security_type: rest.security_type ?? null,
+      road_access_quality: rest.road_access_quality ?? null,
+      flood_risk_disclosure: rest.flood_risk_disclosure ?? null,
       featured_media: rest.featured_media === "video" ? "video" : "image",
       cover_image_url: cover_image_url ?? (imageUrls[0] ?? null),
     };

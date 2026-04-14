@@ -104,6 +104,15 @@ import {
 import { shouldBypassNextImageOptimizer } from "@/lib/images/optimizer-bypass";
 import { resolvePropertyImageUrl, resolveSupabasePublicUrlFromPath } from "@/lib/properties/image-url";
 import { resolvePropertyCheckinErrorMessage } from "@/components/properties/property-checkin-errors";
+import {
+  BACKUP_POWER_TYPE_OPTIONS,
+  FLOOD_RISK_DISCLOSURE_OPTIONS,
+  INTERNET_AVAILABILITY_OPTIONS,
+  ROAD_ACCESS_QUALITY_OPTIONS,
+  SECURITY_TYPE_OPTIONS,
+  WATER_SUPPLY_TYPE_OPTIONS,
+  countLocalLivingDetails,
+} from "@/lib/properties/local-living";
 
 type FormState = Partial<Property> & {
   amenitiesText?: string;
@@ -242,6 +251,12 @@ const STEP_FIELDS: Record<(typeof steps)[number]["id"], Array<keyof FormState | 
     "deposit_amount",
     "deposit_currency",
     "pets_allowed",
+    "backup_power_type",
+    "water_supply_type",
+    "internet_availability",
+    "security_type",
+    "road_access_quality",
+    "flood_risk_disclosure",
     "furnished",
     "bills_included",
     "amenitiesText",
@@ -1897,6 +1912,25 @@ export function PropertyStepper({
   const detailsQualityNudges = useMemo(
     () => resolveListingQualityNudges(listingQualityInput, "details"),
     [listingQualityInput]
+  );
+  const localLivingDetailsCount = useMemo(
+    () =>
+      countLocalLivingDetails({
+        backup_power_type: form.backup_power_type ?? null,
+        water_supply_type: form.water_supply_type ?? null,
+        internet_availability: form.internet_availability ?? null,
+        security_type: form.security_type ?? null,
+        road_access_quality: form.road_access_quality ?? null,
+        flood_risk_disclosure: form.flood_risk_disclosure ?? null,
+      }),
+    [
+      form.backup_power_type,
+      form.flood_risk_disclosure,
+      form.internet_availability,
+      form.road_access_quality,
+      form.security_type,
+      form.water_supply_type,
+    ]
   );
   const photosQualityNudges = useMemo(
     () => resolveListingQualityNudges(listingQualityInput, "photos"),
@@ -4327,6 +4361,138 @@ export function PropertyStepper({
             )}
 
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-slate-900">Local living details</h3>
+                <p className="text-xs text-slate-500">
+                  Practical facts searchers use to judge day-to-day fit before they enquire.
+                </p>
+              </div>
+              <div className="mt-4 rounded-xl border border-sky-100 bg-sky-50/70 px-4 py-3 text-xs text-sky-900">
+                <p className="font-semibold">Recommended</p>
+                <p className="mt-1 text-sky-800">
+                  Add at least power, water, internet, and security details. These appear on the
+                  listing page and power a few practical browse filters.
+                </p>
+              </div>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label htmlFor="backup-power-type" className="text-sm font-medium text-slate-700">
+                    Backup power
+                  </label>
+                  <Select
+                    id="backup-power-type"
+                    value={form.backup_power_type ?? ""}
+                    onChange={(event) => handleChange("backup_power_type", event.target.value || null)}
+                  >
+                    <option value="">Select backup power</option>
+                    {BACKUP_POWER_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="water-supply-type" className="text-sm font-medium text-slate-700">
+                    Water source
+                  </label>
+                  <Select
+                    id="water-supply-type"
+                    value={form.water_supply_type ?? ""}
+                    onChange={(event) => handleChange("water_supply_type", event.target.value || null)}
+                  >
+                    <option value="">Select water source</option>
+                    {WATER_SUPPLY_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="internet-availability" className="text-sm font-medium text-slate-700">
+                    Internet
+                  </label>
+                  <Select
+                    id="internet-availability"
+                    value={form.internet_availability ?? ""}
+                    onChange={(event) =>
+                      handleChange("internet_availability", event.target.value || null)
+                    }
+                  >
+                    <option value="">Select internet setup</option>
+                    {INTERNET_AVAILABILITY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="security-type" className="text-sm font-medium text-slate-700">
+                    Security
+                  </label>
+                  <Select
+                    id="security-type"
+                    value={form.security_type ?? ""}
+                    onChange={(event) => handleChange("security_type", event.target.value || null)}
+                  >
+                    <option value="">Select security setup</option>
+                    {SECURITY_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <p className="text-xs text-slate-500">
+                    Single select in v1. Choose the best overall setup for this listing.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="road-access-quality" className="text-sm font-medium text-slate-700">
+                    Road access
+                  </label>
+                  <Select
+                    id="road-access-quality"
+                    value={form.road_access_quality ?? ""}
+                    onChange={(event) =>
+                      handleChange("road_access_quality", event.target.value || null)
+                    }
+                  >
+                    <option value="">Select road access</option>
+                    {ROAD_ACCESS_QUALITY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="flood-risk-disclosure" className="text-sm font-medium text-slate-700">
+                    Flood disclosure
+                  </label>
+                  <Select
+                    id="flood-risk-disclosure"
+                    value={form.flood_risk_disclosure ?? ""}
+                    onChange={(event) =>
+                      handleChange("flood_risk_disclosure", event.target.value || null)
+                    }
+                  >
+                    <option value="">Select disclosure</option>
+                    {FLOOD_RISK_DISCLOSURE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <p className="text-xs text-slate-500">
+                    Owner disclosure only. This is not an environmental certification.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
                   <h3 className="text-sm font-semibold text-slate-900">
@@ -4420,6 +4586,10 @@ export function PropertyStepper({
                 {!isSaleListing && <li>Deposit currency defaults to listing currency.</li>}
                 <li>Size and year built are optional.</li>
                 {!isSaleListing && <li>Add rules and utilities tenants should know.</li>}
+                <li>
+                  Local living details added: {localLivingDetailsCount}/6. Power, water, internet,
+                  and security usually matter most.
+                </li>
               </ul>
             </section>
           </div>

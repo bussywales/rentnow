@@ -16,6 +16,14 @@ import {
 } from "@/lib/supabase/client";
 import type { ListingIntent, Property, RentalType } from "@/lib/types";
 import { setToastQuery } from "@/lib/utils/toast";
+import {
+  BACKUP_POWER_TYPE_OPTIONS,
+  FLOOD_RISK_DISCLOSURE_OPTIONS,
+  INTERNET_AVAILABILITY_OPTIONS,
+  ROAD_ACCESS_QUALITY_OPTIONS,
+  SECURITY_TYPE_OPTIONS,
+  WATER_SUPPLY_TYPE_OPTIONS,
+} from "@/lib/properties/local-living";
 
 type FormState = Partial<Property> & { amenitiesText?: string };
 
@@ -480,6 +488,100 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
             onChange={(e) => handleChange("amenitiesText", e.target.value)}
             placeholder="wifi, parking, security, pool"
           />
+        </div>
+        <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 md:col-span-2">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Local living details</p>
+            <p className="text-xs text-slate-600">
+              Compact practical details that appear on the listing page and improve filtering.
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Backup power</label>
+              <Select
+                value={form.backup_power_type ?? ""}
+                onChange={(e) => handleChange("backup_power_type", e.target.value || null)}
+              >
+                <option value="">Select backup power</option>
+                {BACKUP_POWER_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Water source</label>
+              <Select
+                value={form.water_supply_type ?? ""}
+                onChange={(e) => handleChange("water_supply_type", e.target.value || null)}
+              >
+                <option value="">Select water source</option>
+                {WATER_SUPPLY_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Internet</label>
+              <Select
+                value={form.internet_availability ?? ""}
+                onChange={(e) => handleChange("internet_availability", e.target.value || null)}
+              >
+                <option value="">Select internet setup</option>
+                {INTERNET_AVAILABILITY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Security</label>
+              <Select
+                value={form.security_type ?? ""}
+                onChange={(e) => handleChange("security_type", e.target.value || null)}
+              >
+                <option value="">Select security setup</option>
+                {SECURITY_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Road access</label>
+              <Select
+                value={form.road_access_quality ?? ""}
+                onChange={(e) => handleChange("road_access_quality", e.target.value || null)}
+              >
+                <option value="">Select road access</option>
+                {ROAD_ACCESS_QUALITY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Flood disclosure</label>
+              <Select
+                value={form.flood_risk_disclosure ?? ""}
+                onChange={(e) => handleChange("flood_risk_disclosure", e.target.value || null)}
+              >
+                <option value="">Select disclosure</option>
+                {FLOOD_RISK_DISCLOSURE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <input

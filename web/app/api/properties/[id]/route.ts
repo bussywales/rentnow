@@ -12,6 +12,14 @@ import { orderImagesWithCover } from "@/lib/properties/images";
 import { getListingAccessResult } from "@/lib/role-access";
 import { normalizeRole } from "@/lib/roles";
 import { normalizeCountryForUpdate } from "@/lib/properties/country-normalize";
+import {
+  BACKUP_POWER_TYPE_OPTIONS,
+  FLOOD_RISK_DISCLOSURE_OPTIONS,
+  INTERNET_AVAILABILITY_OPTIONS,
+  ROAD_ACCESS_QUALITY_OPTIONS,
+  SECURITY_TYPE_OPTIONS,
+  WATER_SUPPLY_TYPE_OPTIONS,
+} from "@/lib/properties/local-living";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import {
   mapZodErrorToFieldErrors,
@@ -122,6 +130,32 @@ export const updateSchema = z.object({
   deposit_amount: optionalNonnegativeNumber(),
   deposit_currency: z.string().min(2).optional().nullable(),
   pets_allowed: z.boolean().optional(),
+  backup_power_type: z
+    .enum(BACKUP_POWER_TYPE_OPTIONS.map((option) => option.value) as [string, ...string[]])
+    .optional()
+    .nullable(),
+  water_supply_type: z
+    .enum(WATER_SUPPLY_TYPE_OPTIONS.map((option) => option.value) as [string, ...string[]])
+    .optional()
+    .nullable(),
+  internet_availability: z
+    .enum(INTERNET_AVAILABILITY_OPTIONS.map((option) => option.value) as [string, ...string[]])
+    .optional()
+    .nullable(),
+  security_type: z
+    .enum(SECURITY_TYPE_OPTIONS.map((option) => option.value) as [string, ...string[]])
+    .optional()
+    .nullable(),
+  road_access_quality: z
+    .enum(ROAD_ACCESS_QUALITY_OPTIONS.map((option) => option.value) as [string, ...string[]])
+    .optional()
+    .nullable(),
+  flood_risk_disclosure: z
+    .enum(
+      FLOOD_RISK_DISCLOSURE_OPTIONS.map((option) => option.value) as [string, ...string[]]
+    )
+    .optional()
+    .nullable(),
   amenities: z.array(z.string()).optional().nullable(),
   available_from: z.string().optional().nullable(),
   max_guests: optionalIntNonnegative(),
@@ -769,6 +803,22 @@ export async function PUT(
           : rest.featured_media === "video"
             ? "video"
             : "image",
+      backup_power_type:
+        typeof rest.backup_power_type === "undefined" ? undefined : rest.backup_power_type,
+      water_supply_type:
+        typeof rest.water_supply_type === "undefined" ? undefined : rest.water_supply_type,
+      internet_availability:
+        typeof rest.internet_availability === "undefined"
+          ? undefined
+          : rest.internet_availability,
+      security_type:
+        typeof rest.security_type === "undefined" ? undefined : rest.security_type,
+      road_access_quality:
+        typeof rest.road_access_quality === "undefined" ? undefined : rest.road_access_quality,
+      flood_risk_disclosure:
+        typeof rest.flood_risk_disclosure === "undefined"
+          ? undefined
+          : rest.flood_risk_disclosure,
       bathroom_type:
         typeof rest.bathroom_type === "undefined" ? undefined : rest.bathroom_type,
       pets_allowed: typeof rest.pets_allowed === "undefined" ? undefined : rest.pets_allowed,

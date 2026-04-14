@@ -10,6 +10,12 @@ import type {
 import { parseIntent } from "@/lib/search-intent";
 import { mapSearchFilterToListingIntents, normalizeListingIntent } from "@/lib/listing-intents";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
+import {
+  hasBoreholeWater,
+  hasBroadbandOrFibre,
+  hasSecurityFeature,
+  hasStructuredPowerBackup,
+} from "@/lib/properties/local-living";
 
 export type SearchParamRecord = Record<string, string | string[] | undefined>;
 
@@ -145,6 +151,10 @@ export function parseFiltersFromParams(params: SearchParamRecord): ParsedSearchF
         ? (rentalType as RentalType)
         : null,
     furnished: parseBoolean(params.furnished),
+    powerBackup: parseBoolean(params.powerBackup),
+    waterBorehole: parseBoolean(params.waterBorehole),
+    broadbandReady: parseBoolean(params.broadbandReady),
+    securityFeature: parseBoolean(params.securityFeature),
     amenities: parseAmenities(params.amenities),
   };
 }
@@ -166,6 +176,10 @@ export function parseFiltersFromSearchParams(
     stay: searchParams.get("stay") ?? searchParams.get("category") ?? undefined,
     rentalType: searchParams.get("rentalType") ?? undefined,
     furnished: searchParams.get("furnished") ?? undefined,
+    powerBackup: searchParams.get("powerBackup") ?? undefined,
+    waterBorehole: searchParams.get("waterBorehole") ?? undefined,
+    broadbandReady: searchParams.get("broadbandReady") ?? undefined,
+    securityFeature: searchParams.get("securityFeature") ?? undefined,
     amenities: amenities.length ? amenities : searchParams.get("amenities") ?? undefined,
   });
 }
@@ -194,6 +208,18 @@ export function filtersToSearchParams(filters: ParsedSearchFilters): URLSearchPa
   if (normalizedSelection.stay === "shortlet") params.set("stay", normalizedSelection.stay);
   if (filters.rentalType) params.set("rentalType", filters.rentalType);
   if (filters.furnished !== null) params.set("furnished", String(filters.furnished));
+  if (filters.powerBackup !== null && typeof filters.powerBackup !== "undefined") {
+    params.set("powerBackup", String(filters.powerBackup));
+  }
+  if (filters.waterBorehole !== null && typeof filters.waterBorehole !== "undefined") {
+    params.set("waterBorehole", String(filters.waterBorehole));
+  }
+  if (filters.broadbandReady !== null && typeof filters.broadbandReady !== "undefined") {
+    params.set("broadbandReady", String(filters.broadbandReady));
+  }
+  if (filters.securityFeature !== null && typeof filters.securityFeature !== "undefined") {
+    params.set("securityFeature", String(filters.securityFeature));
+  }
   if (filters.amenities.length) {
     params.set("amenities", filters.amenities.join(","));
   }
@@ -215,6 +241,10 @@ export function hasActiveFilters(filters: ParsedSearchFilters): boolean {
   if (normalizedSelection.stay === "shortlet") return true;
   if (filters.rentalType !== null) return true;
   if (filters.furnished !== null) return true;
+  if (filters.powerBackup !== null && typeof filters.powerBackup !== "undefined") return true;
+  if (filters.waterBorehole !== null && typeof filters.waterBorehole !== "undefined") return true;
+  if (filters.broadbandReady !== null && typeof filters.broadbandReady !== "undefined") return true;
+  if (filters.securityFeature !== null && typeof filters.securityFeature !== "undefined") return true;
   if (filters.amenities.length > 0) return true;
   return false;
 }
@@ -263,6 +293,18 @@ export function filtersToChips(filters: ParsedSearchFilters): FilterChip[] {
       label: "Furnished",
       value: filters.furnished ? "Yes" : "No",
     });
+  }
+  if (filters.powerBackup) {
+    chips.push({ label: "Local living", value: "Power backup" });
+  }
+  if (filters.waterBorehole) {
+    chips.push({ label: "Local living", value: "Borehole water" });
+  }
+  if (filters.broadbandReady) {
+    chips.push({ label: "Local living", value: "Broadband / fibre" });
+  }
+  if (filters.securityFeature) {
+    chips.push({ label: "Local living", value: "Security" });
   }
   if (filters.minPrice !== null || filters.maxPrice !== null) {
     const range = [
@@ -345,6 +387,38 @@ export function parseFiltersFromSavedSearch(params: Record<string, unknown>): Pa
       : params.furnished === "false"
       ? false
       : null;
+  const powerBackup =
+    params.powerBackup === true || params.powerBackup === false
+      ? params.powerBackup
+      : params.powerBackup === "true"
+      ? true
+      : params.powerBackup === "false"
+      ? false
+      : null;
+  const waterBorehole =
+    params.waterBorehole === true || params.waterBorehole === false
+      ? params.waterBorehole
+      : params.waterBorehole === "true"
+      ? true
+      : params.waterBorehole === "false"
+      ? false
+      : null;
+  const broadbandReady =
+    params.broadbandReady === true || params.broadbandReady === false
+      ? params.broadbandReady
+      : params.broadbandReady === "true"
+      ? true
+      : params.broadbandReady === "false"
+      ? false
+      : null;
+  const securityFeature =
+    params.securityFeature === true || params.securityFeature === false
+      ? params.securityFeature
+      : params.securityFeature === "true"
+      ? true
+      : params.securityFeature === "false"
+      ? false
+      : null;
   const amenities = Array.isArray(params.amenities)
     ? params.amenities.filter((item): item is string => typeof item === "string")
     : typeof params.amenities === "string"
@@ -364,6 +438,10 @@ export function parseFiltersFromSavedSearch(params: Record<string, unknown>): Pa
     stay: normalizedSelection.stay,
     rentalType,
     furnished,
+    powerBackup,
+    waterBorehole,
+    broadbandReady,
+    securityFeature,
     amenities,
   };
 }
@@ -378,6 +456,10 @@ export function propertyMatchesFilters(property: {
   rental_type: RentalType;
   shortlet_settings?: Array<{ booking_mode?: string | null; nightly_price_minor?: number | null }> | null;
   furnished: boolean;
+  backup_power_type?: string | null;
+  water_supply_type?: string | null;
+  internet_availability?: string | null;
+  security_type?: string | null;
   amenities?: string[] | null;
 }, filters: ParsedSearchFilters): boolean {
   const normalizedSelection = normalizeIntentStaySelection({
@@ -415,6 +497,10 @@ export function propertyMatchesFilters(property: {
   if (filters.propertyType && property.listing_type !== filters.propertyType) return false;
   if (filters.rentalType && property.rental_type !== filters.rentalType) return false;
   if (filters.furnished !== null && property.furnished !== filters.furnished) return false;
+  if (filters.powerBackup && !hasStructuredPowerBackup(property)) return false;
+  if (filters.waterBorehole && !hasBoreholeWater(property)) return false;
+  if (filters.broadbandReady && !hasBroadbandOrFibre(property)) return false;
+  if (filters.securityFeature && !hasSecurityFeature(property)) return false;
   if (filters.amenities.length) {
     const available = new Set((property.amenities || []).map((item) => item.toLowerCase()));
     const needsAll = filters.amenities.every((item) => available.has(item.toLowerCase()));

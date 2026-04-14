@@ -206,6 +206,24 @@ export async function searchProperties(
     if (filters.furnished !== null) {
       query = query.eq("furnished", filters.furnished);
     }
+    if (filters.powerBackup) {
+      query = query.in("backup_power_type", ["inverter", "generator", "solar", "mixed"]);
+    }
+    if (filters.waterBorehole) {
+      query = query.in("water_supply_type", ["borehole", "mixed"]);
+    }
+    if (filters.broadbandReady) {
+      query = query.in("internet_availability", ["broadband", "fibre"]);
+    }
+    if (filters.securityFeature) {
+      query = query.in("security_type", [
+        "gated_estate",
+        "building_security",
+        "guard",
+        "cctv",
+        "mixed",
+      ]);
+    }
     if (filters.amenities?.length) {
       filters.amenities.forEach((amenity) => {
         query = query.contains("amenities", [amenity]);

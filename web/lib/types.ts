@@ -34,6 +34,13 @@ export type SizeUnit = "sqm" | "sqft";
 
 export type BathroomType = "private" | "shared";
 
+export type BackupPowerType = "none" | "inverter" | "generator" | "solar" | "mixed";
+export type WaterSupplyType = "mains" | "borehole" | "tanker" | "mixed" | "other";
+export type InternetAvailability = "none" | "mobile_only" | "broadband" | "fibre";
+export type SecurityType = "none" | "gated_estate" | "building_security" | "guard" | "cctv" | "mixed";
+export type RoadAccessQuality = "paved_easy" | "mixed" | "rough";
+export type FloodRiskDisclosure = "low" | "seasonal" | "known_risk" | "unknown";
+
 export type PropertyStatus =
   | "draft"
   | "pending"
@@ -150,6 +157,12 @@ export interface Property {
   deposit_amount?: number | null;
   deposit_currency?: string | null;
   pets_allowed?: boolean | null;
+  backup_power_type?: BackupPowerType | null;
+  water_supply_type?: WaterSupplyType | null;
+  internet_availability?: InternetAvailability | null;
+  security_type?: SecurityType | null;
+  road_access_quality?: RoadAccessQuality | null;
+  flood_risk_disclosure?: FloodRiskDisclosure | null;
   amenities?: string[] | null;
   available_from?: string | null;
   max_guests?: number | null;
@@ -239,6 +252,10 @@ export interface ParsedSearchFilters {
   rentalType: RentalType | null;
   furnished: boolean | null;
   amenities: string[];
+  powerBackup?: boolean | null;
+  waterBorehole?: boolean | null;
+  broadbandReady?: boolean | null;
+  securityFeature?: boolean | null;
 }
 
 export interface SavedSearch {

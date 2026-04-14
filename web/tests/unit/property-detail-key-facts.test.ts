@@ -22,4 +22,12 @@ void test("property detail includes key facts section for listing details", () =
     contents.includes("Security deposit"),
     "expected security deposit label in key facts"
   );
+  assert.ok(
+    contents.includes("Local living details"),
+    "expected local living details section on property detail"
+  );
+  assert.ok(
+    contents.includes("Owner-provided practical details for this specific listing."),
+    "expected local living details explainer"
+  );
 });

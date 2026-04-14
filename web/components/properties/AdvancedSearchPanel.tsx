@@ -26,6 +26,10 @@ type AdvancedFiltersDraft = {
   maxPrice: string;
   propertyType: string;
   furnished: "any" | "true" | "false";
+  powerBackup: boolean;
+  waterBorehole: boolean;
+  broadbandReady: boolean;
+  securityFeature: boolean;
 };
 
 const PROPERTY_TYPES: Array<{ value: ListingType; label: string }> = [
@@ -63,6 +67,10 @@ function createDefaultDraft(): AdvancedFiltersDraft {
     maxPrice: "",
     propertyType: "",
     furnished: "any",
+    powerBackup: false,
+    waterBorehole: false,
+    broadbandReady: false,
+    securityFeature: false,
   };
 }
 
@@ -75,6 +83,10 @@ function createDraftFromFilters(filters: ParsedSearchFilters): AdvancedFiltersDr
     maxPrice: filters.maxPrice !== null ? String(filters.maxPrice) : "",
     propertyType: filters.propertyType ?? "",
     furnished: filters.furnished === null ? "any" : filters.furnished ? "true" : "false",
+    powerBackup: Boolean(filters.powerBackup),
+    waterBorehole: Boolean(filters.waterBorehole),
+    broadbandReady: Boolean(filters.broadbandReady),
+    securityFeature: Boolean(filters.securityFeature),
   };
 }
 
@@ -87,6 +99,10 @@ function countActiveAdvancedFilters(draft: AdvancedFiltersDraft): number {
   if (draft.maxPrice.trim()) count += 1;
   if (draft.propertyType) count += 1;
   if (draft.furnished !== "any") count += 1;
+  if (draft.powerBackup) count += 1;
+  if (draft.waterBorehole) count += 1;
+  if (draft.broadbandReady) count += 1;
+  if (draft.securityFeature) count += 1;
   return count;
 }
 
@@ -149,6 +165,18 @@ export function AdvancedSearchPanel({ initialFilters }: Props) {
 
       if (nextDraft.furnished === "any") next.delete("furnished");
       else next.set("furnished", nextDraft.furnished);
+
+      if (nextDraft.powerBackup) next.set("powerBackup", "true");
+      else next.delete("powerBackup");
+
+      if (nextDraft.waterBorehole) next.set("waterBorehole", "true");
+      else next.delete("waterBorehole");
+
+      if (nextDraft.broadbandReady) next.set("broadbandReady", "true");
+      else next.delete("broadbandReady");
+
+      if (nextDraft.securityFeature) next.set("securityFeature", "true");
+      else next.delete("securityFeature");
 
       updateQuery(next);
     },
@@ -341,6 +369,77 @@ export function AdvancedSearchPanel({ initialFilters }: Props) {
                 <option value="true">Yes</option>
                 <option value="false">No</option>
               </Select>
+            </label>
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-slate-900">Local living details</h2>
+            <p className="text-xs text-slate-500">
+              Keep this narrow: practical filters that help before you enquire.
+            </p>
+            <label className="inline-flex items-start gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={draft.powerBackup}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, powerBackup: event.target.checked }))
+                }
+                data-testid="advanced-power-backup"
+              />
+              <span>
+                <span className="font-medium text-slate-900">Power backup</span>
+                <span className="block text-xs text-slate-600">
+                  Inverter, generator, solar, or mixed backup.
+                </span>
+              </span>
+            </label>
+            <label className="inline-flex items-start gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={draft.waterBorehole}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, waterBorehole: event.target.checked }))
+                }
+                data-testid="advanced-water-borehole"
+              />
+              <span>
+                <span className="font-medium text-slate-900">Borehole water</span>
+                <span className="block text-xs text-slate-600">
+                  Includes borehole-only and mixed water supply.
+                </span>
+              </span>
+            </label>
+            <label className="inline-flex items-start gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={draft.broadbandReady}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, broadbandReady: event.target.checked }))
+                }
+                data-testid="advanced-broadband-ready"
+              />
+              <span>
+                <span className="font-medium text-slate-900">Broadband / fibre</span>
+                <span className="block text-xs text-slate-600">
+                  Show listings with broadband or fibre internet.
+                </span>
+              </span>
+            </label>
+            <label className="inline-flex items-start gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={draft.securityFeature}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, securityFeature: event.target.checked }))
+                }
+                data-testid="advanced-security-feature"
+              />
+              <span>
+                <span className="font-medium text-slate-900">Security / gated</span>
+                <span className="block text-xs text-slate-600">
+                  Show listings with a declared security setup.
+                </span>
+              </span>
             </label>
           </section>
         </div>
