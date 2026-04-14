@@ -57,6 +57,7 @@ void test("property share redirect preserves safe attribution params", () => {
 void test("sign kit helpers keep filenames and labels stable", () => {
   assert.equal(resolvePropertySignKitHeadline("sale"), "For sale");
   assert.equal(resolvePropertySignKitHeadline("rent"), "For rent");
+  assert.equal(resolvePropertySignKitHeadline("shortlet"), "Book stay");
   assert.equal(sanitizePropertySignKitFileBase("  Luxury Flat @ Lekki!  "), "luxury-flat-lekki");
   assert.match(formatPropertySignKitPrice(2500000, "NGN"), /^NGN|₦/);
 });

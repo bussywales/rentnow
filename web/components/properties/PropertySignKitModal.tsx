@@ -64,7 +64,7 @@ function PreviewCanvas({
       <div className="mx-auto max-w-[760px] overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-[0_28px_70px_rgba(15,23,42,0.16)]">
         <div className="flex items-end justify-between gap-6 bg-slate-950 px-6 py-5 text-white sm:px-8 sm:py-6">
           <p className="text-5xl font-semibold uppercase tracking-[0.03em] sm:text-6xl">{headline}</p>
-          <div className="flex shrink-0 flex-col items-end">
+          <div className="flex w-[110px] shrink-0 flex-col items-center text-center">
             <Image
               src="/brand/propatyhub-sign-kit-mark.png"
               alt="PropatyHub"

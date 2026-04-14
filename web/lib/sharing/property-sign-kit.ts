@@ -46,7 +46,7 @@ export function resolvePropertySignKitHeadline(listingIntent?: string | null) {
     case "sale":
       return "For sale";
     case "shortlet":
-      return "Book this stay";
+      return "Book stay";
     case "off_plan":
       return "View development";
     case "rent":
@@ -265,24 +265,29 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       color: white,
     });
 
+    const lockupWidth = 116;
+    const lockupX = shellX + shellWidth - lockupWidth - 24;
+
     if (signKitMark) {
       page.drawImage(signKitMark, {
-        x: shellX + shellWidth - 152,
+        x: lockupX + 15,
         y: headerY + 28,
         width: 86,
         height: 86,
       });
     }
 
+    const wordmarkWidth = fontBold.widthOfTextAtSize("PropatyHub", 16);
     drawPdfText(page, "PropatyHub", {
-      x: shellX + shellWidth - 118,
+      x: lockupX + (lockupWidth - wordmarkWidth) / 2,
       y: headerY + 20,
       size: 16,
       font: fontBold,
       color: white,
     });
+    const websiteWidth = fontRegular.widthOfTextAtSize("www.propatyhub.com", 8.5);
     drawPdfText(page, "www.propatyhub.com", {
-      x: shellX + shellWidth - 118,
+      x: lockupX + (lockupWidth - websiteWidth) / 2,
       y: headerY + 7,
       size: 8.5,
       font: fontRegular,
