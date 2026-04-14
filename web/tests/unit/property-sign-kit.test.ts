@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { buildPropertyShareRedirect } from "@/lib/sharing/property-share";
 import {
+  buildPropertySignKitPdf,
   buildPropertySignKitShareUrl,
   formatPropertySignKitPrice,
   isPropertySignKitEligible,
@@ -57,4 +58,20 @@ void test("sign kit helpers keep filenames and labels stable", () => {
   assert.equal(resolvePropertySignKitHeadline("rent"), "For rent");
   assert.equal(sanitizePropertySignKitFileBase("  Luxury Flat @ Lekki!  "), "luxury-flat-lekki");
   assert.match(formatPropertySignKitPrice(2500000, "NGN"), /^NGN|₦/);
+});
+
+void test("sign kit pdf generation normalizes unsupported unicode punctuation in dynamic text", async () => {
+  const bytes = await buildPropertySignKitPdf({
+    template: "sign",
+    qrPngDataUrl:
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7Z0xQAAAAASUVORK5CYII=",
+    headline: "For rent",
+    title: "Cozy 2‑bed flat in Lekki Phase 1",
+    locationLabel: 'Lekki Phase 2, Lagos – "Waterfront"',
+    priceLabel: "NGN 200,000",
+    trackedShareUrl: "https://www.propatyhub.com/share/property/token-123",
+  });
+
+  assert.ok(bytes instanceof Uint8Array);
+  assert.ok(bytes.byteLength > 0);
 });

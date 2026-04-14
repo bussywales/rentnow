@@ -18,6 +18,9 @@ export type PropertySignKitPdfInput = {
   trackedShareUrl: string;
 };
 
+type PdfPage = Awaited<ReturnType<PDFDocument["addPage"]>>;
+type PdfFont = Awaited<ReturnType<PDFDocument["embedFont"]>>;
+
 const QR_SIGN_SOURCE = "qr_sign";
 const QR_UTM_SOURCE = "qr";
 const QR_UTM_MEDIUM = "offline_sign";
@@ -105,10 +108,23 @@ function truncateText(text: string, maxChars: number) {
   return `${text.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`;
 }
 
+function normalizePdfText(text: string) {
+  return text
+    .replace(/\u2011/g, "-")
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/\u2026/g, "...");
+}
+
+function drawPdfText(page: PdfPage, text: string, options: Parameters<PdfPage["drawText"]>[1]) {
+  page.drawText(normalizePdfText(text), options);
+}
+
 function drawTextBlock(input: {
-  page: Awaited<ReturnType<PDFDocument["addPage"]>>;
+  page: PdfPage;
   lines: string[];
-  font: Awaited<ReturnType<PDFDocument["embedFont"]>>;
+  font: PdfFont;
   x: number;
   y: number;
   size: number;
@@ -118,7 +134,7 @@ function drawTextBlock(input: {
   const lineHeight = input.lineHeight ?? input.size * 1.25;
   let cursorY = input.y;
   for (const line of input.lines) {
-    input.page.drawText(line, {
+    drawPdfText(input.page, line, {
       x: input.x,
       y: cursorY,
       size: input.size,
@@ -162,7 +178,7 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       color: dark,
     });
 
-    page.drawText("PropatyHub sign kit", {
+    drawPdfText(page, "PropatyHub sign kit", {
       x: margin,
       y: topY - 4,
       size: 12,
@@ -170,7 +186,7 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       color: accent,
     });
 
-    page.drawText(input.headline.toUpperCase(), {
+    drawPdfText(page, input.headline.toUpperCase(), {
       x: margin,
       y: topY - 42,
       size: 14,
@@ -185,7 +201,7 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       height: 24,
       color: dark,
     });
-    page.drawText(input.headline.toUpperCase(), {
+    drawPdfText(page, input.headline.toUpperCase(), {
       x: margin + 12,
       y: topY - 46,
       size: 10,
@@ -217,7 +233,7 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       color: slate,
     });
 
-    page.drawText(input.priceLabel, {
+    drawPdfText(page, input.priceLabel, {
       x: margin,
       y: topY - 288,
       size: 24,
@@ -234,22 +250,26 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       borderColor: border,
       borderWidth: 1,
     });
-    page.drawText("Best for boards, reception desks, and full-size printed displays.", {
+    drawPdfText(page, "Best for boards, reception desks, and full-size printed displays.", {
       x: margin + 16,
       y: 188,
       size: 12,
       font: fontBold,
       color: dark,
     });
-    page.drawText("Keep the QR clear and replace the sign if the listing is withdrawn or no longer active.", {
+    drawPdfText(
+      page,
+      "Keep the QR clear and replace the sign if the listing is withdrawn or no longer active.",
+      {
       x: margin + 16,
       y: 164,
       size: 11,
       font: fontRegular,
       color: slate,
-    });
+      }
+    );
 
-    page.drawText("Scan to open", {
+    drawPdfText(page, "Scan to open", {
       x: rightPanelX + 34,
       y: topY - 16,
       size: 12,
@@ -270,14 +290,14 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       width: qrSize,
       height: qrSize,
     });
-    page.drawText("Scan to view this listing", {
+    drawPdfText(page, "Scan to view this listing", {
       x: rightPanelX + 33,
       y: 360,
       size: 13,
       font: fontBold,
       color: rgb(1, 1, 1),
     });
-    page.drawText("Tracked through a controlled PropatyHub link.", {
+    drawPdfText(page, "Tracked through a controlled PropatyHub link.", {
       x: rightPanelX + 33,
       y: 340,
       size: 10,
@@ -302,7 +322,7 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
     const qrPanelX = width - margin - qrPanelWidth;
     const qrPanelY = 44;
 
-    page.drawText("PropatyHub QR card", {
+    drawPdfText(page, "PropatyHub QR card", {
       x: margin,
       y: topY - 2,
       size: 11,
@@ -317,7 +337,7 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       height: 22,
       color: dark,
     });
-    page.drawText(input.headline.toUpperCase(), {
+    drawPdfText(page, input.headline.toUpperCase(), {
       x: margin + 10,
       y: topY - 34,
       size: 9,
@@ -334,7 +354,7 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       borderColor: border,
       borderWidth: 1,
     });
-    page.drawText(input.priceLabel, {
+    drawPdfText(page, input.priceLabel, {
       x: margin + 112,
       y: topY - 34,
       size: 9,
@@ -375,20 +395,24 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       borderColor: border,
       borderWidth: 1,
     });
-    page.drawText("Compact handout for counters, flyer trays, and reception desks.", {
+    drawPdfText(page, "Compact handout for counters, flyer trays, and reception desks.", {
       x: margin + 14,
       y: 88,
       size: 11,
       font: fontBold,
       color: dark,
     });
-    page.drawText("Use when you need the listing to scan well without taking over the whole print layout.", {
+    drawPdfText(
+      page,
+      "Use when you need the listing to scan well without taking over the whole print layout.",
+      {
       x: margin + 14,
       y: 68,
       size: 10,
       font: fontRegular,
       color: slate,
-    });
+      }
+    );
 
     page.drawRectangle({
       x: qrPanelX,
@@ -412,14 +436,14 @@ export async function buildPropertySignKitPdf(input: PropertySignKitPdfInput) {
       width: qrSize,
       height: qrSize,
     });
-    page.drawText("Scan to view this listing", {
+    drawPdfText(page, "Scan to view this listing", {
       x: qrPanelX + 26,
       y: qrPanelY + 38,
       size: 11,
       font: fontBold,
       color: dark,
     });
-    page.drawText("Tracked through a PropatyHub share link.", {
+    drawPdfText(page, "Tracked through a PropatyHub share link.", {
       x: qrPanelX + 26,
       y: qrPanelY + 22,
       size: 9,
