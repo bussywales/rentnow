@@ -14,6 +14,8 @@ void test("property share panel uses the sidebar as a launcher for the qr sign k
   assert.match(source, /Open sign kit/);
   assert.match(source, /Live listing safeguard/);
   assert.doesNotMatch(source, /Open QR sign kit/);
+  assert.doesNotMatch(source, /xl:grid-cols-\[minmax\(0,1fr\)_240px\]/);
+  assert.doesNotMatch(source, /sm:grid-cols-\[minmax\(0,1fr\)_auto\]/);
 });
 
 void test("property sign kit modal owns preview and export controls", () => {

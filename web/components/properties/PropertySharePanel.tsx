@@ -372,7 +372,7 @@ export function PropertySharePanel({
                 </div>
                 <p className="text-xs text-slate-500">{formatPropertyShareExpiry(expiresAt)}</p>
               </div>
-              <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_240px] xl:items-start">
+              <div className="mt-4 space-y-3">
                 <div className="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-sm">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Current private link</p>
                   <p className="mt-2 break-all text-sm leading-6 text-slate-700">{shareLink}</p>
@@ -437,7 +437,7 @@ export function PropertySharePanel({
               className="rounded-[32px] border border-slate-200 bg-[linear-gradient(180deg,#f8fbff_0%,#eef5ff_100%)] p-4 shadow-[0_20px_50px_rgba(15,23,42,0.08)] sm:p-5"
               data-testid="property-sign-kit-panel"
             >
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="space-y-4">
                 <div className="max-w-xl space-y-2">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">Listing marketing infrastructure</p>
                   <div>
@@ -452,13 +452,13 @@ export function PropertySharePanel({
                   type="button"
                   onClick={handleOpenSignKit}
                   disabled={loading}
-                  className="w-full whitespace-nowrap sm:w-auto"
+                  className="w-full whitespace-nowrap"
                   data-testid="property-sign-kit-open"
                 >
                   {loading && !shareLink ? "Preparing…" : "Open sign kit"}
                 </Button>
               </div>
-              <div className="mt-4 grid gap-3 rounded-[24px] border border-slate-200/80 bg-white/80 px-4 py-4 text-sm text-slate-600 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <div className="mt-4 space-y-3 rounded-[24px] border border-slate-200/80 bg-white/80 px-4 py-4 text-sm text-slate-600">
                 <p>Built for live listings only, with a tracked QR that stops resolving stale content when the listing is no longer active.</p>
                 <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                   Live listing safeguard
