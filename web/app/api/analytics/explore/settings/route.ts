@@ -1,23 +1,24 @@
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/authz";
-import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { hasServerSupabaseEnv, createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getExploreAnalyticsSettings } from "@/lib/explore/explore-analytics-settings";
-
-const routeLabel = "/api/analytics/explore/settings";
 
 type ExploreAnalyticsSettingsDeps = {
   hasServerSupabaseEnv?: typeof hasServerSupabaseEnv;
-  requireRole?: typeof requireRole;
+  hasServiceRoleEnv?: typeof hasServiceRoleEnv;
+  createServiceRoleClient?: typeof createServiceRoleClient;
+  createServerSupabaseClient?: typeof createServerSupabaseClient;
   getExploreAnalyticsSettings?: typeof getExploreAnalyticsSettings;
 };
 
 export async function getExploreAnalyticsSettingsResponse(
-  request: Request,
+  _request: Request,
   deps: ExploreAnalyticsSettingsDeps = {}
 ) {
-  const startTime = Date.now();
   const hasEnv = deps.hasServerSupabaseEnv ?? hasServerSupabaseEnv;
-  const requireRoleFn = deps.requireRole ?? requireRole;
+  const hasServiceEnv = deps.hasServiceRoleEnv ?? hasServiceRoleEnv;
+  const createServiceClient = deps.createServiceRoleClient ?? createServiceRoleClient;
+  const createServerClient = deps.createServerSupabaseClient ?? createServerSupabaseClient;
   const getSettings = deps.getExploreAnalyticsSettings ?? getExploreAnalyticsSettings;
 
   if (!hasEnv()) {
@@ -34,15 +35,8 @@ export async function getExploreAnalyticsSettingsResponse(
     );
   }
 
-  const auth = await requireRoleFn({
-    request,
-    route: routeLabel,
-    startTime,
-    roles: ["tenant", "agent", "landlord"],
-  });
-  if (!auth.ok) return auth.response;
-
-  const settings = await getSettings(auth.supabase);
+  const supabase = hasServiceEnv() ? createServiceClient() : await createServerClient();
+  const settings = await getSettings(supabase);
   return NextResponse.json({ ok: true, settings }, { status: 200 });
 }
 

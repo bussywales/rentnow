@@ -99,6 +99,43 @@ export async function fetchExploreAnalyticsRows(input: {
   return (data as ExploreAnalyticsRow[] | null) ?? [];
 }
 
+export async function fetchLatestExploreEventAt(input: {
+  client: SupabaseClient;
+  eventNames?: readonly string[];
+}): Promise<string | null> {
+  let query = input.client
+    .from("explore_events")
+    .select("created_at")
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (input.eventNames && input.eventNames.length > 0) {
+    query = query.in("event_name", [...input.eventNames]);
+  }
+
+  const { data, error } = await query;
+  if (error) return null;
+
+  const row = (data as Array<{ created_at?: string | null }> | null)?.[0];
+  return row?.created_at ?? null;
+}
+
+export function isExploreSourceStale(input: {
+  latestEventAt: string | null;
+  staleAfterHours?: number;
+  now?: Date;
+}): boolean {
+  const latestEventAt = input.latestEventAt;
+  if (!latestEventAt) return true;
+
+  const latestEventMs = Date.parse(latestEventAt);
+  if (Number.isNaN(latestEventMs)) return true;
+
+  const now = input.now ?? new Date();
+  const staleAfterMs = (input.staleAfterHours ?? 72) * 60 * 60 * 1000;
+  return now.getTime() - latestEventMs > staleAfterMs;
+}
+
 export type ExploreAnalyticsCounters = {
   views: number;
   swipes: number;

@@ -15,7 +15,8 @@ const WINDOW_SECONDS = 60;
 const MAX_REQUESTS = 60;
 
 export async function checkExploreAnalyticsRateLimit(input: {
-  userId: string;
+  scopeKey: string;
+  isAuthenticated?: boolean;
   client?: UntypedAdminClient | null;
   now?: number;
 }): Promise<ExploreAnalyticsRateLimitResult> {
@@ -24,8 +25,8 @@ export async function checkExploreAnalyticsRateLimit(input: {
   return enforceSharedRateLimit({
     client,
     routeKey: "explore_analytics_ingest",
-    scopeKey: `user:${input.userId}`,
-    isAuthenticated: true,
+    scopeKey: input.scopeKey,
+    isAuthenticated: input.isAuthenticated ?? false,
     windowSeconds: WINDOW_SECONDS,
     maxRequests: MAX_REQUESTS,
     now: input.now,

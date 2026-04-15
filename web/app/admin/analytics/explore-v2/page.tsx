@@ -12,6 +12,7 @@ import {
   type ExploreV2ConversionCtaCopyBreakdownRow,
   type ExploreV2ConversionTrustCueBreakdownRow,
 } from "@/lib/explore/explore-v2-conversion-report";
+import { fetchLatestExploreEventAt, isExploreSourceStale } from "@/lib/explore/explore-analytics.server";
 import { AdminAnalyticsSectionNav } from "@/components/admin/AdminAnalyticsSectionNav";
 
 export const dynamic = "force-dynamic";
@@ -59,6 +60,21 @@ function pickSearchParam(
 function formatRate(value: number | null) {
   if (value === null) return "—";
   return `${value.toFixed(2)}%`;
+}
+
+function formatFreshnessTimestamp(value: string | null) {
+  if (!value) return "No explore analytics events have been recorded yet.";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat("en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "UTC",
+  }).format(parsed);
 }
 
 function buildExportHref(input: {
@@ -179,6 +195,8 @@ export default async function AdminExploreV2AnalyticsPage({
     intent: report.intent,
   });
   const hasData = rows.length > 0;
+  const latestExploreEventAt = await fetchLatestExploreEventAt({ client: dataClient });
+  const sourceIsStale = isExploreSourceStale({ latestEventAt: latestExploreEventAt });
   const trustCueRows = orderTrustCueRows(report.by_trust_cue_variant);
   const ctaCopyRows = orderCtaCopyRows(report.by_cta_copy_variant);
 
@@ -202,6 +220,19 @@ export default async function AdminExploreV2AnalyticsPage({
       </section>
 
       <AdminAnalyticsSectionNav current="explore_v2" />
+
+      {sourceIsStale ? (
+        <section
+          className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 shadow-sm"
+          data-testid="admin-explore-v2-conversion-freshness-warning"
+        >
+          <p className="font-semibold">Explore analytics source looks stale.</p>
+          <p className="mt-1 text-amber-900">
+            Latest explore event: {formatFreshnessTimestamp(latestExploreEventAt)}. Zero metrics may reflect telemetry
+            interruption rather than true zero usage.
+          </p>
+        </section>
+      ) : null}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <form action="/admin/analytics/explore-v2" method="get" className="grid gap-3 md:grid-cols-5">

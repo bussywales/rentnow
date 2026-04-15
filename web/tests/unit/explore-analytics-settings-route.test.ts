@@ -2,21 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { getExploreAnalyticsSettingsResponse } from "@/app/api/analytics/explore/settings/route";
 
-void test("explore analytics settings route allows tenant, agent, and landlord roles", async () => {
-  let capturedRoles: string[] | null = null;
+void test("explore analytics settings route is readable without workspace auth", async () => {
   const request = new Request("http://localhost/api/analytics/explore/settings", {
     method: "GET",
   });
 
   const response = await getExploreAnalyticsSettingsResponse(request, {
     hasServerSupabaseEnv: () => true,
-    requireRole: async ({ roles }) => {
-      capturedRoles = [...roles];
-      return {
-        ok: false,
-        response: new Response(null, { status: 401 }),
-      } as never;
-    },
+    hasServiceRoleEnv: () => true,
+    createServiceRoleClient: () => ({}) as never,
     getExploreAnalyticsSettings: async () => ({
       enabled: true,
       consentRequired: false,
@@ -24,6 +18,15 @@ void test("explore analytics settings route allows tenant, agent, and landlord r
     }),
   });
 
-  assert.equal(response.status, 401);
-  assert.deepEqual(capturedRoles, ["tenant", "agent", "landlord"]);
+  assert.equal(response.status, 200);
+  const body = (await response.json()) as {
+    ok?: boolean;
+    settings?: { enabled?: boolean; consentRequired?: boolean; noticeEnabled?: boolean };
+  };
+  assert.equal(body.ok, true);
+  assert.deepEqual(body.settings, {
+    enabled: true,
+    consentRequired: false,
+    noticeEnabled: true,
+  });
 });

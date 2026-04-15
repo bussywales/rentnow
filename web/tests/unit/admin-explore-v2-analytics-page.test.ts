@@ -71,4 +71,16 @@ void test("admin explore v2 conversion page renders experiment comparison sectio
     contents.includes('pickSearchParam(resolvedSearchParams, "end")'),
     "expected end date filter to read from resolved search params"
   );
+  assert.ok(
+    contents.includes("Explore analytics source looks stale."),
+    "expected stale telemetry warning copy"
+  );
+  assert.ok(
+    contents.includes('data-testid="admin-explore-v2-conversion-freshness-warning"'),
+    "expected stale telemetry warning test id"
+  );
+  assert.ok(
+    contents.includes("fetchLatestExploreEventAt"),
+    "expected admin page to fetch latest explore event freshness"
+  );
 });

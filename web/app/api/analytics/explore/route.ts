@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireRole } from "@/lib/authz";
-import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { hasServerSupabaseEnv, createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import {
   getExploreAnalyticsSettings,
   type ExploreAnalyticsSettings,
 } from "@/lib/explore/explore-analytics-settings";
 import { checkExploreAnalyticsRateLimit } from "@/lib/explore/explore-analytics-rate-limit";
 import { EXPLORE_ANALYTICS_EVENT_NAMES } from "@/lib/explore/explore-analytics-event-names";
-
-const routeLabel = "/api/analytics/explore";
+import { fetchUserRole } from "@/lib/auth/role";
 
 const ingestSchema = z
   .object({
@@ -69,34 +68,49 @@ function buildConsentResponse() {
 
 type ExploreAnalyticsIngestDeps = {
   hasServerSupabaseEnv?: typeof hasServerSupabaseEnv;
-  requireRole?: typeof requireRole;
+  hasServiceRoleEnv?: typeof hasServiceRoleEnv;
+  createServiceRoleClient?: typeof createServiceRoleClient;
+  createServerSupabaseClient?: typeof createServerSupabaseClient;
   getExploreAnalyticsSettings?: typeof getExploreAnalyticsSettings;
   checkExploreAnalyticsRateLimit?: typeof checkExploreAnalyticsRateLimit;
+  fetchUserRole?: typeof fetchUserRole;
 };
+
+function readClientIp(request: Request) {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const [first] = forwarded.split(",", 1);
+    if (first?.trim()) return first.trim();
+  }
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp?.trim()) return realIp.trim();
+  return null;
+}
 
 export async function postExploreAnalyticsIngestResponse(
   request: Request,
   deps: ExploreAnalyticsIngestDeps = {}
 ) {
-  const startTime = Date.now();
   const hasEnv = deps.hasServerSupabaseEnv ?? hasServerSupabaseEnv;
-  const requireRoleFn = deps.requireRole ?? requireRole;
+  const hasServiceEnv = deps.hasServiceRoleEnv ?? hasServiceRoleEnv;
+  const createServiceClient = deps.createServiceRoleClient ?? createServiceRoleClient;
+  const createRequestClient = deps.createServerSupabaseClient ?? createServerSupabaseClient;
   const getSettings = deps.getExploreAnalyticsSettings ?? getExploreAnalyticsSettings;
   const checkRateLimit = deps.checkExploreAnalyticsRateLimit ?? checkExploreAnalyticsRateLimit;
+  const fetchRole = deps.fetchUserRole ?? fetchUserRole;
 
   if (!hasEnv()) {
     return NextResponse.json({ ok: false, error: "Supabase is not configured." }, { status: 503 });
   }
 
-  const auth = await requireRoleFn({
-    request,
-    route: routeLabel,
-    startTime,
-    roles: ["tenant", "agent", "landlord"],
-  });
-  if (!auth.ok) return auth.response;
+  const requestClient = await createRequestClient();
+  const serviceClient = hasServiceEnv() ? createServiceClient() : requestClient;
+  const {
+    data: { user },
+  } = await requestClient.auth.getUser();
+  const role = user ? await fetchRole(requestClient, user.id) : null;
 
-  const settings = await getSettings(auth.supabase);
+  const settings = await getSettings(serviceClient);
   const disabledResponse = buildDisabledResponse(settings);
   if (disabledResponse) return disabledResponse;
 
@@ -104,7 +118,25 @@ export async function postExploreAnalyticsIngestResponse(
     return buildConsentResponse();
   }
 
-  const rateLimit = await checkRateLimit({ userId: auth.user.id });
+  const rawBody = await request.json().catch(() => null);
+  const parsed = ingestSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return NextResponse.json({ ok: false, error: "Invalid analytics payload." }, { status: 400 });
+  }
+
+  const payload = parsed.data;
+  const clientIp = readClientIp(request);
+  const scopeKey = user?.id
+    ? `user:${user.id}`
+    : payload.sessionId?.trim()
+      ? `session:${payload.sessionId.trim()}`
+      : clientIp
+        ? `ip:${clientIp}`
+        : "anonymous";
+  const rateLimit = await checkRateLimit({
+    scopeKey,
+    isAuthenticated: !!user,
+  });
   if (!rateLimit.allowed) {
     return NextResponse.json(
       {
@@ -122,14 +154,8 @@ export async function postExploreAnalyticsIngestResponse(
     );
   }
 
-  const rawBody = await request.json().catch(() => null);
-  const parsed = ingestSchema.safeParse(rawBody);
-  if (!parsed.success) {
-    return NextResponse.json({ ok: false, error: "Invalid analytics payload." }, { status: 400 });
-  }
-
-  const payload = parsed.data;
-  const { error } = await auth.supabase.from("explore_events").insert({
+  const canAttachUserId = !!user && !!role && ["tenant", "agent", "landlord", "admin"].includes(role);
+  const { error } = await serviceClient.from("explore_events").insert({
     event_name: payload.eventName,
     session_id: payload.sessionId ?? null,
     listing_id: payload.listingId ?? null,
@@ -140,7 +166,7 @@ export async function postExploreAnalyticsIngestResponse(
     trust_cue_variant: payload.trustCueVariant ?? null,
     trust_cue_enabled: payload.trustCueEnabled ?? null,
     cta_copy_variant: payload.ctaCopyVariant ?? null,
-    user_id: auth.user.id,
+    user_id: canAttachUserId ? user.id : null,
   });
 
   if (error) {
