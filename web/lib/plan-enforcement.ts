@@ -22,6 +22,21 @@ type UsageInput = {
   excludeId?: string | null;
 };
 
+export type ActiveListingLimitGateResult =
+  | {
+      ok: true;
+      usage: PlanUsage;
+    }
+  | {
+      ok: false;
+      usage: PlanUsage;
+      error: string;
+      code: "plan_limit_reached";
+      maxListings: number;
+      activeCount: number;
+      planTier: PlanGate["tier"];
+    };
+
 export async function getPlanUsage({
   supabase,
   ownerId,
@@ -84,4 +99,36 @@ export async function getPlanUsage({
     validUntil,
     expired,
   };
+}
+
+export async function enforceActiveListingLimit(
+  input: UsageInput
+): Promise<ActiveListingLimitGateResult> {
+  const usage = await getPlanUsage(input);
+
+  if (usage.error) {
+    return {
+      ok: false,
+      usage,
+      error: usage.error,
+      code: "plan_limit_reached",
+      maxListings: usage.plan.maxListings,
+      activeCount: usage.activeCount,
+      planTier: usage.plan.tier,
+    };
+  }
+
+  if (usage.activeCount >= usage.plan.maxListings) {
+    return {
+      ok: false,
+      usage,
+      error: "Plan limit reached",
+      code: "plan_limit_reached",
+      maxListings: usage.plan.maxListings,
+      activeCount: usage.activeCount,
+      planTier: usage.plan.tier,
+    };
+  }
+
+  return { ok: true, usage };
 }

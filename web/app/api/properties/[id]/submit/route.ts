@@ -18,7 +18,7 @@ import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
 import { hasPinnedLocation } from "@/lib/properties/validation";
 import { requireLegalAcceptance } from "@/lib/legal/guard.server";
 import { logPropertyEvent, resolveEventSessionKey } from "@/lib/analytics/property-events.server";
-import { logFailure } from "@/lib/observability";
+import { logFailure, logPlanLimitHit } from "@/lib/observability";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
 import { normalizeShortletNightlyPriceMinor } from "@/lib/shortlet/listing-setup";
 import { buildLiveApprovalUpdate } from "@/lib/properties/expiry";
@@ -30,6 +30,7 @@ import {
   notifyAdminsOfListingReviewSubmission,
 } from "@/lib/admin/listing-review-notifications.server";
 import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
+import { enforceActiveListingLimit } from "@/lib/plan-enforcement";
 
 export const dynamic = "force-dynamic";
 
@@ -291,6 +292,46 @@ export async function postPropertySubmitResponse(
       return NextResponse.json(
         { error: "Service role not configured", code: "SERVER_ERROR" },
         { status: 503 }
+      );
+    }
+    const activeLimit = await enforceActiveListingLimit({
+      supabase,
+      ownerId,
+      serviceClient: adminClient,
+      excludeId: propertyId,
+    });
+    if (!activeLimit.ok) {
+      if (activeLimit.usage.error) {
+        deps.logFailure({
+          request,
+          route: routeLabel,
+          status: 500,
+          startTime,
+          error: new Error(activeLimit.usage.error),
+        });
+        return NextResponse.json({ error: activeLimit.usage.error }, { status: 500 });
+      }
+      logPlanLimitHit({
+        request,
+        route: routeLabel,
+        actorId: auth.user.id,
+        ownerId,
+        propertyId,
+        planTier: activeLimit.planTier,
+        maxListings: activeLimit.maxListings,
+        activeCount: activeLimit.activeCount,
+        source: activeLimit.usage.source,
+      });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: activeLimit.error,
+          code: activeLimit.code,
+          maxListings: activeLimit.maxListings,
+          activeCount: activeLimit.activeCount,
+          planTier: activeLimit.planTier,
+        },
+        { status: 409 }
       );
     }
     const monetizationContext = resolveSubmitMonetizationContext(listing.status);

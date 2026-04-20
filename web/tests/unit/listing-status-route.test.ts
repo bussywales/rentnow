@@ -26,7 +26,13 @@ type ListingRow = {
 
 const buildSupabaseStub = (
   listing: ListingRow,
-  capture: { updatePayload: Record<string, unknown> | null }
+  capture: { updatePayload: Record<string, unknown> | null },
+  options?: {
+    activeCount?: number;
+    planTier?: string;
+    maxListingsOverride?: number | null;
+    validUntil?: string | null;
+  }
 ) => {
   const legalDocs = [
     {
@@ -117,11 +123,39 @@ const buildSupabaseStub = (
         };
       }
       return {
-        select: () => ({
-          eq: () => ({
-            maybeSingle: async () => ({ data: listing }),
-          }),
-        }),
+        select: (...args: unknown[]) => {
+          const selectOptions = args[1] as { count?: string; head?: boolean } | undefined;
+          if (table === "properties" && selectOptions?.count === "exact" && selectOptions?.head) {
+            const result = { count: options?.activeCount ?? 0, error: null };
+            const builder = {
+              eq() {
+                return builder;
+              },
+              neq() {
+                return builder;
+              },
+              then(resolve: (value: typeof result) => unknown) {
+                return Promise.resolve(resolve(result));
+              },
+            };
+            return builder;
+          }
+          return {
+            eq: () => ({
+              maybeSingle: async () =>
+                table === "profile_plans"
+                  ? {
+                      data: {
+                        plan_tier: options?.planTier ?? "free",
+                        max_listings_override: options?.maxListingsOverride ?? null,
+                        valid_until: options?.validUntil ?? null,
+                      },
+                      error: null,
+                    }
+                  : { data: listing },
+            }),
+          };
+        },
         update: (payload: Record<string, unknown>) => {
           capture.updatePayload = payload;
           return {
@@ -362,5 +396,70 @@ void test("reactivation returns payment required when no listing entitlement exi
   assert.equal(body.reason, "PAYMENT_REQUIRED");
   assert.equal(body.billingUrl, "/dashboard/billing#plans");
   assert.match(String(body.resumeUrl ?? ""), /monetization_context=reactivation/);
+  assert.equal(capture.updatePayload, null);
+});
+
+void test("reactivation blocks when active listing limit is already reached", async () => {
+  const capture = { updatePayload: null as Record<string, unknown> | null };
+  const listing: ListingRow = {
+    id: "prop1",
+    owner_id: "owner",
+    status: "paused_owner",
+    is_active: false,
+    is_approved: true,
+    latitude: 1,
+    longitude: 2,
+  };
+
+  const supabase = buildSupabaseStub(listing, capture, {
+    activeCount: 5,
+    planTier: "starter",
+    maxListingsOverride: 5,
+  }) as ReturnType<ListingStatusDeps["createServerSupabaseClient"]>;
+  let consumedAttempted = false;
+  const deps: ListingStatusDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => true,
+    createServerSupabaseClient: async () => supabase,
+    createServiceRoleClient: () =>
+      (supabase as unknown as ReturnType<ListingStatusDeps["createServiceRoleClient"]>),
+    requireUser: async () =>
+      ({
+        ok: true,
+        user: { id: "owner" } as User,
+        supabase,
+      }) as Awaited<ReturnType<ListingStatusDeps["requireUser"]>>,
+    getUserRole: async () => "landlord",
+    getListingAccessResult: () => ({ ok: true }),
+    hasActiveDelegation: async () => false,
+    getAppSettingBool: async () => false,
+    getListingExpiryDays: async () => 30,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => {
+      consumedAttempted = true;
+      return { ok: true, consumed: true, alreadyConsumed: false, source: "payg", creditId: "credit-1", idempotencyKey: "idem-reactivate-limit" };
+    },
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
+    dispatchSavedSearchAlerts: async () => ({ ok: true }),
+    logFailure: () => undefined,
+  };
+
+  const res = await postPropertyStatusResponse(
+    makeRequest({ status: "live" }),
+    "prop1",
+    deps
+  );
+  assert.equal(res.status, 409);
+  const body = await res.json();
+  assert.equal(body.code, "plan_limit_reached");
+  assert.equal(body.maxListings, 5);
+  assert.equal(body.activeCount, 5);
+  assert.equal(consumedAttempted, false);
   assert.equal(capture.updatePayload, null);
 });

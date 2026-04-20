@@ -15,6 +15,8 @@ import {
   ensureListingPublishEntitlement,
 } from "@/lib/billing/listing-publish-entitlement.server";
 import type { UserRole } from "@/lib/types";
+import { enforceActiveListingLimit } from "@/lib/plan-enforcement";
+import { logPlanLimitHit } from "@/lib/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -110,6 +112,38 @@ export async function postPropertyRenewResponse(
       return NextResponse.json({ error: "Service role not configured" }, { status: 503 });
     }
     const adminClient = deps.createServiceRoleClient();
+    const activeLimit = await enforceActiveListingLimit({
+      supabase,
+      ownerId: property.owner_id,
+      serviceClient: adminClient,
+      excludeId: id,
+    });
+    if (!activeLimit.ok) {
+      if (activeLimit.usage.error) {
+        return NextResponse.json({ error: activeLimit.usage.error }, { status: 500 });
+      }
+      logPlanLimitHit({
+        request,
+        route: `/api/properties/${id}/renew`,
+        actorId: auth.user.id,
+        ownerId: property.owner_id,
+        propertyId: id,
+        planTier: activeLimit.planTier,
+        maxListings: activeLimit.maxListings,
+        activeCount: activeLimit.activeCount,
+        source: activeLimit.usage.source,
+      });
+      return NextResponse.json(
+        {
+          error: activeLimit.error,
+          code: activeLimit.code,
+          maxListings: activeLimit.maxListings,
+          activeCount: activeLimit.activeCount,
+          planTier: activeLimit.planTier,
+        },
+        { status: 409 }
+      );
+    }
     const ownerRole: UserRole | null =
       property.owner_id !== auth.user.id && role === "agent" ? "landlord" : role;
     const idempotencyKey = buildListingEntitlementIdempotencyKey({

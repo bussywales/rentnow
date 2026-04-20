@@ -1,19 +1,44 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { buildLiveApprovalUpdate } from "@/lib/properties/expiry";
 import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
-import { logApprovalAction } from "@/lib/observability";
+import { logApprovalAction, logPlanLimitHit } from "@/lib/observability";
+import { enforceActiveListingLimit } from "@/lib/plan-enforcement";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const { id } = await context.params;
-  if (!hasServerSupabaseEnv()) {
+export type AdminPropertyApproveDeps = {
+  hasServerSupabaseEnv: typeof hasServerSupabaseEnv;
+  hasServiceRoleEnv: typeof hasServiceRoleEnv;
+  createServiceRoleClient: typeof createServiceRoleClient;
+  getServerAuthUser: typeof getServerAuthUser;
+  getListingExpiryDays: typeof getListingExpiryDays;
+  logProductAnalyticsEvent: typeof logProductAnalyticsEvent;
+  logApprovalAction: typeof logApprovalAction;
+};
+
+const defaultDeps: AdminPropertyApproveDeps = {
+  hasServerSupabaseEnv,
+  hasServiceRoleEnv,
+  createServiceRoleClient,
+  getServerAuthUser,
+  getListingExpiryDays,
+  logProductAnalyticsEvent,
+  logApprovalAction,
+};
+
+export async function postAdminPropertyApproveResponse(
+  request: NextRequest,
+  id: string,
+  deps: AdminPropertyApproveDeps = defaultDeps
+) {
+  if (!deps.hasServerSupabaseEnv()) {
     return NextResponse.json({ error: "Supabase env missing", code: "SERVER_ERROR" }, { status: 503 });
   }
-  const { supabase, user } = await getServerAuthUser();
+  const { supabase, user } = await deps.getServerAuthUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized", code: "NOT_AUTHENTICATED" }, { status: 401 });
   }
@@ -22,17 +47,55 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "Forbidden", code: "NOT_ADMIN" }, { status: 403 });
   }
 
-  const { data: property } = await supabase
+  const adminClient = deps.hasServiceRoleEnv() ? deps.createServiceRoleClient() : null;
+  const lookupClient = adminClient ?? supabase;
+  const { data: property } = await lookupClient
     .from("properties")
-    .select("id,status,city,country_code,listing_intent,listing_type")
+    .select("id,owner_id,is_active,status,city,country_code,listing_intent,listing_type")
     .eq("id", id)
     .maybeSingle();
   if (!property) {
     return NextResponse.json({ error: "Not found", code: "NOT_FOUND" }, { status: 404 });
   }
 
+  const willActivate = !property.is_active;
+  if (willActivate) {
+    const activeLimit = await enforceActiveListingLimit({
+      supabase,
+      ownerId: property.owner_id,
+      serviceClient: adminClient,
+      excludeId: id,
+    });
+    if (!activeLimit.ok) {
+      if (activeLimit.usage.error) {
+        return NextResponse.json({ error: activeLimit.usage.error }, { status: 500 });
+      }
+      logPlanLimitHit({
+        request,
+        route: "/api/admin/properties/[id]/approve",
+        actorId: user.id,
+        ownerId: property.owner_id,
+        propertyId: id,
+        planTier: activeLimit.planTier,
+        maxListings: activeLimit.maxListings,
+        activeCount: activeLimit.activeCount,
+        source: activeLimit.usage.source,
+      });
+      return NextResponse.json(
+        {
+          error: activeLimit.error,
+          code: activeLimit.code,
+          maxListings: activeLimit.maxListings,
+          activeCount: activeLimit.activeCount,
+          planTier: activeLimit.planTier,
+        },
+        { status: 409 }
+      );
+    }
+  }
+
   const now = new Date();
-  const expiryDays = await getListingExpiryDays();
+  const expiryDays = await deps.getListingExpiryDays();
   const updates = buildLiveApprovalUpdate({ now, expiryDays });
   const { error } = await supabase
     .from("properties")
@@ -54,9 +117,9 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     /* ignore logging failures */
   }
 
-  await logProductAnalyticsEvent({
+  await deps.logProductAnalyticsEvent({
     eventName: "listing_published_live",
-    request: _req,
+    request,
     supabase,
     userId: user.id,
     userRole: "admin",
@@ -71,8 +134,8 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     },
   });
 
-  logApprovalAction({
-    request: _req,
+  deps.logApprovalAction({
+    request,
     route: "/api/admin/properties/[id]/approve",
     actorId: user.id,
     propertyId: id,
@@ -80,4 +143,9 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     reasonProvided: false,
   });
   return NextResponse.json({ ok: true, id, status: "live" });
+}
+
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
+  return postAdminPropertyApproveResponse(request, id);
 }

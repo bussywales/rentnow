@@ -5,7 +5,7 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { dispatchSavedSearchAlerts } from "@/lib/alerts/tenant-alerts";
 import { getUserRole, requireOwnership, requireUser } from "@/lib/authz";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
-import { logFailure } from "@/lib/observability";
+import { logFailure, logPlanLimitHit } from "@/lib/observability";
 import { getListingAccessResult } from "@/lib/role-access";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { computeExpiryAt } from "@/lib/properties/expiry";
@@ -21,6 +21,7 @@ import {
   buildListingMonetizationResumeUrl,
   ensureListingPublishEntitlement,
 } from "@/lib/billing/listing-publish-entitlement.server";
+import { enforceActiveListingLimit } from "@/lib/plan-enforcement";
 
 export const dynamic = "force-dynamic";
 
@@ -229,6 +230,38 @@ export async function postPropertyStatusResponse(
   if (willActivate && role !== "admin") {
     if (!adminClient) {
       return NextResponse.json({ error: "Service role not configured" }, { status: 503 });
+    }
+    const activeLimit = await enforceActiveListingLimit({
+      supabase,
+      ownerId: listing.owner_id,
+      serviceClient: adminClient,
+      excludeId: propertyId,
+    });
+    if (!activeLimit.ok) {
+      if (activeLimit.usage.error) {
+        return NextResponse.json({ error: activeLimit.usage.error }, { status: 500 });
+      }
+      logPlanLimitHit({
+        request,
+        route: routeLabel,
+        actorId: auth.user.id,
+        ownerId: listing.owner_id,
+        propertyId,
+        planTier: activeLimit.planTier,
+        maxListings: activeLimit.maxListings,
+        activeCount: activeLimit.activeCount,
+        source: activeLimit.usage.source,
+      });
+      return NextResponse.json(
+        {
+          error: activeLimit.error,
+          code: activeLimit.code,
+          maxListings: activeLimit.maxListings,
+          activeCount: activeLimit.activeCount,
+          planTier: activeLimit.planTier,
+        },
+        { status: 409 }
+      );
     }
     const idempotencyKey = buildListingEntitlementIdempotencyKey({
       context: "reactivation",

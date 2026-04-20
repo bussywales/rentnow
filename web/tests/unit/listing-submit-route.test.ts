@@ -22,21 +22,58 @@ type ListingRow = {
 
 const buildSupabaseStub = (
   listing: ListingRow,
-  options?: { nightlyPriceMinor?: number | null }
+  options?: {
+    nightlyPriceMinor?: number | null;
+    activeCount?: number;
+    planTier?: string;
+    maxListingsOverride?: number | null;
+    validUntil?: string | null;
+  }
 ) => {
   let lastPropertyUpdate: Record<string, unknown> | null = null;
+  const buildCountQuery = () => {
+    const result = { count: options?.activeCount ?? 0, error: null };
+    const builder = {
+      eq() {
+        return builder;
+      },
+      neq() {
+        return builder;
+      },
+      then(resolve: (value: typeof result) => unknown) {
+        return Promise.resolve(resolve(result));
+      },
+    };
+    return builder;
+  };
   const supabase = {
     from: (table: string) => ({
-      select: () => ({
-        eq: () => ({
-          maybeSingle: async () => {
-            if (table === "shortlet_settings") {
-              return { data: { nightly_price_minor: options?.nightlyPriceMinor ?? null } };
-            }
-            return { data: listing };
-          },
-        }),
-      }),
+      select: (...args: unknown[]) => {
+        const selectOptions = args[1] as { count?: string; head?: boolean } | undefined;
+        if (table === "properties" && selectOptions?.count === "exact" && selectOptions?.head) {
+          return buildCountQuery();
+        }
+        return {
+          eq: () => ({
+            maybeSingle: async () => {
+              if (table === "shortlet_settings") {
+                return { data: { nightly_price_minor: options?.nightlyPriceMinor ?? null } };
+              }
+              if (table === "profile_plans") {
+                return {
+                  data: {
+                    plan_tier: options?.planTier ?? "free",
+                    max_listings_override: options?.maxListingsOverride ?? null,
+                    valid_until: options?.validUntil ?? null,
+                  },
+                  error: null,
+                };
+              }
+              return { data: listing };
+            },
+          }),
+        };
+      },
       update: (payload: Record<string, unknown>) => ({
         eq: async () => {
           if (table === "properties") {
@@ -54,6 +91,74 @@ const buildSupabaseStub = (
     getLastPropertyUpdate: () => lastPropertyUpdate,
   };
 };
+
+void test("submit blocks when active listing limit is already reached", async () => {
+  const listing: ListingRow = {
+    id: "prop1",
+    owner_id: "owner",
+    status: "draft",
+    submitted_at: null,
+  };
+  const { supabase, getLastPropertyUpdate } = buildSupabaseStub(listing, {
+    activeCount: 5,
+    planTier: "starter",
+    maxListingsOverride: 5,
+  });
+  const typedSupabase = supabase as ReturnType<
+    ListingSubmitDeps["createServerSupabaseClient"]
+  >;
+  let consumedAttempted = false;
+
+  const deps: ListingSubmitDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => true,
+    createServerSupabaseClient: async () => typedSupabase,
+    createServiceRoleClient: () =>
+      typedSupabase as ReturnType<ListingSubmitDeps["createServiceRoleClient"]>,
+    requireUser: async () =>
+      ({
+        ok: true,
+        user: { id: "owner" } as User,
+        supabase: typedSupabase,
+      }) as Awaited<ReturnType<ListingSubmitDeps["requireUser"]>>,
+    getUserRole: async () => "landlord",
+    getListingAccessResult: () => ({ ok: true }),
+    hasActiveDelegation: async () => false,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => {
+      consumedAttempted = true;
+      return { ok: true, consumed: true, alreadyConsumed: false, source: "payg", creditId: "credit-1", idempotencyKey: "idem-submit-limit" };
+    },
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
+    getAppSettingBool: async () => false,
+    getListingExpiryDays: async () => 90,
+    requireLegalAcceptance: async () => ({ ok: true, status: {} }) as Awaited<
+      ReturnType<ListingSubmitDeps["requireLegalAcceptance"]>
+    >,
+    logPropertyEvent: async () => ({ ok: true, data: {} }),
+    resolveEventSessionKey: () => null,
+    logFailure: () => undefined,
+  };
+
+  const res = await postPropertySubmitResponse(
+    makeRequest({ idempotencyKey: "idem-submit-limit" }),
+    "prop1",
+    deps
+  );
+  assert.equal(res.status, 409);
+  const body = await res.json();
+  assert.equal(body.code, "plan_limit_reached");
+  assert.equal(body.maxListings, 5);
+  assert.equal(body.activeCount, 5);
+  assert.equal(consumedAttempted, false);
+  assert.equal(getLastPropertyUpdate(), null);
+});
 
 void test("submit returns payment required when no credits", async () => {
   const listing: ListingRow = {
