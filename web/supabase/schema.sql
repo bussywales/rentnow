@@ -48,6 +48,8 @@ CREATE TABLE public.properties (
   currency TEXT NOT NULL DEFAULT 'USD',
   bedrooms INT NOT NULL DEFAULT 0,
   bathrooms INT NOT NULL DEFAULT 0,
+  commercial_layout_type TEXT,
+  enclosed_rooms INT,
   furnished BOOLEAN NOT NULL DEFAULT FALSE,
   backup_power_type TEXT,
   water_supply_type TEXT,

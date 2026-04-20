@@ -41,6 +41,11 @@ import { orderImagesWithCover } from "@/lib/properties/images";
 import { resolveBackHref } from "@/lib/properties/back-href";
 import { derivePhotoTrust } from "@/lib/properties/photo-trust";
 import { normalizeListingTitleForDisplay } from "@/lib/properties/listing-quality";
+import {
+  buildCommercialSpaceFacts,
+  formatCommercialLayoutType,
+  getSpatialModelForListingType,
+} from "@/lib/properties/commercial-space";
 import { buildLocalLivingFacts } from "@/lib/properties/local-living";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { isListingExpired } from "@/lib/properties/expiry";
@@ -111,6 +116,43 @@ function parseShortletGuestsParam(value: string | undefined): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return 1;
   return Math.max(1, Math.trunc(parsed));
+}
+
+function buildPropertyMetaDescription(property: Property, marketCurrency?: string | null) {
+  const displayTitle = normalizeListingTitleForDisplay(property.title, {
+    fallback: "Untitled listing",
+  });
+  const model = getSpatialModelForListingType(property.listing_type);
+  const priceLabel = formatPriceValue(property.currency, property.price, { marketCurrency });
+  const location = property.city || "this market";
+
+  if (model === "commercial") {
+    const layout = formatCommercialLayoutType(property.commercial_layout_type);
+    const enclosedRooms =
+      typeof property.enclosed_rooms === "number"
+        ? `${property.enclosed_rooms} enclosed room${property.enclosed_rooms === 1 ? "" : "s"}`
+        : null;
+    const bathrooms =
+      typeof property.bathrooms === "number" && property.bathrooms > 0
+        ? `${property.bathrooms} bath${property.bathrooms === 1 ? "" : "s"}`
+        : null;
+    return (
+      property.description ||
+      `Discover ${displayTitle} in ${location}.${layout ? ` ${layout}.` : ""}${enclosedRooms ? ` ${enclosedRooms}.` : ""}${bathrooms ? ` ${bathrooms}.` : ""} Offered for ${priceLabel}.`
+    );
+  }
+
+  if (model === "land") {
+    return (
+      property.description ||
+      `Discover ${displayTitle} in ${location}. Land listing offered for ${priceLabel}.`
+    );
+  }
+
+  return (
+    property.description ||
+    `Discover ${displayTitle} in ${location}. ${property.bedrooms} bed, ${property.bathrooms} bath ${property.rental_type === "short_let" ? "short-let" : "rental"} for ${priceLabel}.`
+  );
 }
 
 async function getProperty(
@@ -295,9 +337,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     fallback: "Untitled listing",
   });
   const title = `${displayTitle} | ${property.city}${property.neighbourhood ? ` - ${property.neighbourhood}` : ""}`;
-  const description =
-    property.description ||
-    `Discover ${displayTitle} in ${property.city}. ${property.bedrooms} bed, ${property.bathrooms} bath ${property.rental_type === "short_let" ? "short-let" : "rental"} for ${formatPriceValue(property.currency, property.price, { marketCurrency: market.currency })}.`;
+  const description = buildPropertyMetaDescription(property, market.currency);
   const imageUrl = property.cover_image_url || property.images?.[0]?.image_url || BRAND_OG_SHARE_IMAGE;
 
   const canonicalPath = `/properties/${property.id}`;
@@ -672,6 +712,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   });
   const cadence = formatCadence(property.rental_type, property.rent_period);
   const listingTypeLabel = formatListingType(property.listing_type);
+  const spatialModel = getSpatialModelForListingType(property.listing_type);
   const listingIntent = normalizeListingIntent(property.listing_intent) ?? "rent_lease";
   const isSaleListing = isSaleIntent(listingIntent);
   const isShortletListing = isShortletProperty(property);
@@ -742,11 +783,13 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
         ? "Pets allowed"
         : "No pets"
       : null;
+  const commercialSpaceFacts = buildCommercialSpaceFacts(property);
   const keyFacts = [
     listingTypeLabel ? { label: "Listing type", value: listingTypeLabel } : null,
     property.state_region ? { label: "State/Region", value: property.state_region } : null,
     property.country ? { label: "Country", value: property.country } : null,
     sizeLabel ? { label: "Size", value: sizeLabel } : null,
+    ...commercialSpaceFacts.map((fact) => ({ label: fact.label, value: fact.value })),
     typeof property.year_built === "number"
       ? { label: "Year built", value: String(property.year_built) }
       : null,
@@ -831,9 +874,22 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               url: siteUrl ? `${siteUrl}/properties/${property.id}` : `/properties/${property.id}`,
               image: property.images?.map((img) => img.image_url),
               datePosted: property.created_at,
-              numberOfRooms: property.bedrooms,
-              numberOfBedrooms: property.bedrooms,
-              numberOfBathroomsTotal: property.bathrooms,
+              ...(spatialModel === "commercial"
+                ? {
+                    numberOfRooms:
+                      typeof property.enclosed_rooms === "number"
+                        ? property.enclosed_rooms
+                        : undefined,
+                    numberOfBathroomsTotal:
+                      typeof property.bathrooms === "number" ? property.bathrooms : undefined,
+                  }
+                : spatialModel === "residential"
+                  ? {
+                      numberOfRooms: property.bedrooms,
+                      numberOfBedrooms: property.bedrooms,
+                      numberOfBathroomsTotal: property.bathrooms,
+                    }
+                  : {}),
               address: {
                 "@type": "PostalAddress",
               addressLocality: property.city,
@@ -898,46 +954,60 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             </p>
             <p className="text-xs text-slate-500">{rentSubtext}</p>
           </div>
-          <div className="flex items-center gap-3 text-sm text-slate-700">
-            <span className="flex items-center gap-1">
-              <svg
-                aria-hidden
-                className="h-4 w-4 text-slate-500"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                viewBox="0 0 24 24"
-              >
-                <path d="M4 12V7a1 1 0 0 1 1-1h6v6" />
-                <path d="M4 21v-3" />
-                <path d="M20 21v-3" />
-                <path d="M4 15h16v-3a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2Z" />
-              </svg>
-              {property.bedrooms} beds
-            </span>
-            <span className="flex items-center gap-1">
-              <svg
-                aria-hidden
-                className="h-4 w-4 text-slate-500"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                viewBox="0 0 24 24"
-              >
-                <path d="M7 4a3 3 0 1 1 6 0v6" />
-                <path d="M4 10h14" />
-                <path d="M5 20h12" />
-                <path d="M5 16h14v2a2 2 0 0 1-2 2H7a2 2 0 0 0-2-2Z" />
-                <path d="M15 4h1" />
-                <path d="M15 7h2" />
-              </svg>
-              {property.bathrooms} baths
-            </span>
-            <span>{property.furnished ? "Furnished" : "Unfurnished"}</span>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
+            {spatialModel === "residential" && (
+              <>
+                <span className="flex items-center gap-1">
+                  <svg
+                    aria-hidden
+                    className="h-4 w-4 text-slate-500"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M4 12V7a1 1 0 0 1 1-1h6v6" />
+                    <path d="M4 21v-3" />
+                    <path d="M20 21v-3" />
+                    <path d="M4 15h16v-3a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2Z" />
+                  </svg>
+                  {property.bedrooms} beds
+                </span>
+                <span className="flex items-center gap-1">
+                  <svg
+                    aria-hidden
+                    className="h-4 w-4 text-slate-500"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M7 4a3 3 0 1 1 6 0v6" />
+                    <path d="M4 10h14" />
+                    <path d="M5 20h12" />
+                    <path d="M5 16h14v2a2 2 0 0 1-2 2H7a2 2 0 0 0-2-2Z" />
+                    <path d="M15 4h1" />
+                    <path d="M15 7h2" />
+                  </svg>
+                  {property.bathrooms} baths
+                </span>
+                <span>{property.furnished ? "Furnished" : "Unfurnished"}</span>
+              </>
+            )}
+            {spatialModel === "commercial" &&
+              commercialSpaceFacts.map((fact) => (
+                <span key={fact.key}>{fact.value}</span>
+              ))}
+            {spatialModel === "land" && (
+              <>
+                {sizeLabel ? <span>{sizeLabel}</span> : null}
+                {listingTypeLabel ? <span>{listingTypeLabel}</span> : null}
+              </>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             {(property.amenities || []).map((item) => (

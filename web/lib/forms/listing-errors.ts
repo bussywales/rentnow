@@ -9,6 +9,8 @@ const FIELD_LABELS: Record<string, string> = {
   currency: "Currency",
   bedrooms: "Bedrooms",
   bathrooms: "Bathrooms",
+  commercial_layout_type: "Layout type",
+  enclosed_rooms: "Enclosed rooms",
   size_value: "Size",
   size_unit: "Size unit",
   year_built: "Year built",

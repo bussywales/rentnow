@@ -13,7 +13,9 @@ import { includeDemoListingsForViewer } from "@/lib/properties/demo";
 import { getDemoListingsVisibilityPolicy } from "@/lib/settings/demo";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
 import { normalizeCountryForCreate } from "@/lib/properties/country-normalize";
-import { requiresRooms } from "@/lib/properties/listing-types";
+import { COMMERCIAL_LAYOUT_TYPE_OPTIONS } from "@/lib/properties/commercial-space";
+import { normalizeSpatialFieldsForListingType } from "@/lib/properties/commercial-space";
+import { isCommercialListingType, requiresRooms } from "@/lib/properties/listing-types";
 import {
   BACKUP_POWER_TYPE_OPTIONS,
   FLOOD_RISK_DISCLOSURE_OPTIONS,
@@ -105,6 +107,11 @@ const propertySchemaBase = z.object({
   rent_period: z.enum(["monthly", "yearly"]).optional().nullable(),
   bedrooms: z.number().int().nonnegative().optional(),
   bathrooms: z.number().int().nonnegative(),
+  commercial_layout_type: z
+    .enum(COMMERCIAL_LAYOUT_TYPE_OPTIONS.map((option) => option.value) as [string, ...string[]])
+    .optional()
+    .nullable(),
+  enclosed_rooms: optionalIntNonnegative(),
   bathroom_type: z.enum(["private", "shared"]).optional().nullable(),
   furnished: z.boolean(),
   size_value: optionalPositiveNumber(),
@@ -204,6 +211,16 @@ export const propertySchema = propertySchemaBase.superRefine((data, ctx) => {
       message: "Bedrooms is required",
     });
   }
+  if (
+    isCommercialListingType(data.listing_type ?? null) &&
+    !data.commercial_layout_type
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["commercial_layout_type"],
+      message: "Layout type is required for commercial listings",
+    });
+  }
 });
 
 export async function POST(request: Request) {
@@ -296,7 +313,7 @@ export async function POST(request: Request) {
       country: rest.country,
       country_code: rest.country_code,
     });
-    const normalized = {
+    const normalized = normalizeSpatialFieldsForListingType({
       ...rest,
       location_label: cleanNullableString(rest.location_label, { allowUndefined: false }),
       location_place_id: cleanNullableString(rest.location_place_id, { allowUndefined: false }),
@@ -313,6 +330,9 @@ export async function POST(request: Request) {
       size_value: typeof rest.size_value === "number" ? rest.size_value : null,
       size_unit: normalizedSizeUnit,
       year_built: typeof rest.year_built === "number" ? rest.year_built : null,
+      commercial_layout_type: rest.commercial_layout_type ?? null,
+      enclosed_rooms:
+        typeof rest.enclosed_rooms === "number" ? rest.enclosed_rooms : null,
       deposit_amount: typeof rest.deposit_amount === "number" ? rest.deposit_amount : null,
       deposit_currency: normalizedDepositCurrency,
       bathroom_type: rest.bathroom_type ?? null,
@@ -325,7 +345,7 @@ export async function POST(request: Request) {
       flood_risk_disclosure: rest.flood_risk_disclosure ?? null,
       featured_media: rest.featured_media === "video" ? "video" : "image",
       cover_image_url: cover_image_url ?? (imageUrls[0] ?? null),
-    };
+    });
     const shortletPersistence = resolveShortletPersistenceInput({
       listingIntent: normalized.listing_intent,
       rentalType: normalized.rental_type,

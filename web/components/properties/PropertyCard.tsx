@@ -27,6 +27,10 @@ import {
 import { PropertyImageCarousel } from "@/components/properties/PropertyImageCarousel";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { normalizeListingTitleForDisplay } from "@/lib/properties/listing-quality";
+import {
+  buildCommercialSpaceFacts,
+  getSpatialModelForListingType,
+} from "@/lib/properties/commercial-space";
 import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
 import {
   isShortletProperty,
@@ -132,6 +136,8 @@ export function PropertyCard({
   const cadence = isShortlet ? "night" : formatCadence(property.rental_type, property.rent_period);
   const listingTypeLabel = formatListingType(property.listing_type);
   const sizeLabel = formatSizeLabel(property.size_value, property.size_unit);
+  const spatialModel = getSpatialModelForListingType(property.listing_type);
+  const commercialSpaceFacts = buildCommercialSpaceFacts(property);
   const metaLine = [listingTypeLabel, sizeLabel].filter(Boolean).join(" \u00b7 ");
   const listingIntent = normalizeListingIntent(property.listing_intent) ?? "rent_lease";
   const description =
@@ -367,15 +373,22 @@ export function PropertyCard({
             )}
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-3 text-xs text-slate-500">
-            <span className="flex items-center gap-1">
-              <BedIcon />
-              <span data-testid="property-card-bedrooms">{property.bedrooms}</span>
-            </span>
-            <span className="flex items-center gap-1">
-              <BathIcon />
-              {property.bathrooms}
-            </span>
-            <span>{property.furnished ? "Furnished" : "Unfurnished"}</span>
+            {spatialModel === "residential" && (
+              <>
+                <span className="flex items-center gap-1">
+                  <BedIcon />
+                  <span data-testid="property-card-bedrooms">{property.bedrooms}</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <BathIcon />
+                  {property.bathrooms}
+                </span>
+                <span>{property.furnished ? "Furnished" : "Unfurnished"}</span>
+              </>
+            )}
+            {spatialModel === "commercial" &&
+              commercialSpaceFacts.map((fact) => <span key={fact.key}>{fact.value}</span>)}
+            {spatialModel === "land" && sizeLabel ? <span>{sizeLabel}</span> : null}
           </div>
         </div>
       </div>

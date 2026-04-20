@@ -30,4 +30,12 @@ void test("property detail includes key facts section for listing details", () =
     contents.includes("Owner-provided practical details for this specific listing."),
     "expected local living details explainer"
   );
+  assert.ok(
+    contents.includes("buildCommercialSpaceFacts(property)"),
+    "expected property detail to build commercial space facts"
+  );
+  assert.ok(
+    contents.includes("spatialModel === \"commercial\""),
+    "expected property detail to branch commercial space rendering"
+  );
 });

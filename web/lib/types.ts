@@ -33,6 +33,14 @@ export type BedroomMatchMode = "exact" | "minimum";
 export type SizeUnit = "sqm" | "sqft";
 
 export type BathroomType = "private" | "shared";
+export type CommercialLayoutType =
+  | "open_plan"
+  | "partitioned"
+  | "multi_room"
+  | "suite"
+  | "shop_floor"
+  | "warehouse"
+  | "mixed";
 
 export type BackupPowerType = "none" | "inverter" | "generator" | "solar" | "mixed";
 export type WaterSupplyType = "mains" | "borehole" | "tanker" | "mixed" | "other";
@@ -149,6 +157,8 @@ export interface Property {
   rent_period?: RentPeriod | null;
   bedrooms: number;
   bathrooms: number;
+  commercial_layout_type?: CommercialLayoutType | null;
+  enclosed_rooms?: number | null;
   bathroom_type?: BathroomType | null;
   furnished: boolean;
   size_value?: number | null;

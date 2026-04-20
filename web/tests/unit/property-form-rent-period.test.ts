@@ -41,8 +41,20 @@ void test("property form defaults rent period to monthly", () => {
     "expected bathrooms to initialize to 0 in PropertyForm"
   );
   assert.ok(
-    contents.includes("Commercial spaces can use 0 bedrooms."),
-    "expected truthful commercial bedroom helper text in PropertyForm"
+    contents.includes("commercial_layout_type"),
+    "expected PropertyForm to include commercial layout type state"
+  );
+  assert.ok(
+    contents.includes("enclosed_rooms"),
+    "expected PropertyForm to include enclosed rooms state"
+  );
+  assert.ok(
+    contents.includes("Describe the commercial layout instead of forcing a bedroom count."),
+    "expected commercial layout helper text in PropertyForm"
+  );
+  assert.ok(
+    contents.includes("Bathrooms stay independent for commercial listings."),
+    "expected commercial bathroom helper text in PropertyForm"
   );
 });
 

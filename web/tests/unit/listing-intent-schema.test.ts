@@ -59,9 +59,34 @@ void test("property schema accepts student, hostel, and condo listing types", ()
   const student = propertySchema.parse({ ...base, listing_type: "student" as const });
   assert.equal(student.listing_type, "student");
 
-  const hostel = updateSchema.parse({ listing_type: "hostel" as const });
+  const hostel = updateSchema.parse({ listing_type: "hostel" as const, bedrooms: 1 });
   assert.equal(hostel.listing_type, "hostel");
 
   const condo = propertySchema.parse({ ...base, listing_type: "condo" as const });
   assert.equal(condo.listing_type, "condo");
+});
+
+void test("property schemas accept commercial layout fields", () => {
+  const created = propertySchema.parse({
+    title: "Office suite",
+    city: "Lagos",
+    rental_type: "long_term" as const,
+    listing_type: "office" as const,
+    commercial_layout_type: "suite" as const,
+    enclosed_rooms: 3,
+    price: 1000,
+    currency: "USD",
+    bathrooms: 1,
+    furnished: false,
+  });
+  assert.equal(created.commercial_layout_type, "suite");
+  assert.equal(created.enclosed_rooms, 3);
+
+  const updated = updateSchema.parse({
+    listing_type: "shop" as const,
+    commercial_layout_type: "shop_floor" as const,
+    enclosed_rooms: 0,
+  });
+  assert.equal(updated.commercial_layout_type, "shop_floor");
+  assert.equal(updated.enclosed_rooms, 0);
 });

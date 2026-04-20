@@ -13,6 +13,10 @@ import { getListingAccessResult } from "@/lib/role-access";
 import { normalizeRole } from "@/lib/roles";
 import { normalizeCountryForUpdate } from "@/lib/properties/country-normalize";
 import {
+  COMMERCIAL_LAYOUT_TYPE_OPTIONS,
+  normalizeSpatialFieldsForListingType,
+} from "@/lib/properties/commercial-space";
+import {
   BACKUP_POWER_TYPE_OPTIONS,
   FLOOD_RISK_DISCLOSURE_OPTIONS,
   INTERNET_AVAILABILITY_OPTIONS,
@@ -53,6 +57,7 @@ import {
 import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 import { requireLegalAcceptance } from "@/lib/legal/guard.server";
 import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
+import { isCommercialListingType, requiresRooms } from "@/lib/properties/listing-types";
 import {
   normalizeShortletNightlyPriceMinor,
   resolveRentalTypeForListingIntent,
@@ -122,6 +127,11 @@ export const updateSchema = z.object({
   rent_period: z.enum(["monthly", "yearly"]).optional().nullable(),
   bedrooms: z.number().int().nonnegative().optional(),
   bathrooms: z.number().int().nonnegative().optional(),
+  commercial_layout_type: z
+    .enum(COMMERCIAL_LAYOUT_TYPE_OPTIONS.map((option) => option.value) as [string, ...string[]])
+    .optional()
+    .nullable(),
+  enclosed_rooms: optionalIntNonnegative(),
   bathroom_type: z.enum(["private", "shared"]).optional().nullable(),
   furnished: z.boolean().optional(),
   size_value: optionalPositiveNumber(),
@@ -209,6 +219,29 @@ export const updateSchema = z.object({
         .optional()
     ),
   paused_reason: z.string().optional().nullable(),
+}).superRefine((data, ctx) => {
+  if (
+    typeof data.listing_type !== "undefined" &&
+    requiresRooms(data.listing_type) &&
+    typeof data.bedrooms === "undefined"
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["bedrooms"],
+      message: "Bedrooms is required",
+    });
+  }
+  if (
+    typeof data.listing_type !== "undefined" &&
+    isCommercialListingType(data.listing_type) &&
+    typeof data.commercial_layout_type === "undefined"
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["commercial_layout_type"],
+      message: "Layout type is required for commercial listings",
+    });
+  }
 });
 
 const idParamSchema = z.object({
@@ -764,7 +797,7 @@ export async function PUT(
       country: rest.country,
       country_code: rest.country_code,
     });
-    const normalizedRest = {
+    const normalizedRest = normalizeSpatialFieldsForListingType({
       ...rest,
       listing_intent:
         typeof rest.listing_intent === "undefined"
@@ -781,7 +814,12 @@ export async function PUT(
       location_place_id: cleanNullableString(rest.location_place_id),
       location_source: cleanNullableString(rest.location_source),
       location_precision: cleanNullableString(rest.location_precision),
-      size_value: typeof rest.size_value === "undefined" ? undefined : rest.size_value,
+      size_value:
+        typeof rest.size_value === "number"
+          ? rest.size_value
+          : typeof rest.size_value === "undefined"
+            ? undefined
+            : null,
       size_unit:
         typeof rest.size_value === "number"
           ? rest.size_unit ?? "sqm"
@@ -789,6 +827,16 @@ export async function PUT(
             ? undefined
             : null,
       year_built: typeof rest.year_built === "undefined" ? undefined : rest.year_built,
+      commercial_layout_type:
+        typeof rest.commercial_layout_type === "undefined"
+          ? undefined
+          : rest.commercial_layout_type,
+      enclosed_rooms:
+        typeof rest.enclosed_rooms === "number"
+          ? rest.enclosed_rooms
+          : typeof rest.enclosed_rooms === "undefined"
+            ? undefined
+            : null,
       deposit_amount:
         typeof rest.deposit_amount === "undefined" ? undefined : rest.deposit_amount,
       deposit_currency:
@@ -826,7 +874,7 @@ export async function PUT(
         typeof cover_image_url === "undefined"
           ? undefined
           : cover_image_url ?? (imageUrls[0] ?? null),
-    };
+    });
     const existingListingIntent = normalizeListingIntent(existing.listing_intent) ?? null;
     const effectiveListingIntent =
       typeof normalizedRest.listing_intent === "undefined"

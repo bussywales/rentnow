@@ -40,7 +40,19 @@ void test("property stepper validates per-step fields only", () => {
     "expected bathrooms to initialize to 0 when unset"
   );
   assert.ok(
-    contents.includes("Commercial spaces can use 0 bedrooms."),
-    "expected truthful commercial bedroom helper copy"
+    contents.includes("commercial_layout_type: initialData?.commercial_layout_type ?? null"),
+    "expected commercial layout type to initialize in PropertyStepper"
+  );
+  assert.ok(
+    contents.includes("enclosed_rooms: initialData?.enclosed_rooms ?? 0"),
+    "expected enclosed rooms to initialize in PropertyStepper"
+  );
+  assert.ok(
+    contents.includes('...(isCommercialListing ? ["commercial_layout_type" as const] : [])'),
+    "expected commercial listings to require layout type in step validation"
+  );
+  assert.ok(
+    contents.includes("Describe the commercial layout instead of forcing a bedroom count."),
+    "expected commercial layout helper copy"
   );
 });

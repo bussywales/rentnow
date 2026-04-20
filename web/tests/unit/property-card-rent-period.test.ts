@@ -24,4 +24,12 @@ void test("property card formats cadence with rent period", () => {
     contents.includes("formatSizeLabel(property.size_value, property.size_unit)"),
     "expected PropertyCard to include size formatting"
   );
+  assert.ok(
+    contents.includes("buildCommercialSpaceFacts(property)"),
+    "expected PropertyCard to format commercial space facts"
+  );
+  assert.ok(
+    contents.includes("spatialModel === \"commercial\""),
+    "expected PropertyCard to branch commercial listings away from bedroom chips"
+  );
 });

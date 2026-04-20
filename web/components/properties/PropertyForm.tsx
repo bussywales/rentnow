@@ -9,7 +9,12 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { normalizeCountryCode } from "@/lib/countries";
 import { getHostListingIntentOptions, isSaleIntent } from "@/lib/listing-intents";
-import { requiresRooms } from "@/lib/properties/listing-types";
+import { COMMERCIAL_LAYOUT_TYPE_OPTIONS } from "@/lib/properties/commercial-space";
+import {
+  isCommercialListingType,
+  isNonRoomListingType,
+  requiresRooms,
+} from "@/lib/properties/listing-types";
 import {
   createBrowserSupabaseClient,
   hasBrowserSupabaseEnv,
@@ -51,6 +56,8 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
     currency: "USD",
     bedrooms: initialData?.bedrooms ?? 0,
     bathrooms: initialData?.bathrooms ?? 0,
+    commercial_layout_type: initialData?.commercial_layout_type ?? null,
+    enclosed_rooms: initialData?.enclosed_rooms ?? 0,
     is_demo: initialData?.is_demo ?? false,
     amenitiesText: initialData?.amenities?.join(", ") ?? "",
     ...initialData,
@@ -58,7 +65,8 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
   });
   const isSaleListing = isSaleIntent(form.listing_intent);
   const roomsRequired = requiresRooms(form.listing_type);
-  const showRoomOptionalHint = !!form.listing_type && !roomsRequired;
+  const isCommercialListing = isCommercialListingType(form.listing_type);
+  const isNonRoomListing = isNonRoomListingType(form.listing_type);
   const [aiLoading, setAiLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -139,6 +147,17 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
         : [],
       rent_period: isSaleListing ? null : form.rent_period ?? "monthly",
     };
+    if (isCommercialListing) {
+      payload.bedrooms = 0;
+    } else if (isNonRoomListing) {
+      payload.bedrooms = 0;
+      payload.bathrooms = 0;
+      payload.commercial_layout_type = null;
+      payload.enclosed_rooms = null;
+    } else {
+      payload.commercial_layout_type = null;
+      payload.enclosed_rooms = null;
+    }
     startTransition(async () => {
       if (onSubmit) {
         await onSubmit(payload);
@@ -389,30 +408,82 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
           </div>
         </div>
         <div className="grid grid-cols-3 gap-3">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Bedrooms</label>
-            <Input
-              type="number"
-              min={0}
-              value={form.bedrooms ?? 0}
-              onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
-            />
-            {showRoomOptionalHint && (
-              <p className="text-xs text-slate-500">Commercial spaces can use 0 bedrooms.</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Bathrooms</label>
-            <Input
-              type="number"
-              min={0}
-              value={form.bathrooms ?? 0}
-              onChange={(e) => handleChange("bathrooms", Number(e.target.value))}
-            />
-            {showRoomOptionalHint && (
-              <p className="text-xs text-slate-500">Use 0 if not applicable.</p>
-            )}
-          </div>
+          {roomsRequired ? (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Bedrooms</label>
+              <Input
+                type="number"
+                min={0}
+                value={form.bedrooms ?? 0}
+                onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
+              />
+              <p className="text-xs text-slate-500">
+                Bedrooms remain the main room count for residential listings.
+              </p>
+            </div>
+          ) : isCommercialListing ? (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Layout type</label>
+                <Select
+                  value={form.commercial_layout_type ?? ""}
+                  onChange={(e) => handleChange("commercial_layout_type", e.target.value || null)}
+                >
+                  <option value="">Select layout</option>
+                  {COMMERCIAL_LAYOUT_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+                <p className="text-xs text-slate-500">
+                  Describe the commercial layout instead of forcing a bedroom count.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Enclosed rooms</label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.enclosed_rooms ?? 0}
+                  onChange={(e) => handleChange("enclosed_rooms", Number(e.target.value))}
+                />
+                <p className="text-xs text-slate-500">
+                  Use 0 for open-plan offices or shop floors with no enclosed rooms.
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Space model</label>
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                Room counts are hidden for this listing type.
+              </div>
+            </div>
+          )}
+          {!isNonRoomListing ? (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Bathrooms</label>
+              <Input
+                type="number"
+                min={0}
+                value={form.bathrooms ?? 0}
+                onChange={(e) => handleChange("bathrooms", Number(e.target.value))}
+              />
+              {isCommercialListing && (
+                <p className="text-xs text-slate-500">
+                  Bathrooms stay independent for commercial listings.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Bathrooms</label>
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                Bathrooms are not required for land listings.
+              </div>
+            </div>
+          )}
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Max guests</label>
             <Input

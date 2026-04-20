@@ -49,7 +49,12 @@ import {
 import { setToastQuery } from "@/lib/utils/toast";
 import { labelForField } from "@/lib/forms/listing-errors";
 import { hasPinnedLocation } from "@/lib/properties/validation";
-import { requiresRooms } from "@/lib/properties/listing-types";
+import { COMMERCIAL_LAYOUT_TYPE_OPTIONS } from "@/lib/properties/commercial-space";
+import {
+  isCommercialListingType,
+  isNonRoomListingType,
+  requiresRooms,
+} from "@/lib/properties/listing-types";
 import { LOCATION_MICROCOPY } from "@/lib/location-microcopy";
 import { computeLocationQuality } from "@/lib/properties/location-quality";
 import { sanitizePostalCode } from "@/lib/geocode/normalize-location";
@@ -232,6 +237,8 @@ const STEP_FIELDS: Record<(typeof steps)[number]["id"], Array<keyof FormState | 
     "currency",
     "bedrooms",
     "bathrooms",
+    "commercial_layout_type",
+    "enclosed_rooms",
   ],
   details: [
     "listing_type",
@@ -691,6 +698,8 @@ export function PropertyStepper({
     listing_type: initialData?.listing_type ?? null,
     bedrooms: initialData?.bedrooms ?? 0,
     bathrooms: initialData?.bathrooms ?? 0,
+    commercial_layout_type: initialData?.commercial_layout_type ?? null,
+    enclosed_rooms: initialData?.enclosed_rooms ?? 0,
     country: initialData?.country ?? null,
     country_code: initialData?.country_code ?? null,
     state_region: initialData?.state_region ?? null,
@@ -930,6 +939,9 @@ export function PropertyStepper({
       : form.price;
     const featuredMedia =
       videoPath && form.featured_media === "video" ? "video" : "image";
+    const residentialListing = requiresRooms(form.listing_type);
+    const commercialListing = isCommercialListingType(form.listing_type);
+    const nonRoomListing = isNonRoomListingType(form.listing_type);
 
     return {
       ...form,
@@ -958,6 +970,12 @@ export function PropertyStepper({
       size_value: sizeValue ?? undefined,
       size_unit: sizeValue ? form.size_unit ?? "sqm" : undefined,
       rent_period: saleIntent || shortletIntent ? null : form.rent_period ?? "monthly",
+      bedrooms: residentialListing ? form.bedrooms ?? 0 : 0,
+      commercial_layout_type: commercialListing
+        ? normalizeOptionalString(form.commercial_layout_type)
+        : null,
+      enclosed_rooms: commercialListing ? form.enclosed_rooms ?? 0 : null,
+      bathrooms: nonRoomListing ? 0 : form.bathrooms ?? 0,
       year_built:
         typeof form.year_built === "number" && Number.isFinite(form.year_built)
           ? form.year_built
@@ -1087,7 +1105,8 @@ export function PropertyStepper({
   ]);
   const isSaleListing = isSaleLikeIntent(form.listing_intent);
   const roomsRequired = requiresRooms(form.listing_type);
-  const showRoomOptionalHint = !!form.listing_type && !roomsRequired;
+  const isCommercialListing = isCommercialListingType(form.listing_type);
+  const isNonRoomListing = isNonRoomListingType(form.listing_type);
   const countryCtaMessage = useMemo(() => {
     if (!countryHint.key) return null;
     if (countryHint.countryCode === "GB") return LOCATION_MICROCOPY.cta.countryHint.uk;
@@ -2517,7 +2536,8 @@ export function PropertyStepper({
             "shortlet_nightly_price_minor",
             "currency",
             ...(roomsRequired ? ["bedrooms" as const] : []),
-            "bathrooms",
+            ...(isCommercialListing ? ["commercial_layout_type" as const] : []),
+            ...(!isNonRoomListing ? ["bathrooms" as const] : []),
           ]
         : [
             "title",
@@ -2527,7 +2547,8 @@ export function PropertyStepper({
             "price",
             "currency",
             ...(roomsRequired ? ["bedrooms" as const] : []),
-            "bathrooms",
+            ...(isCommercialListing ? ["commercial_layout_type" as const] : []),
+            ...(!isNonRoomListing ? ["bathrooms" as const] : []),
           ];
       const missing: Record<string, string> = {};
       required.forEach((key) => {
@@ -3924,48 +3945,130 @@ export function PropertyStepper({
 
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900">Capacity</h3>
-                  <p className="text-xs text-slate-500">
-                    Bedrooms, bathrooms, and guest limits.
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Capacity</h3>
+                <p className="text-xs text-slate-500">
+                    {roomsRequired
+                      ? "Bedrooms, bathrooms, and guest limits."
+                      : isCommercialListing
+                        ? "Commercial layout, enclosed rooms, bathrooms, and guest limits."
+                        : "Guest limits and any relevant room details."}
                   </p>
-                </div>
+              </div>
               </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2" id="field-bedrooms">
-                  <label htmlFor="bedrooms" className="text-sm font-medium text-slate-700">
-                    Bedrooms
-                  </label>
-                  <Input
-                    id="bedrooms"
-                    type="number"
-                    min={0}
-                    value={form.bedrooms ?? 0}
-                    onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
-                    className={fieldErrors.bedrooms ? "ring-2 ring-rose-400 border-rose-300" : ""}
-                  />
-                  {showRoomOptionalHint && (
-                    <p className="text-xs text-slate-500">Commercial spaces can use 0 bedrooms.</p>
-                  )}
-                  {renderFieldError("bedrooms")}
-                </div>
-                <div className="space-y-2" id="field-bathrooms">
-                  <label htmlFor="bathrooms" className="text-sm font-medium text-slate-700">
-                    Bathrooms
-                  </label>
-                  <Input
-                    id="bathrooms"
-                    type="number"
-                    min={0}
-                    value={form.bathrooms ?? 0}
-                    onChange={(e) => handleChange("bathrooms", Number(e.target.value))}
-                    className={fieldErrors.bathrooms ? "ring-2 ring-rose-400 border-rose-300" : ""}
-                  />
-                  {showRoomOptionalHint && (
-                    <p className="text-xs text-slate-500">Use 0 if not applicable.</p>
-                  )}
-                  {renderFieldError("bathrooms")}
-                </div>
+                {roomsRequired ? (
+                  <div className="space-y-2" id="field-bedrooms">
+                    <label htmlFor="bedrooms" className="text-sm font-medium text-slate-700">
+                      Bedrooms
+                    </label>
+                    <Input
+                      id="bedrooms"
+                      type="number"
+                      min={0}
+                      value={form.bedrooms ?? 0}
+                      onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
+                      className={fieldErrors.bedrooms ? "ring-2 ring-rose-400 border-rose-300" : ""}
+                    />
+                    <p className="text-xs text-slate-500">
+                      Bedrooms remain the main room count for residential listings.
+                    </p>
+                    {renderFieldError("bedrooms")}
+                  </div>
+                ) : isCommercialListing ? (
+                  <>
+                    <div className="space-y-2" id="field-commercial_layout_type">
+                      <label
+                        htmlFor="commercial-layout-type"
+                        className="text-sm font-medium text-slate-700"
+                      >
+                        Layout type
+                      </label>
+                      <Select
+                        id="commercial-layout-type"
+                        value={form.commercial_layout_type ?? ""}
+                        onChange={(e) =>
+                          handleChange("commercial_layout_type", e.target.value || null)
+                        }
+                        className={
+                          fieldErrors.commercial_layout_type
+                            ? "ring-2 ring-rose-400 border-rose-300"
+                            : ""
+                        }
+                      >
+                        <option value="">Select layout</option>
+                        {COMMERCIAL_LAYOUT_TYPE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </Select>
+                      <p className="text-xs text-slate-500">
+                        Describe the commercial layout instead of forcing a bedroom count.
+                      </p>
+                      {renderFieldError("commercial_layout_type")}
+                    </div>
+                    <div className="space-y-2" id="field-enclosed_rooms">
+                      <label
+                        htmlFor="enclosed-rooms"
+                        className="text-sm font-medium text-slate-700"
+                      >
+                        Enclosed rooms
+                      </label>
+                      <Input
+                        id="enclosed-rooms"
+                        type="number"
+                        min={0}
+                        value={form.enclosed_rooms ?? 0}
+                        onChange={(e) => handleChange("enclosed_rooms", Number(e.target.value))}
+                        className={
+                          fieldErrors.enclosed_rooms
+                            ? "ring-2 ring-rose-400 border-rose-300"
+                            : ""
+                        }
+                      />
+                      <p className="text-xs text-slate-500">
+                        Use 0 for open-plan offices or shop floors with no enclosed rooms.
+                      </p>
+                      {renderFieldError("enclosed_rooms")}
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Space model</label>
+                    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                      Room counts are hidden for this listing type.
+                    </div>
+                  </div>
+                )}
+                {!isNonRoomListing ? (
+                  <div className="space-y-2" id="field-bathrooms">
+                    <label htmlFor="bathrooms" className="text-sm font-medium text-slate-700">
+                      Bathrooms
+                    </label>
+                    <Input
+                      id="bathrooms"
+                      type="number"
+                      min={0}
+                      value={form.bathrooms ?? 0}
+                      onChange={(e) => handleChange("bathrooms", Number(e.target.value))}
+                      className={fieldErrors.bathrooms ? "ring-2 ring-rose-400 border-rose-300" : ""}
+                    />
+                    {isCommercialListing && (
+                      <p className="text-xs text-slate-500">
+                        Bathrooms stay independent for commercial listings.
+                      </p>
+                    )}
+                    {renderFieldError("bathrooms")}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Bathrooms</label>
+                    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                      Bathrooms are not required for land listings.
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <label htmlFor="max-guests" className="text-sm font-medium text-slate-700">
                     Max guests
@@ -4241,7 +4344,9 @@ export function PropertyStepper({
               <div className="space-y-1">
                 <h3 className="text-sm font-semibold text-slate-900">Size & age</h3>
                 <p className="text-xs text-slate-500">
-                  Optional sizing details for comparison.
+                  {isCommercialListing
+                    ? "Floor space matters more for offices and shops, so add size details when you have them."
+                    : "Optional sizing details for comparison."}
                 </p>
               </div>
               <div className="mt-4 grid gap-4 md:grid-cols-3">
