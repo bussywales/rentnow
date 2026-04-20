@@ -39,6 +39,37 @@ void test("property schema allows 0 rooms for any listing type", () => {
   assert.equal(apartmentResult.success, true, "expected residential listings to allow 0 rooms");
 });
 
+void test("property schema allows commercial listings without an explicit bedroom count", () => {
+  const result = propertySchema.safeParse({
+    title: "Commercial suite",
+    city: "Lagos",
+    rental_type: "long_term" as const,
+    listing_type: "office" as const,
+    price: 250000,
+    currency: "NGN",
+    bathrooms: 1,
+    furnished: false,
+  });
+
+  assert.equal(result.success, true, "expected commercial listings to omit bedrooms safely");
+});
+
+void test("property schema still requires bedrooms for residential listing types", () => {
+  const result = propertySchema.safeParse({
+    title: "Apartment listing",
+    city: "Lagos",
+    rental_type: "long_term" as const,
+    listing_type: "apartment" as const,
+    price: 250000,
+    currency: "NGN",
+    bathrooms: 1,
+    furnished: false,
+  });
+
+  assert.equal(result.success, false, "expected residential listings to keep bedroom validation");
+  assert.match(JSON.stringify(result.error.flatten().fieldErrors), /Bedrooms is required/);
+});
+
 void test("rent intent helpers reflect sale vs rent logic", () => {
   assert.equal(isSaleIntent("buy"), true);
   assert.equal(isRentIntent("buy"), false);

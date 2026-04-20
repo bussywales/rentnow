@@ -27,4 +27,20 @@ void test("property stepper validates per-step fields only", () => {
     contents.includes("hasFieldErrorsCurrent"),
     "expected current step error filtering"
   );
+  assert.ok(
+    contents.includes('...(roomsRequired ? ["bedrooms" as const] : [])'),
+    "expected bedroom requirement to follow listing type"
+  );
+  assert.ok(
+    contents.includes("bedrooms: initialData?.bedrooms ?? 0"),
+    "expected bedrooms to initialize to 0 when unset"
+  );
+  assert.ok(
+    contents.includes("bathrooms: initialData?.bathrooms ?? 0"),
+    "expected bathrooms to initialize to 0 when unset"
+  );
+  assert.ok(
+    contents.includes("Commercial spaces can use 0 bedrooms."),
+    "expected truthful commercial bedroom helper copy"
+  );
 });

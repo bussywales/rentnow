@@ -13,6 +13,7 @@ import { includeDemoListingsForViewer } from "@/lib/properties/demo";
 import { getDemoListingsVisibilityPolicy } from "@/lib/settings/demo";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
 import { normalizeCountryForCreate } from "@/lib/properties/country-normalize";
+import { requiresRooms } from "@/lib/properties/listing-types";
 import {
   BACKUP_POWER_TYPE_OPTIONS,
   FLOOD_RISK_DISCLOSURE_OPTIONS,
@@ -60,9 +61,7 @@ type ImageMetaPayload = Record<
     hero_storage_path?: string | null;
   }
 >;
-// Exported for tests to validate draft vs publish payloads.
-export const propertySchema = z
-  .object({
+const propertySchemaBase = z.object({
   title: z.string().min(3),
   description: z.string().optional().nullable(),
   city: z.string().min(2),
@@ -104,7 +103,7 @@ export const propertySchema = z
   shortlet_nightly_price_minor: z.number().int().positive().optional().nullable(),
   shortlet_booking_mode: z.enum(["instant", "request"]).optional().nullable(),
   rent_period: z.enum(["monthly", "yearly"]).optional().nullable(),
-  bedrooms: z.number().int().nonnegative(),
+  bedrooms: z.number().int().nonnegative().optional(),
   bathrooms: z.number().int().nonnegative(),
   bathroom_type: z.enum(["private", "shared"]).optional().nullable(),
   furnished: z.boolean(),
@@ -195,6 +194,17 @@ export const propertySchema = z
         .optional()
     ),
   });
+
+// Exported for tests to validate draft vs publish payloads.
+export const propertySchema = propertySchemaBase.superRefine((data, ctx) => {
+  if (requiresRooms(data.listing_type ?? null) && typeof data.bedrooms === "undefined") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["bedrooms"],
+      message: "Bedrooms is required",
+    });
+  }
+});
 
 export async function POST(request: Request) {
   const startTime = Date.now();

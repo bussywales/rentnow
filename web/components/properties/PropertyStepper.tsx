@@ -689,6 +689,8 @@ export function PropertyStepper({
   const [form, setForm] = useState<FormState>({
     listing_intent: initialListingIntent,
     listing_type: initialData?.listing_type ?? null,
+    bedrooms: initialData?.bedrooms ?? 0,
+    bathrooms: initialData?.bathrooms ?? 0,
     country: initialData?.country ?? null,
     country_code: initialData?.country_code ?? null,
     state_region: initialData?.state_region ?? null,
@@ -2514,7 +2516,7 @@ export function PropertyStepper({
             "listing_intent",
             "shortlet_nightly_price_minor",
             "currency",
-            "bedrooms",
+            ...(roomsRequired ? ["bedrooms" as const] : []),
             "bathrooms",
           ]
         : [
@@ -2524,7 +2526,7 @@ export function PropertyStepper({
             "listing_intent",
             "price",
             "currency",
-            "bedrooms",
+            ...(roomsRequired ? ["bedrooms" as const] : []),
             "bathrooms",
           ];
       const missing: Record<string, string> = {};
@@ -3943,7 +3945,7 @@ export function PropertyStepper({
                     className={fieldErrors.bedrooms ? "ring-2 ring-rose-400 border-rose-300" : ""}
                   />
                   {showRoomOptionalHint && (
-                    <p className="text-xs text-slate-500">Use 0 if not applicable.</p>
+                    <p className="text-xs text-slate-500">Commercial spaces can use 0 bedrooms.</p>
                   )}
                   {renderFieldError("bedrooms")}
                 </div>

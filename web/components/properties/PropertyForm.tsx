@@ -49,6 +49,8 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
     rental_type: "long_term",
     listing_intent: "rent",
     currency: "USD",
+    bedrooms: initialData?.bedrooms ?? 0,
+    bathrooms: initialData?.bathrooms ?? 0,
     is_demo: initialData?.is_demo ?? false,
     amenitiesText: initialData?.amenities?.join(", ") ?? "",
     ...initialData,
@@ -396,7 +398,7 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
               onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
             />
             {showRoomOptionalHint && (
-              <p className="text-xs text-slate-500">Use 0 if not applicable.</p>
+              <p className="text-xs text-slate-500">Commercial spaces can use 0 bedrooms.</p>
             )}
           </div>
           <div className="space-y-2">

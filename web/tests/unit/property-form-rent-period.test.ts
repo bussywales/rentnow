@@ -32,6 +32,18 @@ void test("property form defaults rent period to monthly", () => {
     contents.includes("How often is rent paid?"),
     "expected rent period helper text in PropertyForm"
   );
+  assert.ok(
+    contents.includes("bedrooms: initialData?.bedrooms ?? 0"),
+    "expected bedrooms to initialize to 0 in PropertyForm"
+  );
+  assert.ok(
+    contents.includes("bathrooms: initialData?.bathrooms ?? 0"),
+    "expected bathrooms to initialize to 0 in PropertyForm"
+  );
+  assert.ok(
+    contents.includes("Commercial spaces can use 0 bedrooms."),
+    "expected truthful commercial bedroom helper text in PropertyForm"
+  );
 });
 
 void test("property stepper defaults rent period to monthly", () => {
