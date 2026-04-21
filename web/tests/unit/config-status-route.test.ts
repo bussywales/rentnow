@@ -67,5 +67,8 @@ test("config status exposes schema readiness details for admins", async () => {
   assert.equal(body.flags.enable_location_picker, true);
   assert.equal(body.schema.ready, false);
   assert.deepEqual(body.schema.missingColumns, ["properties.commercial_layout_type"]);
+  assert.equal(typeof body.env.sentryServerConfigured, "boolean");
+  assert.equal(typeof body.env.sentryClientConfigured, "boolean");
+  assert.equal(typeof body.env.sentryReleaseConfigured, "boolean");
   assert.equal(typeof body.env.commitSha === "string" || body.env.commitSha === null, true);
 });

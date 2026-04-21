@@ -6,6 +6,8 @@ import { dispatchSavedSearchAlerts } from "@/lib/alerts/tenant-alerts";
 import { getUserRole, requireOwnership, requireUser } from "@/lib/authz";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
+import { captureServerException } from "@/lib/monitoring/sentry";
+import { sanitizeUserFacingErrorMessage } from "@/lib/observability/user-facing-errors";
 import { getListingAccessResult } from "@/lib/role-access";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { computeExpiryAt } from "@/lib/properties/expiry";
@@ -29,6 +31,7 @@ import {
 export const dynamic = "force-dynamic";
 
 const routeLabel = "/api/properties/[id]/status";
+const LISTING_STATUS_ERROR = "We couldn’t update this listing right now. Try again in a moment.";
 
 type ListingStatusRow = {
   id: string;
@@ -141,13 +144,36 @@ export async function postPropertyStatusResponse(
     .eq("id", propertyId)
     .maybeSingle<ListingStatusRow>();
 
-  if (fetchError || !listing) {
+  if (fetchError) {
+    deps.logFailure({
+      request,
+      route: routeLabel,
+      status: 500,
+      startTime,
+      error: fetchError,
+    });
+    captureServerException(fetchError, {
+      route: routeLabel,
+      request,
+      status: 500,
+      userId: auth.user.id,
+      userRole: role,
+      listingId: propertyId,
+      tags: {
+        flow: "listing_status",
+        stage: "listing_lookup",
+      },
+    });
+    return NextResponse.json({ error: LISTING_STATUS_ERROR }, { status: 500 });
+  }
+
+  if (!listing) {
     deps.logFailure({
       request,
       route: routeLabel,
       status: 404,
       startTime,
-      error: fetchError || "Listing not found",
+      error: "Listing not found",
     });
     return NextResponse.json({ error: "Listing not found" }, { status: 404 });
   }
@@ -242,7 +268,29 @@ export async function postPropertyStatusResponse(
     });
     if (!activeLimit.ok) {
       if (activeLimit.usage.error) {
-        return NextResponse.json({ error: activeLimit.usage.error }, { status: 500 });
+        deps.logFailure({
+          request,
+          route: routeLabel,
+          status: 500,
+          startTime,
+          error: new Error(activeLimit.usage.error),
+        });
+        captureServerException(new Error(activeLimit.usage.error), {
+          route: routeLabel,
+          request,
+          status: 500,
+          userId: auth.user.id,
+          userRole: role,
+          listingId: propertyId,
+          tags: {
+            flow: "listing_status",
+            stage: "active_limit_lookup",
+          },
+          extra: {
+            ownerId: listing.owner_id,
+          },
+        });
+        return NextResponse.json({ error: LISTING_STATUS_ERROR }, { status: 500 });
       }
       logPlanLimitHit({
         request,
@@ -323,8 +371,31 @@ export async function postPropertyStatusResponse(
       );
     }
     if (!entitlement.ok) {
+      const technicalError = entitlement.error || "listing_status_entitlement_server_error";
+      deps.logFailure({
+        request,
+        route: routeLabel,
+        status: 500,
+        startTime,
+        error: new Error(technicalError),
+      });
+      captureServerException(new Error(technicalError), {
+        route: routeLabel,
+        request,
+        status: 500,
+        userId: auth.user.id,
+        userRole: role,
+        listingId: propertyId,
+        tags: {
+          flow: "listing_status",
+          stage: "publish_entitlement",
+        },
+        extra: {
+          ownerId: listing.owner_id,
+        },
+      });
       return NextResponse.json(
-        { error: entitlement.error || "Unable to verify listing entitlement." },
+        { error: LISTING_STATUS_ERROR },
         { status: 500 }
       );
     }
@@ -368,11 +439,28 @@ export async function postPropertyStatusResponse(
     deps.logFailure({
       request,
       route: routeLabel,
-      status: 400,
+      status: 500,
       startTime,
       error: new Error(updateError.message),
     });
-    return NextResponse.json({ error: updateError.message }, { status: 400 });
+    captureServerException(updateError, {
+      route: routeLabel,
+      request,
+      status: 500,
+      userId: auth.user.id,
+      userRole: role,
+      listingId: propertyId,
+      tags: {
+        flow: "listing_status",
+        stage: "property_update",
+      },
+    });
+    return NextResponse.json(
+      {
+        error: sanitizeUserFacingErrorMessage(updateError.message, LISTING_STATUS_ERROR),
+      },
+      { status: 500 }
+    );
   }
 
   if (willActivate && updated?.is_active && updated?.is_approved) {

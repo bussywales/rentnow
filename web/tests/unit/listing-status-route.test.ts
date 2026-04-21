@@ -341,6 +341,61 @@ void test("tenant cannot update listing status", async () => {
   assert.equal(res.status, 403);
 });
 
+void test("reactivate keeps entitlement server errors user-safe", async () => {
+  const capture = { updatePayload: null as Record<string, unknown> | null };
+  const listing: ListingRow = {
+    id: "prop1",
+    owner_id: "owner",
+    status: "paused_owner",
+    is_active: false,
+    is_approved: true,
+    latitude: 1,
+    longitude: 2,
+  };
+
+  const supabase = buildSupabaseStub(listing, capture) as ReturnType<
+    ListingStatusDeps["createServerSupabaseClient"]
+  >;
+  const deps: ListingStatusDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => true,
+    createServerSupabaseClient: async () => supabase,
+    createServiceRoleClient: () =>
+      (supabase as unknown as ReturnType<ListingStatusDeps["createServiceRoleClient"]>),
+    requireUser: async () =>
+      ({
+        ok: true,
+        user: { id: "owner" } as User,
+        supabase,
+      }) as Awaited<ReturnType<ListingStatusDeps["requireUser"]>>,
+    getUserRole: async () => "landlord",
+    getListingAccessResult: () => ({ ok: true }),
+    hasActiveDelegation: async () => false,
+    getAppSettingBool: async () => false,
+    getListingExpiryDays: async () => 30,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => ({
+      ok: false,
+      reason: 'Could not find the "listing_credit_consumptions" table in the schema cache',
+    }),
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
+    dispatchSavedSearchAlerts: async () => ({ ok: true }),
+    logFailure: () => undefined,
+  };
+
+  const res = await postPropertyStatusResponse(makeRequest({ status: "live" }), "prop1", deps);
+  assert.equal(res.status, 500);
+  const body = await res.json();
+  assert.equal(body.error, "We couldn’t update this listing right now. Try again in a moment.");
+  assert.equal(capture.updatePayload, null);
+});
+
 void test("reactivation returns payment required when no listing entitlement exists", async () => {
   const capture = { updatePayload: null as Record<string, unknown> | null };
   const listing: ListingRow = {

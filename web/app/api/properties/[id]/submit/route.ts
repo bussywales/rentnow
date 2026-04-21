@@ -34,10 +34,13 @@ import {
   buildActiveListingLimitRecoveryPayload,
   enforceActiveListingLimit,
 } from "@/lib/plan-enforcement";
+import { sanitizeUserFacingErrorMessage } from "@/lib/observability/user-facing-errors";
+import { captureServerException } from "@/lib/monitoring/sentry";
 
 export const dynamic = "force-dynamic";
 
 const routeLabel = "/api/properties/[id]/submit";
+const SUBMIT_LISTING_ERROR = "We couldn’t submit this listing right now. Try again in a moment.";
 
 const bodySchema = z
   .object({
@@ -154,13 +157,39 @@ export async function postPropertySubmitResponse(
     .eq("id", propertyId)
     .maybeSingle<ListingRow>();
 
-  if (listingError || !listing) {
+  if (listingError) {
+    deps.logFailure({
+      request,
+      route: routeLabel,
+      status: 500,
+      startTime,
+      error: listingError,
+    });
+    captureServerException(listingError, {
+      route: routeLabel,
+      request,
+      status: 500,
+      userId: auth.user.id,
+      userRole: role,
+      listingId: propertyId,
+      tags: {
+        flow: "listing_submit",
+        stage: "listing_lookup",
+      },
+    });
+    return NextResponse.json(
+      { error: SUBMIT_LISTING_ERROR, code: "SERVER_ERROR" },
+      { status: 500 }
+    );
+  }
+
+  if (!listing) {
     deps.logFailure({
       request,
       route: routeLabel,
       status: 404,
       startTime,
-      error: listingError || "Listing not found",
+      error: "Listing not found",
     });
     return NextResponse.json({ error: "Listing not found", code: "LISTING_NOT_FOUND" }, { status: 404 });
   }
@@ -313,7 +342,22 @@ export async function postPropertySubmitResponse(
           startTime,
           error: new Error(activeLimit.usage.error),
         });
-        return NextResponse.json({ error: activeLimit.usage.error }, { status: 500 });
+        captureServerException(new Error(activeLimit.usage.error), {
+          route: routeLabel,
+          request,
+          status: 500,
+          userId: auth.user.id,
+          userRole: role,
+          listingId: propertyId,
+          tags: {
+            flow: "listing_submit",
+            stage: "active_limit_lookup",
+          },
+          extra: {
+            ownerId,
+          },
+        });
+        return NextResponse.json({ error: SUBMIT_LISTING_ERROR }, { status: 500 });
       }
       logPlanLimitHit({
         request,
@@ -401,8 +445,32 @@ export async function postPropertySubmitResponse(
     }
 
     if (!entitlement.ok) {
+      const technicalError = entitlement.error || "listing_submit_entitlement_server_error";
+      deps.logFailure({
+        request,
+        route: routeLabel,
+        status: 500,
+        startTime,
+        error: new Error(technicalError),
+      });
+      captureServerException(new Error(technicalError), {
+        route: routeLabel,
+        request,
+        status: 500,
+        userId: auth.user.id,
+        userRole: role,
+        listingId: propertyId,
+        tags: {
+          flow: "listing_submit",
+          stage: "publish_entitlement",
+        },
+        extra: {
+          ownerId,
+          context: monetizationContext,
+        },
+      });
       return NextResponse.json(
-        { error: entitlement.error || "Unable to verify listing entitlement.", code: "SERVER_ERROR" },
+        { error: SUBMIT_LISTING_ERROR, code: "SERVER_ERROR" },
         { status: 500 }
       );
     }
@@ -461,8 +529,23 @@ export async function postPropertySubmitResponse(
       startTime,
       error: updateError,
     });
+    captureServerException(updateError, {
+      route: routeLabel,
+      request,
+      status: 500,
+      userId: auth.user.id,
+      userRole: role,
+      listingId: propertyId,
+      tags: {
+        flow: "listing_submit",
+        stage: "property_update",
+      },
+    });
     return NextResponse.json(
-      { error: "Unable to submit listing", code: "SUBMIT_FAILED" },
+      {
+        error: sanitizeUserFacingErrorMessage(updateError.message, SUBMIT_LISTING_ERROR),
+        code: "SUBMIT_FAILED",
+      },
       { status: 500 }
     );
   }

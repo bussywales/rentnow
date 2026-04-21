@@ -246,3 +246,53 @@ void test("renew blocks when active listing limit is already reached", async () 
   assert.equal(consumedAttempted, false);
   assert.equal(capture.updatePayload, null);
 });
+
+void test("renew keeps entitlement server errors user-safe", async () => {
+  const capture = { updatePayload: null as Record<string, unknown> | null };
+  const supabase = buildSupabaseStub(
+    {
+      id: "prop1",
+      owner_id: "owner",
+      status: "expired",
+      expires_at: "2026-04-01T00:00:00.000Z",
+    },
+    capture
+  );
+
+  const deps: RenewDeps = {
+    hasServerSupabaseEnv: () => true,
+    createServerSupabaseClient: async () => supabase,
+    requireUser: async () =>
+      ({
+        ok: true,
+        user: { id: "owner" } as User,
+        supabase,
+      }) as Awaited<ReturnType<RenewDeps["requireUser"]>>,
+    getUserRole: async () => "landlord",
+    getListingAccessResult: () => ({ ok: true }),
+    hasActiveDelegation: async () => false,
+    hasServiceRoleEnv: () => true,
+    createServiceRoleClient: () =>
+      (supabase as unknown as ReturnType<RenewDeps["createServiceRoleClient"]>),
+    getListingExpiryDays: async () => 90,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => ({
+      ok: false,
+      reason: 'Could not find the "listing_credit_consumptions" table in the schema cache',
+    }),
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
+    logFailure: () => undefined,
+  };
+
+  const res = await postPropertyRenewResponse(makeRequest(), "prop1", deps);
+  assert.equal(res.status, 500);
+  const body = await res.json();
+  assert.equal(body.error, "We couldn’t renew this listing right now. Try again in a moment.");
+  assert.equal(capture.updatePayload, null);
+});

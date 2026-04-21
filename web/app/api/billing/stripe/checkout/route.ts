@@ -7,6 +7,7 @@ import { getStripeClient, getStripeConfigForMode } from "@/lib/billing/stripe";
 import { getSiteUrl } from "@/lib/env";
 import { logFailure, logStripeCheckoutStarted } from "@/lib/observability";
 import { sanitizeUserFacingErrorMessage } from "@/lib/observability/user-facing-errors";
+import { captureServerException } from "@/lib/monitoring/sentry";
 import { getMarketSettings } from "@/lib/market/market.server";
 import { resolveMarketFromRequest } from "@/lib/market/market";
 import { resolveSubscriptionPlanQuote } from "@/lib/billing/subscription-pricing";
@@ -167,6 +168,17 @@ export async function postStripeCheckoutResponse(
         startTime,
         error,
       });
+      captureServerException(error, {
+        route: routeLabel,
+        request,
+        status: 500,
+        userId: auth.user.id,
+        userRole: auth.role,
+        tags: {
+          flow: "stripe_checkout",
+          stage: "profile_plan_lookup",
+        },
+      });
       return NextResponse.json({ error: CHECKOUT_START_ERROR }, { status: 500 });
     }
 
@@ -257,6 +269,22 @@ export async function postStripeCheckoutResponse(
     });
 
     if (!session.url) {
+      captureServerException(new Error("stripe_checkout_url_missing"), {
+        route: routeLabel,
+        request,
+        status: 502,
+        userId: auth.user.id,
+        userRole: auth.role,
+        tags: {
+          flow: "stripe_checkout",
+          stage: "session_url_missing",
+        },
+        extra: {
+          tier: payload.tier,
+          cadence: payload.cadence,
+          market: market.country,
+        },
+      });
       return NextResponse.json({ error: "Stripe did not return a checkout URL" }, { status: 502 });
     }
 
@@ -268,6 +296,15 @@ export async function postStripeCheckoutResponse(
       status: 500,
       startTime,
       error,
+    });
+    captureServerException(error, {
+      route: routeLabel,
+      request,
+      status: 500,
+      tags: {
+        flow: "stripe_checkout",
+        stage: "unhandled_exception",
+      },
     });
     return NextResponse.json(
       {

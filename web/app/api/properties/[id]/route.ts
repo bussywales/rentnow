@@ -37,6 +37,7 @@ import { sanitizeImageMeta } from "@/lib/properties/image-meta";
 import { mapPropertyPersistenceError } from "@/lib/properties/persistence-errors";
 import { sanitizeExifMeta } from "@/lib/properties/image-exif";
 import { sanitizeUserFacingErrorMessage } from "@/lib/observability/user-facing-errors";
+import { captureServerException } from "@/lib/monitoring/sentry";
 import {
   getDedupeWindowStart,
   isPrefetchRequest,
@@ -1057,6 +1058,15 @@ export async function PUT(
           startTime,
           error: new Error(usage.error),
         });
+        captureServerException(new Error(usage.error), {
+          request,
+          route: routeLabel,
+          status: 500,
+          userId: auth.user.id,
+          userRole: role,
+          listingId: id,
+          extra: { flow: "listing_update", stage: "plan_usage_lookup" },
+        });
         return NextResponse.json({ error: LISTING_LIMIT_CHECK_ERROR }, { status: 500 });
       }
       if (usage.activeCount >= usage.plan.maxListings) {
@@ -1159,6 +1169,15 @@ export async function PUT(
           startTime,
           error: new Error(settingsError.message || "shortlet_settings_upsert_failed"),
         });
+        captureServerException(new Error(settingsError.message || "shortlet_settings_upsert_failed"), {
+          request,
+          route: routeLabel,
+          status: 500,
+          userId: auth.user.id,
+          userRole: role,
+          listingId: id,
+          extra: { flow: "listing_update", stage: "shortlet_settings_upsert" },
+        });
         return NextResponse.json(
           { error: SHORTLET_SETTINGS_SAVE_ERROR },
           { status: 500 }
@@ -1218,6 +1237,13 @@ export async function PUT(
       status: 500,
       startTime,
       error,
+    });
+    captureServerException(error, {
+      request,
+      route: routeLabel,
+      status: 500,
+      listingId: id,
+      extra: { flow: "listing_update", stage: "unhandled_exception" },
     });
     return NextResponse.json({ error: message }, { status: 500 });
   }

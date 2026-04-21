@@ -31,6 +31,12 @@ function resolveCommitSha() {
   );
 }
 
+type DeepHealthReasonCode =
+  | "SUPABASE_ENV_MISSING"
+  | "SUPABASE_QUERY_FAILED"
+  | "SCHEMA_COLUMNS_MISSING"
+  | "SCHEMA_READINESS_QUERY_FAILED";
+
 export async function getDeepHealthResponse(
   request: Request,
   deps: DeepHealthDeps = defaultDeps
@@ -53,6 +59,7 @@ export async function getDeepHealthResponse(
         latencyMs: 0,
         supabaseReachable: false,
         schemaReady: false,
+        reasonCode: "SUPABASE_ENV_MISSING" satisfies DeepHealthReasonCode,
         errorReason: "Supabase env vars missing",
         commit,
       },
@@ -83,6 +90,7 @@ export async function getDeepHealthResponse(
           latencyMs,
           supabaseReachable: false,
           schemaReady: false,
+          reasonCode: "SUPABASE_QUERY_FAILED" satisfies DeepHealthReasonCode,
           errorReason: "Supabase query failed",
           commit,
         },
@@ -110,6 +118,9 @@ export async function getDeepHealthResponse(
           latencyMs,
           supabaseReachable: true,
           schemaReady: false,
+          reasonCode: (schema.queryError
+            ? "SCHEMA_READINESS_QUERY_FAILED"
+            : "SCHEMA_COLUMNS_MISSING") satisfies DeepHealthReasonCode,
           errorReason: schema.queryError
             ? "Schema readiness check failed"
             : "Critical schema columns are missing",
@@ -127,6 +138,7 @@ export async function getDeepHealthResponse(
       latencyMs,
       supabaseReachable: true,
       schemaReady: true,
+      reasonCode: null,
       checkedCount: schema.checkedCount,
       checkedAt: schema.checkedAt,
       commit,
@@ -145,6 +157,7 @@ export async function getDeepHealthResponse(
         latencyMs: 0,
         supabaseReachable: false,
         schemaReady: false,
+        reasonCode: "SUPABASE_QUERY_FAILED" satisfies DeepHealthReasonCode,
         errorReason: "Supabase query failed",
         commit,
       },

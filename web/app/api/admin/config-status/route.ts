@@ -66,6 +66,13 @@ export async function getConfigStatusResponse(deps: ConfigStatusDeps = defaultDe
     env: {
       mapboxServerConfigured: !!process.env.MAPBOX_TOKEN,
       mapboxClientConfigured: !!process.env.NEXT_PUBLIC_MAPBOX_TOKEN,
+      sentryServerConfigured: !!process.env.SENTRY_DSN,
+      sentryClientConfigured: !!process.env.NEXT_PUBLIC_SENTRY_DSN,
+      sentryReleaseConfigured:
+        !!process.env.SENTRY_RELEASE ||
+        !!process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
+        !!process.env.VERCEL_GIT_COMMIT_SHA ||
+        !!process.env.COMMIT_SHA,
       commitSha: env.commitSha,
     },
     schema: {

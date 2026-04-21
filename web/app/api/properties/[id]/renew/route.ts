@@ -19,9 +19,12 @@ import {
   buildActiveListingLimitRecoveryPayload,
   enforceActiveListingLimit,
 } from "@/lib/plan-enforcement";
-import { logPlanLimitHit } from "@/lib/observability";
+import { logFailure, logPlanLimitHit } from "@/lib/observability";
+import { captureServerException } from "@/lib/monitoring/sentry";
 
 export const dynamic = "force-dynamic";
+const routeLabel = "/api/properties/[id]/renew";
+const RENEW_LISTING_ERROR = "We couldn’t renew this listing right now. Try again in a moment.";
 
 export type RenewDeps = {
   hasServerSupabaseEnv: typeof hasServerSupabaseEnv;
@@ -36,6 +39,7 @@ export type RenewDeps = {
   getPaygConfig: typeof getPaygConfig;
   consumeListingCredit: typeof consumeListingCredit;
   issueTrialCreditsIfEligible: typeof issueTrialCreditsIfEligible;
+  logFailure: typeof logFailure;
 };
 
 const defaultDeps: RenewDeps = {
@@ -51,6 +55,7 @@ const defaultDeps: RenewDeps = {
   getPaygConfig,
   consumeListingCredit,
   issueTrialCreditsIfEligible,
+  logFailure,
 };
 
 export async function postPropertyRenewResponse(
@@ -67,7 +72,7 @@ export async function postPropertyRenewResponse(
   const supabase = await deps.createServerSupabaseClient();
   const auth = await deps.requireUser({
     request,
-    route: `/api/properties/${id}/renew`,
+    route: routeLabel,
     startTime,
     supabase,
   });
@@ -92,11 +97,34 @@ export async function postPropertyRenewResponse(
     ownerId = actingAs;
   }
 
-  const { data: property } = await supabase
+  const { data: property, error: propertyError } = await supabase
     .from("properties")
     .select("id, owner_id, status, expires_at")
     .eq("id", id)
     .maybeSingle();
+
+  if (propertyError) {
+    deps.logFailure({
+      request,
+      route: routeLabel,
+      status: 500,
+      startTime,
+      error: propertyError,
+    });
+    captureServerException(propertyError, {
+      route: routeLabel,
+      request,
+      status: 500,
+      userId: auth.user.id,
+      userRole: role,
+      listingId: id,
+      tags: {
+        flow: "listing_renew",
+        stage: "listing_lookup",
+      },
+    });
+    return NextResponse.json({ error: RENEW_LISTING_ERROR }, { status: 500 });
+  }
 
   if (!property) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -123,11 +151,33 @@ export async function postPropertyRenewResponse(
     });
     if (!activeLimit.ok) {
       if (activeLimit.usage.error) {
-        return NextResponse.json({ error: activeLimit.usage.error }, { status: 500 });
+        deps.logFailure({
+          request,
+          route: routeLabel,
+          status: 500,
+          startTime,
+          error: new Error(activeLimit.usage.error),
+        });
+        captureServerException(new Error(activeLimit.usage.error), {
+          route: routeLabel,
+          request,
+          status: 500,
+          userId: auth.user.id,
+          userRole: role,
+          listingId: id,
+          tags: {
+            flow: "listing_renew",
+            stage: "active_limit_lookup",
+          },
+          extra: {
+            ownerId: property.owner_id,
+          },
+        });
+        return NextResponse.json({ error: RENEW_LISTING_ERROR }, { status: 500 });
       }
       logPlanLimitHit({
         request,
-        route: `/api/properties/${id}/renew`,
+        route: routeLabel,
         actorId: auth.user.id,
         ownerId: property.owner_id,
         propertyId: id,
@@ -203,8 +253,31 @@ export async function postPropertyRenewResponse(
       );
     }
     if (!entitlement.ok) {
+      const technicalError = entitlement.error || "listing_renew_entitlement_server_error";
+      deps.logFailure({
+        request,
+        route: routeLabel,
+        status: 500,
+        startTime,
+        error: new Error(technicalError),
+      });
+      captureServerException(new Error(technicalError), {
+        route: routeLabel,
+        request,
+        status: 500,
+        userId: auth.user.id,
+        userRole: role,
+        listingId: id,
+        tags: {
+          flow: "listing_renew",
+          stage: "publish_entitlement",
+        },
+        extra: {
+          ownerId: property.owner_id,
+        },
+      });
       return NextResponse.json(
-        { error: entitlement.error || "Unable to verify listing entitlement." },
+        { error: RENEW_LISTING_ERROR },
         { status: 500 }
       );
     }
@@ -215,7 +288,26 @@ export async function postPropertyRenewResponse(
   const { error } = await supabase.from("properties").update(updates).eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: "Unable to renew" }, { status: 500 });
+    deps.logFailure({
+      request,
+      route: routeLabel,
+      status: 500,
+      startTime,
+      error,
+    });
+    captureServerException(error, {
+      route: routeLabel,
+      request,
+      status: 500,
+      userId: auth.user.id,
+      userRole: role,
+      listingId: id,
+      tags: {
+        flow: "listing_renew",
+        stage: "property_update",
+      },
+    });
+    return NextResponse.json({ error: RENEW_LISTING_ERROR }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, status: "live" });

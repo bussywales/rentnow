@@ -34,6 +34,7 @@
     "test:e2e:cleanup": "node scripts/cleanup-playwright.mjs"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.49.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.86.0",
     "@types/leaflet.markercluster": "^1.5.6",

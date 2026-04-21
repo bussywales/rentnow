@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { captureClientBoundaryException } from "@/lib/monitoring/sentry";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 
@@ -14,6 +15,18 @@ export default function GlobalError({ error, reset }: Props) {
   const pathname = usePathname();
 
   useEffect(() => {
+    captureClientBoundaryException(error, {
+      route: pathname || "/_error",
+      digest: error.digest || null,
+      pathname: pathname || null,
+      href: typeof window !== "undefined" ? window.location.href : null,
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+      extra: {
+        source: "app_error_boundary",
+      },
+      fingerprint: error.digest ? ["next-app-error", error.digest] : undefined,
+    });
+
     const payload = JSON.stringify({
       digest: error.digest,
       message: error.message || "Unhandled app error",

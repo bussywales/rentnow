@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 process.env.BROWSERSLIST_IGNORE_OLD_DATA ??= "true";
 process.env.BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA ??= "true";
@@ -66,4 +67,19 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  telemetry: false,
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
+  release: {
+    name:
+      process.env.SENTRY_RELEASE ||
+      process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      process.env.COMMIT_SHA,
+    create: Boolean(process.env.SENTRY_AUTH_TOKEN),
+    finalize: Boolean(process.env.SENTRY_AUTH_TOKEN),
+  },
+});

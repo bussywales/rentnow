@@ -224,6 +224,66 @@ void test("submit returns payment required when no credits", async () => {
   assert.match(String(json.resumeUrl ?? ""), /monetization=payment_required/);
 });
 
+void test("submit keeps entitlement server errors user-safe", async () => {
+  const listing: ListingRow = {
+    id: "prop1",
+    owner_id: "owner",
+    status: "draft",
+    submitted_at: null,
+  };
+  const { supabase } = buildSupabaseStub(listing);
+  const typedSupabase = supabase as ReturnType<
+    ListingSubmitDeps["createServerSupabaseClient"]
+  >;
+
+  const deps: ListingSubmitDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => true,
+    createServerSupabaseClient: async () => typedSupabase,
+    createServiceRoleClient: () =>
+      typedSupabase as ReturnType<ListingSubmitDeps["createServiceRoleClient"]>,
+    requireUser: async () =>
+      ({
+        ok: true,
+        user: { id: "owner" } as User,
+        supabase: typedSupabase,
+      }) as Awaited<ReturnType<ListingSubmitDeps["requireUser"]>>,
+    getUserRole: async () => "landlord",
+    getListingAccessResult: () => ({ ok: true }),
+    hasActiveDelegation: async () => false,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => ({
+      ok: false,
+      reason: 'Could not find the "listing_credit_consumptions" table in the schema cache',
+    }),
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
+    getAppSettingBool: async () => false,
+    getListingExpiryDays: async () => 90,
+    requireLegalAcceptance: async () => ({ ok: true, status: {} }) as Awaited<
+      ReturnType<ListingSubmitDeps["requireLegalAcceptance"]>
+    >,
+    logPropertyEvent: async () => ({ ok: true, data: {} }),
+    resolveEventSessionKey: () => null,
+    logFailure: () => undefined,
+  };
+
+  const res = await postPropertySubmitResponse(
+    makeRequest({ idempotencyKey: "idem-submit-server-error" }),
+    "prop1",
+    deps
+  );
+  assert.equal(res.status, 500);
+  const body = await res.json();
+  assert.equal(body.code, "SERVER_ERROR");
+  assert.equal(body.error, "We couldn’t submit this listing right now. Try again in a moment.");
+});
+
 void test("expired listing resubmission still requires payment when no entitlement exists", async () => {
   const listing: ListingRow = {
     id: "prop1",

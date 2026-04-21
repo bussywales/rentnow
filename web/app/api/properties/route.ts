@@ -38,6 +38,7 @@ import { sanitizeExifMeta } from "@/lib/properties/image-exif";
 import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
 import { cleanNullableString } from "@/lib/strings";
 import { sanitizeUserFacingErrorMessage } from "@/lib/observability/user-facing-errors";
+import { captureServerException } from "@/lib/monitoring/sentry";
 import { computeExpiryAt } from "@/lib/properties/expiry";
 import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 import { requireLegalAcceptance } from "@/lib/legal/guard.server";
@@ -442,6 +443,14 @@ export async function POST(request: Request) {
           startTime,
           error: new Error(usage.error),
         });
+        captureServerException(new Error(usage.error), {
+          request,
+          route: routeLabel,
+          status: 500,
+          userId: user.id,
+          userRole: role,
+          extra: { flow: "listing_create", stage: "plan_usage_lookup" },
+        });
         return NextResponse.json({ error: LISTING_LIMIT_CHECK_ERROR }, { status: 500 });
       }
       if (usage.activeCount >= usage.plan.maxListings) {
@@ -520,6 +529,15 @@ export async function POST(request: Request) {
           startTime,
           error: new Error(settingsError.message || "shortlet_settings_upsert_failed"),
         });
+        captureServerException(new Error(settingsError.message || "shortlet_settings_upsert_failed"), {
+          request,
+          route: routeLabel,
+          status: 500,
+          userId: user.id,
+          userRole: role,
+          listingId: propertyId ?? null,
+          extra: { flow: "listing_create", stage: "shortlet_settings_upsert" },
+        });
         return NextResponse.json(
           { error: SHORTLET_SETTINGS_SAVE_ERROR },
           { status: 500 }
@@ -583,6 +601,12 @@ export async function POST(request: Request) {
       status: 500,
       startTime,
       error,
+    });
+    captureServerException(error, {
+      request,
+      route: routeLabel,
+      status: 500,
+      extra: { flow: "listing_create", stage: "unhandled_exception" },
     });
     return NextResponse.json({ error: message }, { status: 500 });
   }
