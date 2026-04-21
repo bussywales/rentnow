@@ -24,6 +24,13 @@ void test("property stepper routes blocked listing flows to billing and explicit
   assert.doesNotMatch(source, /router\.push\(\"\/pricing\"\)/);
 });
 
+void test("property stepper supports listing-limit recovery with plans and manage-listings copy", () => {
+  const source = readFileSync(stepperPath, "utf8");
+  assert.match(source, /monetizationReason === "listing_limit"/);
+  assert.match(source, /Manage listings/);
+  assert.match(source, /mode=\{monetizationNeedsLimitRecovery \? "listing_limit" : "listing"\}/);
+});
+
 void test("renew listing button forwards blocked responses into the monetization resume path", () => {
   const source = readFileSync(renewButtonPath, "utf8");
   assert.match(source, /data\?\.resumeUrl/);

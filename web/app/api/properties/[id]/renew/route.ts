@@ -15,7 +15,10 @@ import {
   ensureListingPublishEntitlement,
 } from "@/lib/billing/listing-publish-entitlement.server";
 import type { UserRole } from "@/lib/types";
-import { enforceActiveListingLimit } from "@/lib/plan-enforcement";
+import {
+  buildActiveListingLimitRecoveryPayload,
+  enforceActiveListingLimit,
+} from "@/lib/plan-enforcement";
 import { logPlanLimitHit } from "@/lib/observability";
 
 export const dynamic = "force-dynamic";
@@ -134,13 +137,12 @@ export async function postPropertyRenewResponse(
         source: activeLimit.usage.source,
       });
       return NextResponse.json(
-        {
-          error: activeLimit.error,
-          code: activeLimit.code,
-          maxListings: activeLimit.maxListings,
-          activeCount: activeLimit.activeCount,
-          planTier: activeLimit.planTier,
-        },
+        buildActiveListingLimitRecoveryPayload({
+          gate: activeLimit,
+          requesterRole: role,
+          context: "renewal",
+          propertyId: id,
+        }),
         { status: 409 }
       );
     }

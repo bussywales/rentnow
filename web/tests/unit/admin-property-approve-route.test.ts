@@ -93,7 +93,10 @@ void test("direct admin approve blocks when active listing limit is already reac
   assert.equal(res.status, 409);
   const body = await res.json();
   assert.equal(body.code, "plan_limit_reached");
+  assert.equal(body.reason, "LISTING_LIMIT_REACHED");
   assert.equal(body.maxListings, 5);
   assert.equal(body.activeCount, 5);
+  assert.equal(body.manageUrl, "/admin/properties");
+  assert.match(String(body.resumeUrl ?? ""), /monetization=listing_limit/);
   assert.equal(updated, false);
 });

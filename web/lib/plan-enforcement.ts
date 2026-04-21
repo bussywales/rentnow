@@ -5,6 +5,11 @@ import {
   resolveEffectivePlanTier,
   type PlanGate,
 } from "@/lib/plans";
+import {
+  resolveListingBillingUrl,
+  type ListingMonetizationContext,
+} from "@/lib/billing/listing-publish-entitlement.server";
+import type { UserRole } from "@/lib/types";
 
 type PlanUsage = {
   plan: PlanGate;
@@ -36,6 +41,29 @@ export type ActiveListingLimitGateResult =
       activeCount: number;
       planTier: PlanGate["tier"];
     };
+
+export type ActiveListingLimitRecoveryPayload = {
+  error: string;
+  code: "plan_limit_reached";
+  reason: "LISTING_LIMIT_REACHED";
+  maxListings: number;
+  activeCount: number;
+  planTier: PlanGate["tier"];
+  planName: string;
+  headline: string;
+  detail: string;
+  billingUrl: string;
+  manageUrl: string;
+  resumeUrl?: string;
+};
+
+type BuildActiveListingLimitRecoveryInput = {
+  gate: Extract<ActiveListingLimitGateResult, { ok: false }>;
+  requesterRole?: UserRole | null;
+  context: ListingMonetizationContext;
+  propertyId?: string | null;
+  manageUrl?: string;
+};
 
 export async function getPlanUsage({
   supabase,
@@ -131,4 +159,57 @@ export async function enforceActiveListingLimit(
   }
 
   return { ok: true, usage };
+}
+
+function resolveActiveListingLimitActionLabel(context: ListingMonetizationContext) {
+  if (context === "renewal") return "renew this listing";
+  if (context === "reactivation") return "reactivate this listing";
+  return "continue with this listing";
+}
+
+export function buildActiveListingLimitRecoveryPayload({
+  gate,
+  requesterRole,
+  context,
+  propertyId,
+  manageUrl,
+}: BuildActiveListingLimitRecoveryInput): ActiveListingLimitRecoveryPayload {
+  const billingUrl = resolveListingBillingUrl(requesterRole);
+  const normalizedManageUrl =
+    manageUrl ??
+    (requesterRole === "admin"
+      ? "/admin/properties"
+      : requesterRole === "tenant"
+        ? "/tenant"
+        : "/dashboard");
+  const actionLabel = resolveActiveListingLimitActionLabel(context);
+  const resumeUrl = propertyId
+    ? (() => {
+        const params = new URLSearchParams({
+          step: "submit",
+          monetization: "listing_limit",
+          monetization_context: context,
+          active_count: String(gate.activeCount),
+          max_listings: String(gate.maxListings),
+          plan_tier: gate.planTier,
+          plan_name: gate.usage.plan.name,
+        });
+        return `/dashboard/properties/${propertyId}?${params.toString()}`;
+      })()
+    : undefined;
+
+  return {
+    error: "You've reached your active listing limit.",
+    code: "plan_limit_reached",
+    reason: "LISTING_LIMIT_REACHED",
+    maxListings: gate.maxListings,
+    activeCount: gate.activeCount,
+    planTier: gate.planTier,
+    planName: gate.usage.plan.name,
+    headline: "You've reached your active listing limit",
+    detail: `You already have ${gate.activeCount} active listings out of ${gate.maxListings} on ${gate.usage.plan.name}. Upgrade your plan or manage active listings to ${actionLabel}.`,
+    billingUrl,
+    manageUrl: normalizedManageUrl,
+    ...(resumeUrl ? { resumeUrl } : {}),
+  };
 }

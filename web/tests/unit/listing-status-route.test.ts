@@ -458,8 +458,13 @@ void test("reactivation blocks when active listing limit is already reached", as
   assert.equal(res.status, 409);
   const body = await res.json();
   assert.equal(body.code, "plan_limit_reached");
+  assert.equal(body.reason, "LISTING_LIMIT_REACHED");
   assert.equal(body.maxListings, 5);
   assert.equal(body.activeCount, 5);
+  assert.equal(body.billingUrl, "/dashboard/billing#plans");
+  assert.equal(body.manageUrl, "/dashboard");
+  assert.match(String(body.resumeUrl ?? ""), /monetization=listing_limit/);
+  assert.match(String(body.resumeUrl ?? ""), /monetization_context=reactivation/);
   assert.equal(consumedAttempted, false);
   assert.equal(capture.updatePayload, null);
 });

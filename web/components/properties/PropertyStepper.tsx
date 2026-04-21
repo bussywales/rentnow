@@ -163,7 +163,10 @@ type Props = {
   requireLocationPinForPublish?: boolean;
 };
 
-type ListingMonetizationQueryReason = "payment_required" | "billing_required";
+type ListingMonetizationQueryReason =
+  | "payment_required"
+  | "billing_required"
+  | "listing_limit";
 type ListingMonetizationQueryContext = "submission" | "renewal" | "reactivation";
 
 function resolveMonetizationContextLabel(context: ListingMonetizationQueryContext | null) {
@@ -482,6 +485,8 @@ export function PropertyStepper({
   const monetizationQueryReason: ListingMonetizationQueryReason | null =
     monetizationReason === "payment_required" || monetizationReason === "billing_required"
       ? monetizationReason
+      : monetizationReason === "listing_limit"
+      ? monetizationReason
       : null;
   const monetizationQueryContext: ListingMonetizationQueryContext | null =
     monetizationContext === "renewal" ||
@@ -491,12 +496,18 @@ export function PropertyStepper({
       : null;
   const monetizationAmount = Number(searchParams?.get("monetization_amount") || "");
   const monetizationCurrency = searchParams?.get("monetization_currency") || "NGN";
+  const monetizationActiveCount = Number(searchParams?.get("active_count") || "");
+  const monetizationMaxListings = Number(searchParams?.get("max_listings") || "");
+  const monetizationPlanName = searchParams?.get("plan_name") || "your current plan";
   const monetizationGateActive = steps[stepIndex]?.id === "submit" && !!monetizationQueryReason;
   const monetizationNeedsPayment = monetizationQueryReason === "payment_required";
+  const monetizationNeedsLimitRecovery = monetizationQueryReason === "listing_limit";
   const monetizationActionLabel = resolveMonetizationContextLabel(monetizationQueryContext);
-  const monetizationGateMessage = monetizationNeedsPayment
-    ? `Free posting limit reached. Choose a plan or pay once before ${monetizationActionLabel}.`
-    : `Free posting limit reached. Choose a plan before ${monetizationActionLabel}.`;
+  const monetizationGateMessage = monetizationNeedsLimitRecovery
+    ? `You've reached your active listing limit. Upgrade your plan or manage active listings before ${monetizationActionLabel}.`
+    : monetizationNeedsPayment
+      ? `Free posting limit reached. Choose a plan or pay once before ${monetizationActionLabel}.`
+      : `Free posting limit reached. Choose a plan before ${monetizationActionLabel}.`;
 
   useEffect(() => {
     if (!propertyId || typeof window === "undefined") return;
@@ -2953,7 +2964,13 @@ export function PropertyStepper({
   }, [markSubmitted, propertyId, router, searchParams, startSaving, submitListing]);
 
   useEffect(() => {
-    if (!propertyId || !monetizationGateActive || !monetizationNeedsPayment) return;
+    if (
+      !propertyId ||
+      !monetizationGateActive ||
+      (!monetizationNeedsPayment && !monetizationNeedsLimitRecovery)
+    ) {
+      return;
+    }
     if (monetizationGatePrimedRef.current) return;
     monetizationGatePrimedRef.current = true;
     if (Number.isFinite(monetizationAmount) && monetizationAmount > 0) {
@@ -2966,6 +2983,7 @@ export function PropertyStepper({
     monetizationAmount,
     monetizationCurrency,
     monetizationGateActive,
+    monetizationNeedsLimitRecovery,
     monetizationNeedsPayment,
     propertyId,
   ]);
@@ -3041,6 +3059,11 @@ export function PropertyStepper({
           }
 
           const data = result?.data || {};
+          if (data?.code === "plan_limit_reached" && data?.resumeUrl) {
+            resetSaveStatus();
+            router.push(String(data.resumeUrl));
+            return;
+          }
           if (data?.reason === "PAYMENT_REQUIRED") {
             setPaywallAmount(typeof data?.amount === "number" ? data.amount : 0);
             setPaywallCurrency(typeof data?.currency === "string" ? data.currency : "NGN");
@@ -5396,7 +5419,7 @@ export function PropertyStepper({
       </div>
 
       <ListingPaywallModal
-        open={paywallOpen && paywallAmount !== null}
+        open={paywallOpen}
         amount={paywallAmount ?? 0}
         currency={paywallCurrency}
         onClose={closeListingPaywall}
@@ -5404,9 +5427,34 @@ export function PropertyStepper({
         onPlans={openBillingPlans}
         loading={paywallLoading}
         error={paywallError}
+        mode={monetizationNeedsLimitRecovery ? "listing_limit" : "listing"}
         preferPlans
         billingOnly={monetizationGateActive && !monetizationNeedsPayment}
-        closeLabel="Save and exit"
+        closeLabel={monetizationNeedsLimitRecovery ? "Manage listings" : "Save and exit"}
+        limitSummary={
+          monetizationNeedsLimitRecovery
+            ? {
+                activeCount:
+                  Number.isFinite(monetizationActiveCount) && monetizationActiveCount >= 0
+                    ? monetizationActiveCount
+                    : 0,
+                maxListings:
+                  Number.isFinite(monetizationMaxListings) && monetizationMaxListings >= 0
+                    ? monetizationMaxListings
+                    : 0,
+                planName: monetizationPlanName,
+                detail: `You already have ${
+                  Number.isFinite(monetizationActiveCount) && monetizationActiveCount >= 0
+                    ? monetizationActiveCount
+                    : 0
+                } active listings out of ${
+                  Number.isFinite(monetizationMaxListings) && monetizationMaxListings >= 0
+                    ? monetizationMaxListings
+                    : 0
+                } on ${monetizationPlanName}. Upgrade your plan or manage active listings to ${monetizationActionLabel}.`,
+              }
+            : null
+        }
       />
     </div>
   );

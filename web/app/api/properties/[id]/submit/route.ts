@@ -30,7 +30,10 @@ import {
   notifyAdminsOfListingReviewSubmission,
 } from "@/lib/admin/listing-review-notifications.server";
 import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
-import { enforceActiveListingLimit } from "@/lib/plan-enforcement";
+import {
+  buildActiveListingLimitRecoveryPayload,
+  enforceActiveListingLimit,
+} from "@/lib/plan-enforcement";
 
 export const dynamic = "force-dynamic";
 
@@ -287,6 +290,7 @@ export async function postPropertySubmitResponse(
   if (!ownerName && listing.owner_id === auth.user.id) {
     ownerName = auth.user.user_metadata?.full_name ?? auth.user.user_metadata?.name ?? null;
   }
+  const monetizationContext = resolveSubmitMonetizationContext(listing.status);
   if (role !== "admin") {
     if (!adminClient) {
       return NextResponse.json(
@@ -325,16 +329,16 @@ export async function postPropertySubmitResponse(
       return NextResponse.json(
         {
           ok: false,
-          error: activeLimit.error,
-          code: activeLimit.code,
-          maxListings: activeLimit.maxListings,
-          activeCount: activeLimit.activeCount,
-          planTier: activeLimit.planTier,
+          ...buildActiveListingLimitRecoveryPayload({
+            gate: activeLimit,
+            requesterRole: role,
+            context: monetizationContext,
+            propertyId,
+          }),
         },
         { status: 409 }
       );
     }
-    const monetizationContext = resolveSubmitMonetizationContext(listing.status);
     const entitlement = await ensureListingPublishEntitlement(
       {
         adminClient,

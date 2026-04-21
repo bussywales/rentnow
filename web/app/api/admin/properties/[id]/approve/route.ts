@@ -6,7 +6,10 @@ import { buildLiveApprovalUpdate } from "@/lib/properties/expiry";
 import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
 import { logApprovalAction, logPlanLimitHit } from "@/lib/observability";
-import { enforceActiveListingLimit } from "@/lib/plan-enforcement";
+import {
+  buildActiveListingLimitRecoveryPayload,
+  enforceActiveListingLimit,
+} from "@/lib/plan-enforcement";
 
 export const dynamic = "force-dynamic";
 
@@ -82,13 +85,13 @@ export async function postAdminPropertyApproveResponse(
         source: activeLimit.usage.source,
       });
       return NextResponse.json(
-        {
-          error: activeLimit.error,
-          code: activeLimit.code,
-          maxListings: activeLimit.maxListings,
-          activeCount: activeLimit.activeCount,
-          planTier: activeLimit.planTier,
-        },
+        buildActiveListingLimitRecoveryPayload({
+          gate: activeLimit,
+          requesterRole: "admin",
+          context: "submission",
+          propertyId: id,
+          manageUrl: "/admin/properties",
+        }),
         { status: 409 }
       );
     }
