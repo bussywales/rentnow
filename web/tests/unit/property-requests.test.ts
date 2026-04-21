@@ -46,7 +46,7 @@ const baseRequest: PropertyRequest = {
   notes: "Needs parking",
   status: "open",
   publishedAt: "2026-03-16T10:00:00.000Z",
-  expiresAt: "2026-04-15T10:00:00.000Z",
+  expiresAt: "2026-05-15T10:00:00.000Z",
   createdAt: "2026-03-16T10:00:00.000Z",
   updatedAt: "2026-03-16T10:00:00.000Z",
 };

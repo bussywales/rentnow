@@ -39,7 +39,7 @@ const openRow: PropertyRequestRecord = {
   notes: null,
   status: "open",
   published_at: "2026-03-16T10:00:00.000Z",
-  expires_at: "2026-04-15T10:00:00.000Z",
+  expires_at: "2026-05-15T10:00:00.000Z",
   created_at: "2026-03-16T10:00:00.000Z",
   updated_at: "2026-03-16T10:00:00.000Z",
 };

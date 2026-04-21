@@ -99,7 +99,7 @@ export async function getPropertyRequestDetailResponse(
   }
 
   const item = mapPropertyRequestRecord(data);
-  if (!canViewPropertyRequest({ role, viewerUserId: auth.user.id, request: item })) {
+  if (!canViewPropertyRequest({ role, viewerUserId: auth.user.id, request: item, now: deps.now() })) {
     return NextResponse.json({ error: "Request not found" }, { status: 404 });
   }
 
