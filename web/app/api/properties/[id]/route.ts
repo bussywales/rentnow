@@ -36,6 +36,7 @@ import {
 import { sanitizeImageMeta } from "@/lib/properties/image-meta";
 import { mapPropertyPersistenceError } from "@/lib/properties/persistence-errors";
 import { sanitizeExifMeta } from "@/lib/properties/image-exif";
+import { sanitizeUserFacingErrorMessage } from "@/lib/observability/user-facing-errors";
 import {
   getDedupeWindowStart,
   isPrefetchRequest,
@@ -65,6 +66,9 @@ import {
 } from "@/lib/shortlet/listing-setup";
 
 const routeLabel = "/api/properties/[id]";
+const LISTING_LIMIT_CHECK_ERROR = "We couldn’t verify your listing limits right now. Try again shortly.";
+const SHORTLET_SETTINGS_SAVE_ERROR = "We couldn’t save the short-let settings right now. Try again in a moment.";
+const UPDATE_LISTING_ERROR = "We couldn’t update this listing right now. Try again in a moment.";
 type ImageMetaPayload = Record<
   string,
   {
@@ -1053,7 +1057,7 @@ export async function PUT(
           startTime,
           error: new Error(usage.error),
         });
-        return NextResponse.json({ error: usage.error }, { status: 500 });
+        return NextResponse.json({ error: LISTING_LIMIT_CHECK_ERROR }, { status: 500 });
       }
       if (usage.activeCount >= usage.plan.maxListings) {
         logPlanLimitHit({
@@ -1148,8 +1152,15 @@ export async function PUT(
         { onConflict: "property_id" }
       );
       if (settingsError) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 500,
+          startTime,
+          error: new Error(settingsError.message || "shortlet_settings_upsert_failed"),
+        });
         return NextResponse.json(
-          { error: settingsError.message || "Unable to save shortlet settings." },
+          { error: SHORTLET_SETTINGS_SAVE_ERROR },
           { status: 500 }
         );
       }
@@ -1197,7 +1208,10 @@ export async function PUT(
       );
     }
     const message =
-      error instanceof Error ? error.message : "Unable to update property";
+      sanitizeUserFacingErrorMessage(
+        error instanceof Error ? error.message : null,
+        UPDATE_LISTING_ERROR
+      );
     logFailure({
       request,
       route: routeLabel,

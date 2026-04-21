@@ -15,10 +15,20 @@ void test("mapPropertyPersistenceError maps listing_type constraint failures to 
   });
 });
 
-void test("mapPropertyPersistenceError preserves unknown messages", () => {
-  const payload = mapPropertyPersistenceError("unexpected insert failure");
+void test("mapPropertyPersistenceError sanitizes schema mismatch errors", () => {
+  const payload = mapPropertyPersistenceError(
+    'Could not find the "commercial_layout_type" column of "properties" in the schema cache'
+  );
 
   assert.equal(payload.code, undefined);
-  assert.equal(payload.error, "unexpected insert failure");
+  assert.equal(payload.error, "We couldn’t save this listing right now. Try again in a moment.");
+  assert.equal(payload.fieldErrors, undefined);
+});
+
+void test("mapPropertyPersistenceError preserves safe non-technical copy", () => {
+  const payload = mapPropertyPersistenceError("Listing title is too short.");
+
+  assert.equal(payload.code, undefined);
+  assert.equal(payload.error, "Listing title is too short.");
   assert.equal(payload.fieldErrors, undefined);
 });

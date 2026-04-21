@@ -37,6 +37,7 @@ import { mapPropertyPersistenceError } from "@/lib/properties/persistence-errors
 import { sanitizeExifMeta } from "@/lib/properties/image-exif";
 import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
 import { cleanNullableString } from "@/lib/strings";
+import { sanitizeUserFacingErrorMessage } from "@/lib/observability/user-facing-errors";
 import { computeExpiryAt } from "@/lib/properties/expiry";
 import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 import { requireLegalAcceptance } from "@/lib/legal/guard.server";
@@ -48,6 +49,9 @@ import {
 } from "@/lib/shortlet/listing-setup";
 
 const routeLabel = "/api/properties";
+const LISTING_LIMIT_CHECK_ERROR = "We couldn’t verify your listing limits right now. Try again shortly.";
+const SHORTLET_SETTINGS_SAVE_ERROR = "We couldn’t save the short-let settings right now. Try again in a moment.";
+const CREATE_LISTING_ERROR = "We couldn’t create this listing right now. Try again in a moment.";
 type ImageMetaPayload = Record<
   string,
   {
@@ -438,7 +442,7 @@ export async function POST(request: Request) {
           startTime,
           error: new Error(usage.error),
         });
-        return NextResponse.json({ error: usage.error }, { status: 500 });
+        return NextResponse.json({ error: LISTING_LIMIT_CHECK_ERROR }, { status: 500 });
       }
       if (usage.activeCount >= usage.plan.maxListings) {
         logPlanLimitHit({
@@ -509,8 +513,15 @@ export async function POST(request: Request) {
         { onConflict: "property_id" }
       );
       if (settingsError) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 500,
+          startTime,
+          error: new Error(settingsError.message || "shortlet_settings_upsert_failed"),
+        });
         return NextResponse.json(
-          { error: settingsError.message || "Unable to save shortlet settings." },
+          { error: SHORTLET_SETTINGS_SAVE_ERROR },
           { status: 500 }
         );
       }
@@ -562,7 +573,10 @@ export async function POST(request: Request) {
       );
     }
     const message =
-      error instanceof Error ? error.message : "Unable to create property";
+      sanitizeUserFacingErrorMessage(
+        error instanceof Error ? error.message : null,
+        CREATE_LISTING_ERROR
+      );
     logFailure({
       request,
       route: routeLabel,

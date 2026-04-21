@@ -1,13 +1,46 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
+import {
+  getCriticalSchemaReadiness,
+  type SchemaClient,
+} from "@/lib/ops/critical-schema-readiness";
 
-export async function GET(request: Request) {
-  const startTime = Date.now();
+type DeepHealthDeps = {
+  hasServerSupabaseEnv: typeof hasServerSupabaseEnv;
+  createServerSupabaseClient: typeof createServerSupabaseClient;
+  getCriticalSchemaReadiness: (client: SchemaClient) => ReturnType<typeof getCriticalSchemaReadiness>;
+  logFailure: typeof logFailure;
+  now: () => number;
+};
+
+const defaultDeps: DeepHealthDeps = {
+  hasServerSupabaseEnv,
+  createServerSupabaseClient,
+  getCriticalSchemaReadiness,
+  logFailure,
+  now: () => Date.now(),
+};
+
+function resolveCommitSha() {
+  return (
+    process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    process.env.COMMIT_SHA ||
+    null
+  );
+}
+
+export async function getDeepHealthResponse(
+  request: Request,
+  deps: DeepHealthDeps = defaultDeps
+) {
+  const startTime = deps.now();
   const routeLabel = "/api/health/deep";
+  const commit = resolveCommitSha();
 
-  if (!hasServerSupabaseEnv()) {
-    logFailure({
+  if (!deps.hasServerSupabaseEnv()) {
+    deps.logFailure({
       request,
       route: routeLabel,
       status: 503,
@@ -19,23 +52,25 @@ export async function GET(request: Request) {
         ok: false,
         latencyMs: 0,
         supabaseReachable: false,
+        schemaReady: false,
         errorReason: "Supabase env vars missing",
+        commit,
       },
       { status: 503 }
     );
   }
 
   try {
-    const supabase = await createServerSupabaseClient();
-    const queryStart = Date.now();
+    const supabase = await deps.createServerSupabaseClient();
+    const queryStart = deps.now();
     const { error } = await supabase
       .from("properties")
       .select("id", { count: "exact", head: true })
       .limit(1);
-    const latencyMs = Math.max(0, Date.now() - queryStart);
+    const latencyMs = Math.max(0, deps.now() - queryStart);
 
     if (error) {
-      logFailure({
+      deps.logFailure({
         request,
         route: routeLabel,
         status: 503,
@@ -47,7 +82,41 @@ export async function GET(request: Request) {
           ok: false,
           latencyMs,
           supabaseReachable: false,
-          errorReason: error.message,
+          schemaReady: false,
+          errorReason: "Supabase query failed",
+          commit,
+        },
+        { status: 503 }
+      );
+    }
+
+    const schema = await deps.getCriticalSchemaReadiness(supabase as unknown as SchemaClient);
+
+    if (!schema.ready) {
+      deps.logFailure({
+        request,
+        route: routeLabel,
+        status: 503,
+        startTime,
+        error: schema.queryError
+          ? new Error(schema.queryError)
+          : `Missing schema columns: ${schema.missing
+              .map((item) => `${item.table}.${item.column}`)
+              .join(", ")}`,
+      });
+      return NextResponse.json(
+        {
+          ok: false,
+          latencyMs,
+          supabaseReachable: true,
+          schemaReady: false,
+          errorReason: schema.queryError
+            ? "Schema readiness check failed"
+            : "Critical schema columns are missing",
+          missingColumns: schema.missing.map((item) => `${item.table}.${item.column}`),
+          checkedCount: schema.checkedCount,
+          checkedAt: schema.checkedAt,
+          commit,
         },
         { status: 503 }
       );
@@ -57,9 +126,13 @@ export async function GET(request: Request) {
       ok: true,
       latencyMs,
       supabaseReachable: true,
+      schemaReady: true,
+      checkedCount: schema.checkedCount,
+      checkedAt: schema.checkedAt,
+      commit,
     });
   } catch (err) {
-    logFailure({
+    deps.logFailure({
       request,
       route: routeLabel,
       status: 500,
@@ -71,9 +144,15 @@ export async function GET(request: Request) {
         ok: false,
         latencyMs: 0,
         supabaseReachable: false,
+        schemaReady: false,
         errorReason: "Supabase query failed",
+        commit,
       },
       { status: 500 }
     );
   }
+}
+
+export async function GET(request: Request) {
+  return getDeepHealthResponse(request, defaultDeps);
 }
