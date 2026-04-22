@@ -1478,3 +1478,36 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.consume_featured_credit(UUID, UUID, TEXT) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.get_public_table_columns(target_table_names text[])
+RETURNS TABLE (
+  table_name text,
+  column_name text
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+SET row_security = off
+AS $$
+  select
+    cls.relname::text as table_name,
+    attr.attname::text as column_name
+  from pg_catalog.pg_attribute attr
+  join pg_catalog.pg_class cls
+    on cls.oid = attr.attrelid
+  join pg_catalog.pg_namespace nsp
+    on nsp.oid = cls.relnamespace
+  where nsp.nspname = 'public'
+    and cls.relkind in ('r', 'p', 'v', 'm')
+    and attr.attnum > 0
+    and not attr.attisdropped
+    and (
+      target_table_names is null
+      or array_length(target_table_names, 1) is null
+      or cls.relname = any(target_table_names)
+    )
+  order by cls.relname, attr.attnum;
+$$;
+
+REVOKE ALL ON FUNCTION public.get_public_table_columns(text[]) FROM public;
+GRANT EXECUTE ON FUNCTION public.get_public_table_columns(text[]) TO anon, authenticated, service_role;

@@ -1,14 +1,11 @@
 export type SchemaClient = {
-  from: (table: string) => {
-    select: (columns: string) => {
-      eq: (column: string, value: string) => {
-        eq: (column: string, value: string) => Promise<{
-          data?: Array<{ column_name?: string | null }>;
-          error?: { message?: string | null } | null;
-        }>;
-      };
-    };
-  };
+  rpc: (
+    fn: "get_public_table_columns",
+    params: { target_table_names: string[] }
+  ) => Promise<{
+    data?: Array<{ table_name?: string | null; column_name?: string | null }>;
+    error?: { message?: string | null } | null;
+  }>;
 };
 
 export type CriticalSchemaRequirement = {
@@ -74,32 +71,33 @@ export async function getCriticalSchemaReadiness(
 ): Promise<CriticalSchemaReadinessResult> {
   const checkedAt = new Date().toISOString();
   const columnsByTable = new Map<string, Set<string>>();
+  const targetTables = [...new Set(requirements.map((requirement) => requirement.table))];
 
-  for (const table of new Set(requirements.map((requirement) => requirement.table))) {
-    const { data, error } = await client
-      .from("information_schema.columns")
-      .select("column_name")
-      .eq("table_schema", "public")
-      .eq("table_name", table);
+  const { data, error } = await client.rpc("get_public_table_columns", {
+    target_table_names: targetTables,
+  });
 
-    if (error) {
-      return {
-        ready: false,
-        checkedAt,
-        checkedCount: requirements.length,
-        missing: requirements,
-        queryError: error.message?.trim() || "Schema readiness query failed",
-      };
-    }
+  if (error) {
+    return {
+      ready: false,
+      checkedAt,
+      checkedCount: requirements.length,
+      missing: requirements,
+      queryError: error.message?.trim() || "Schema readiness query failed",
+    };
+  }
 
-    columnsByTable.set(
-      table,
-      new Set(
-        (data ?? [])
-          .map((row) => String(row.column_name || "").trim())
-          .filter(Boolean)
-      )
-    );
+  for (const table of targetTables) {
+    columnsByTable.set(table, new Set());
+  }
+
+  for (const row of data ?? []) {
+    const tableName = String(row.table_name || "").trim();
+    const columnName = String(row.column_name || "").trim();
+    if (!tableName || !columnName) continue;
+    const existing = columnsByTable.get(tableName);
+    if (!existing) continue;
+    existing.add(columnName);
   }
 
   const missing = requirements.filter(
