@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { captureClientBoundaryException } from "@/lib/monitoring/sentry";
 
 type Props = {
   alertsEnabled: boolean;
@@ -9,7 +10,13 @@ type Props = {
 };
 
 type ActionState = {
-  kind: "idle" | "running" | "testing" | "disabling";
+  kind:
+    | "idle"
+    | "running"
+    | "testing"
+    | "disabling"
+    | "sentry_server"
+    | "sentry_client";
   message: string | null;
   error: string | null;
 };
@@ -121,16 +128,91 @@ export function AdminAlertsOpsActions({ alertsEnabled, killSwitchEnabled }: Prop
     }
   };
 
+  const sendServerSentryTest = async () => {
+    setState({ kind: "sentry_server", message: null, error: null });
+    try {
+      const response = await fetch("/api/admin/sentry/test", { method: "POST" });
+      const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!response.ok) {
+        throw new Error(
+          String(payload.error || payload.message || "Unable to send test Sentry server event")
+        );
+      }
+      setState({
+        kind: "idle",
+        message: "Temporary Sentry server test event sent.",
+        error: null,
+      });
+    } catch (error) {
+      setState({
+        kind: "idle",
+        message: null,
+        error:
+          error instanceof Error ? error.message : "Unable to send test Sentry server event",
+      });
+    }
+  };
+
+  const sendClientSentryTest = () => {
+    setState({ kind: "sentry_client", message: null, error: null });
+    try {
+      throw new Error("Admin-triggered temporary Sentry client verification event");
+    } catch (error) {
+      captureClientBoundaryException(error as Error, {
+        route: "/admin/alerts",
+        pathname: "/admin/alerts",
+        href: globalThis.location?.href ?? "/admin/alerts",
+        userAgent: globalThis.navigator?.userAgent ?? null,
+        tags: {
+          feature: "admin_alerts",
+          sentry_test: "client_verification",
+          temporary: true,
+        },
+        extra: {
+          source: "AdminAlertsOpsActions",
+          action: "send_test_sentry_client_event",
+        },
+        fingerprint: ["admin-alerts", "sentry-test", "client"],
+      });
+      setState({
+        kind: "idle",
+        message: "Temporary Sentry client test event sent.",
+        error: null,
+      });
+    }
+  };
+
   const busy = state.kind !== "idle";
 
   return (
     <div className="space-y-3">
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        Temporary Sentry verification tools for admin ops only. Remove after verification is complete.
+      </div>
       <div className="flex flex-wrap gap-2">
         <Button type="button" size="sm" onClick={runNow} disabled={busy}>
           {state.kind === "running" ? "Running..." : "Run alerts now"}
         </Button>
         <Button type="button" size="sm" variant="secondary" onClick={sendTest} disabled={busy}>
           {state.kind === "testing" ? "Sending..." : "Send test digest to me"}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={sendServerSentryTest}
+          disabled={busy}
+        >
+          {state.kind === "sentry_server" ? "Sending..." : "Send test Sentry server event"}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={sendClientSentryTest}
+          disabled={busy}
+        >
+          {state.kind === "sentry_client" ? "Sending..." : "Send test Sentry client event"}
         </Button>
         <Button type="button" size="sm" variant="secondary" onClick={disableAll} disabled={busy || disabled}>
           {state.kind === "disabling" ? "Disabling..." : "Disable all alerts (kill switch)"}
