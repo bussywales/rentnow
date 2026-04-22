@@ -20,6 +20,8 @@ test("filtersToSearchParams serializes parsed filters", () => {
     bedroomsMode: "minimum",
     includeSimilarOptions: true,
     propertyType: "apartment",
+    commercialLayoutType: null,
+    enclosedRoomsMin: null,
     listingIntent: "buy",
     stay: "shortlet",
     rentalType: "short_let",
@@ -50,6 +52,38 @@ test("filtersToSearchParams serializes parsed filters", () => {
   assert.equal(params.get("broadbandReady"), "true");
   assert.equal(params.get("securityFeature"), "true");
   assert.equal(params.get("amenities"), "wifi,parking");
+});
+
+test("filtersToSearchParams serializes commercial filters and suppresses stale bedroom params for commercial types", () => {
+  const filters: ParsedSearchFilters = {
+    city: null,
+    minPrice: null,
+    maxPrice: null,
+    currency: null,
+    bedrooms: 3,
+    bedroomsMode: "minimum",
+    includeSimilarOptions: true,
+    propertyType: "office",
+    commercialLayoutType: "suite",
+    enclosedRoomsMin: 2,
+    listingIntent: undefined,
+    stay: null,
+    rentalType: null,
+    furnished: null,
+    powerBackup: null,
+    waterBorehole: null,
+    broadbandReady: null,
+    securityFeature: null,
+    amenities: [],
+  };
+
+  const params = filtersToSearchParams(filters);
+  assert.equal(params.get("propertyType"), "office");
+  assert.equal(params.get("commercialLayoutType"), "suite");
+  assert.equal(params.get("enclosedRoomsMin"), "2");
+  assert.equal(params.get("bedrooms"), null);
+  assert.equal(params.get("bedroomsMode"), null);
+  assert.equal(params.get("includeSimilarOptions"), null);
 });
 
 test("filtersToSearchParams forces rent intent when stay=shortlet", () => {
@@ -187,6 +221,26 @@ test("parseFilters defaults bedroom mode to exact", () => {
   assert.equal(parsed.bedrooms, 2);
   assert.equal(parsed.bedroomsMode, "exact");
   assert.equal(parsed.includeSimilarOptions, false);
+});
+
+test("parseFilters reads commercial discovery filters", () => {
+  const parsed = parseFiltersFromParams({
+    propertyType: "office",
+    commercialLayoutType: "suite",
+    enclosedRoomsMin: "3",
+  });
+  assert.equal(parsed.propertyType, "office");
+  assert.equal(parsed.commercialLayoutType, "suite");
+  assert.equal(parsed.enclosedRoomsMin, 3);
+
+  const savedParsed = parseFiltersFromSavedSearch({
+    propertyType: "shop",
+    commercialLayoutType: "shop_floor",
+    enclosedRoomsMin: 0,
+  });
+  assert.equal(savedParsed.propertyType, "shop");
+  assert.equal(savedParsed.commercialLayoutType, "shop_floor");
+  assert.equal(savedParsed.enclosedRoomsMin, 0);
 });
 
 test("propertyMatchesFilters enforces exact bedrooms unless minimum is selected", () => {
@@ -414,4 +468,82 @@ test("propertyMatchesFilters respects structured local living filters", () => {
     propertyMatchesFilters({ ...property, backup_power_type: "none" }, filters),
     false
   );
+});
+
+test("propertyMatchesFilters applies commercial filters and ignores bedroom semantics for commercial type searches", () => {
+  const office = {
+    city: "Lagos",
+    price: 500000,
+    currency: "NGN",
+    bedrooms: 0,
+    bathrooms: 2,
+    rental_type: "long_term" as const,
+    furnished: false,
+    listing_type: "office" as const,
+    commercial_layout_type: "suite" as const,
+    enclosed_rooms: 3,
+    amenities: [],
+  };
+
+  const filters: ParsedSearchFilters = {
+    city: null,
+    minPrice: null,
+    maxPrice: null,
+    currency: null,
+    bedrooms: 4,
+    bedroomsMode: "exact",
+    includeSimilarOptions: false,
+    propertyType: "office",
+    commercialLayoutType: "suite",
+    enclosedRoomsMin: 2,
+    listingIntent: undefined,
+    stay: null,
+    rentalType: null,
+    furnished: null,
+    powerBackup: null,
+    waterBorehole: null,
+    broadbandReady: null,
+    securityFeature: null,
+    amenities: [],
+  };
+
+  assert.equal(propertyMatchesFilters(office, filters), true);
+  assert.equal(
+    propertyMatchesFilters({ ...office, commercial_layout_type: "partitioned" }, filters),
+    false
+  );
+  assert.equal(
+    propertyMatchesFilters({ ...office, enclosed_rooms: 1 }, filters),
+    false
+  );
+});
+
+test("filtersToChips renders commercial discovery filters without stale bedroom chips", () => {
+  const chips = filtersToChips({
+    city: null,
+    minPrice: null,
+    maxPrice: null,
+    currency: null,
+    bedrooms: 4,
+    bedroomsMode: "minimum",
+    includeSimilarOptions: true,
+    propertyType: "office",
+    commercialLayoutType: "suite",
+    enclosedRoomsMin: 2,
+    listingIntent: undefined,
+    stay: null,
+    rentalType: null,
+    furnished: null,
+    powerBackup: null,
+    waterBorehole: null,
+    broadbandReady: null,
+    securityFeature: null,
+    amenities: [],
+  });
+
+  assert.deepEqual(chips, [
+    { label: "Property type", value: "office" },
+    { label: "Layout", value: "Suite" },
+    { label: "Enclosed rooms", value: "2+ minimum" },
+  ]);
 });

@@ -1,5 +1,6 @@
 import type {
   BedroomMatchMode,
+  CommercialLayoutType,
   ListingIntent,
   ListingIntentFilter,
   ListingType,
@@ -11,11 +12,19 @@ import { parseIntent } from "@/lib/search-intent";
 import { mapSearchFilterToListingIntents, normalizeListingIntent } from "@/lib/listing-intents";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
 import {
+  COMMERCIAL_LAYOUT_TYPE_OPTIONS,
+  formatCommercialLayoutType,
+} from "@/lib/properties/commercial-space";
+import {
   hasBoreholeWater,
   hasBroadbandOrFibre,
   hasSecurityFeature,
   hasStructuredPowerBackup,
 } from "@/lib/properties/local-living";
+import {
+  isCommercialListingType,
+  isNonRoomListingType,
+} from "@/lib/properties/listing-types";
 
 export type SearchParamRecord = Record<string, string | string[] | undefined>;
 
@@ -43,6 +52,10 @@ const LISTING_TYPES: ListingType[] = [
   "office",
   "land",
 ];
+
+const COMMERCIAL_LAYOUT_TYPES = COMMERCIAL_LAYOUT_TYPE_OPTIONS.map(
+  (option) => option.value
+) as CommercialLayoutType[];
 
 function firstValue(value: string | string[] | undefined | null) {
   if (Array.isArray(value)) return value[0] ?? null;
@@ -88,6 +101,16 @@ function parseListingType(
   const raw = firstValue(value);
   if (!raw) return null;
   return LISTING_TYPES.includes(raw as ListingType) ? (raw as ListingType) : null;
+}
+
+function parseCommercialLayoutType(
+  value: string | string[] | undefined | null
+): CommercialLayoutType | null {
+  const raw = firstValue(value);
+  if (!raw) return null;
+  return COMMERCIAL_LAYOUT_TYPES.includes(raw as CommercialLayoutType)
+    ? (raw as CommercialLayoutType)
+    : null;
 }
 
 function parseStay(value: string | string[] | undefined | null): StayFilter | null {
@@ -144,6 +167,8 @@ export function parseFiltersFromParams(params: SearchParamRecord): ParsedSearchF
     bedroomsMode: parseBedroomsMode(params.bedroomsMode),
     includeSimilarOptions: parseBoolean(params.includeSimilarOptions) ?? false,
     propertyType: parseListingType(params.propertyType),
+    commercialLayoutType: parseCommercialLayoutType(params.commercialLayoutType),
+    enclosedRoomsMin: parseNumber(params.enclosedRoomsMin),
     listingIntent: normalizedSelection.listingIntent,
     stay: normalizedSelection.stay,
     rentalType:
@@ -172,6 +197,8 @@ export function parseFiltersFromSearchParams(
     bedroomsMode: searchParams.get("bedroomsMode") ?? undefined,
     includeSimilarOptions: searchParams.get("includeSimilarOptions") ?? undefined,
     propertyType: searchParams.get("propertyType") ?? undefined,
+    commercialLayoutType: searchParams.get("commercialLayoutType") ?? undefined,
+    enclosedRoomsMin: searchParams.get("enclosedRoomsMin") ?? undefined,
     intent: searchParams.get("intent") ?? undefined,
     stay: searchParams.get("stay") ?? searchParams.get("category") ?? undefined,
     rentalType: searchParams.get("rentalType") ?? undefined,
@@ -186,6 +213,9 @@ export function parseFiltersFromSearchParams(
 
 export function filtersToSearchParams(filters: ParsedSearchFilters): URLSearchParams {
   const params = new URLSearchParams();
+  const selectedType = filters.propertyType ?? null;
+  const ignoreBedrooms =
+    isCommercialListingType(selectedType) || isNonRoomListingType(selectedType);
   const normalizedSelection = normalizeIntentStaySelection({
     listingIntent: filters.listingIntent,
     stay: filters.stay ?? null,
@@ -194,14 +224,22 @@ export function filtersToSearchParams(filters: ParsedSearchFilters): URLSearchPa
   if (filters.minPrice !== null) params.set("minPrice", String(filters.minPrice));
   if (filters.maxPrice !== null) params.set("maxPrice", String(filters.maxPrice));
   if (filters.currency) params.set("currency", filters.currency);
-  if (filters.bedrooms !== null) params.set("bedrooms", String(filters.bedrooms));
-  if (filters.bedroomsMode && filters.bedroomsMode !== "exact") {
+  if (filters.bedrooms !== null && !ignoreBedrooms) {
+    params.set("bedrooms", String(filters.bedrooms));
+  }
+  if (!ignoreBedrooms && filters.bedroomsMode && filters.bedroomsMode !== "exact") {
     params.set("bedroomsMode", filters.bedroomsMode);
   }
-  if (filters.includeSimilarOptions) {
+  if (!ignoreBedrooms && filters.includeSimilarOptions) {
     params.set("includeSimilarOptions", "true");
   }
   if (filters.propertyType) params.set("propertyType", filters.propertyType);
+  if (filters.commercialLayoutType) {
+    params.set("commercialLayoutType", filters.commercialLayoutType);
+  }
+  if (filters.enclosedRoomsMin !== null && typeof filters.enclosedRoomsMin !== "undefined") {
+    params.set("enclosedRoomsMin", String(filters.enclosedRoomsMin));
+  }
   if (normalizedSelection.listingIntent && normalizedSelection.listingIntent !== "all") {
     params.set("intent", normalizedSelection.listingIntent);
   }
@@ -227,6 +265,9 @@ export function filtersToSearchParams(filters: ParsedSearchFilters): URLSearchPa
 }
 
 export function hasActiveFilters(filters: ParsedSearchFilters): boolean {
+  const selectedType = filters.propertyType ?? null;
+  const ignoreBedrooms =
+    isCommercialListingType(selectedType) || isNonRoomListingType(selectedType);
   const normalizedSelection = normalizeIntentStaySelection({
     listingIntent: filters.listingIntent,
     stay: filters.stay ?? null,
@@ -235,8 +276,12 @@ export function hasActiveFilters(filters: ParsedSearchFilters): boolean {
   if (filters.minPrice !== null) return true;
   if (filters.maxPrice !== null) return true;
   if (filters.currency && filters.currency.trim()) return true;
-  if (filters.bedrooms !== null) return true;
+  if (!ignoreBedrooms && filters.bedrooms !== null) return true;
   if (filters.propertyType !== null && filters.propertyType !== undefined) return true;
+  if (filters.commercialLayoutType !== null && typeof filters.commercialLayoutType !== "undefined")
+    return true;
+  if (filters.enclosedRoomsMin !== null && typeof filters.enclosedRoomsMin !== "undefined")
+    return true;
   if (normalizedSelection.listingIntent && normalizedSelection.listingIntent !== "all") return true;
   if (normalizedSelection.stay === "shortlet") return true;
   if (filters.rentalType !== null) return true;
@@ -250,13 +295,16 @@ export function hasActiveFilters(filters: ParsedSearchFilters): boolean {
 }
 
 export function filtersToChips(filters: ParsedSearchFilters): FilterChip[] {
+  const selectedType = filters.propertyType ?? null;
+  const ignoreBedrooms =
+    isCommercialListingType(selectedType) || isNonRoomListingType(selectedType);
   const normalizedSelection = normalizeIntentStaySelection({
     listingIntent: filters.listingIntent,
     stay: filters.stay ?? null,
   });
   const chips: FilterChip[] = [];
   if (filters.city) chips.push({ label: "City", value: filters.city });
-  if (filters.bedrooms !== null) {
+  if (!ignoreBedrooms && filters.bedrooms !== null) {
     chips.push({
       label: "Bedrooms",
       value:
@@ -269,6 +317,18 @@ export function filtersToChips(filters: ParsedSearchFilters): FilterChip[] {
     chips.push({
       label: "Property type",
       value: filters.propertyType,
+    });
+  }
+  if (filters.commercialLayoutType) {
+    chips.push({
+      label: "Layout",
+      value: formatCommercialLayoutType(filters.commercialLayoutType) ?? filters.commercialLayoutType,
+    });
+  }
+  if (filters.enclosedRoomsMin !== null && typeof filters.enclosedRoomsMin !== "undefined") {
+    chips.push({
+      label: "Enclosed rooms",
+      value: `${filters.enclosedRoomsMin}+ minimum`,
     });
   }
   if (normalizedSelection.stay === "shortlet") {
@@ -358,6 +418,17 @@ export function parseFiltersFromSavedSearch(params: Record<string, unknown>): Pa
     LISTING_TYPES.includes(params.propertyType as ListingType)
       ? (params.propertyType as ListingType)
       : null;
+  const commercialLayoutType =
+    typeof params.commercialLayoutType === "string" &&
+    COMMERCIAL_LAYOUT_TYPES.includes(params.commercialLayoutType as CommercialLayoutType)
+      ? (params.commercialLayoutType as CommercialLayoutType)
+      : null;
+  const enclosedRoomsMin =
+    typeof params.enclosedRoomsMin === "number"
+      ? clampNumber(params.enclosedRoomsMin)
+      : params.enclosedRoomsMin
+      ? clampNumber(Number(params.enclosedRoomsMin))
+      : null;
   const rentalType =
     params.rentalType === "short_let" || params.rentalType === "long_term"
       ? (params.rentalType as RentalType)
@@ -434,6 +505,8 @@ export function parseFiltersFromSavedSearch(params: Record<string, unknown>): Pa
     bedroomsMode,
     includeSimilarOptions,
     propertyType,
+    commercialLayoutType,
+    enclosedRoomsMin,
     listingIntent: normalizedSelection.listingIntent,
     stay: normalizedSelection.stay,
     rentalType,
@@ -452,6 +525,8 @@ export function propertyMatchesFilters(property: {
   currency: string;
   bedrooms: number;
   listing_type?: ListingType | null;
+  commercial_layout_type?: CommercialLayoutType | null;
+  enclosed_rooms?: number | null;
   listing_intent?: ListingIntent | null;
   rental_type: RentalType;
   shortlet_settings?: Array<{ booking_mode?: string | null; nightly_price_minor?: number | null }> | null;
@@ -466,6 +541,9 @@ export function propertyMatchesFilters(property: {
     listingIntent: filters.listingIntent,
     stay: filters.stay ?? null,
   });
+  const selectedType = filters.propertyType ?? null;
+  const ignoreBedrooms =
+    isCommercialListingType(selectedType) || isNonRoomListingType(selectedType);
   if (filters.city) {
     const cityMatch = property.city.toLowerCase().includes(filters.city.toLowerCase());
     if (!cityMatch) return false;
@@ -475,7 +553,7 @@ export function propertyMatchesFilters(property: {
   if (filters.currency && property.currency.toLowerCase() !== filters.currency.toLowerCase()) {
     return false;
   }
-  if (filters.bedrooms !== null) {
+  if (filters.bedrooms !== null && !ignoreBedrooms) {
     const mode = filters.bedroomsMode ?? "exact";
     if (mode === "minimum" && property.bedrooms < filters.bedrooms) return false;
     if (mode === "exact" && property.bedrooms !== filters.bedrooms) return false;
@@ -495,6 +573,19 @@ export function propertyMatchesFilters(property: {
   }
   if (normalizedSelection.stay === "shortlet" && !isShortletProperty(property)) return false;
   if (filters.propertyType && property.listing_type !== filters.propertyType) return false;
+  if (
+    filters.commercialLayoutType &&
+    property.commercial_layout_type !== filters.commercialLayoutType
+  ) {
+    return false;
+  }
+  if (
+    filters.enclosedRoomsMin !== null &&
+    typeof filters.enclosedRoomsMin !== "undefined"
+  ) {
+    const enclosedRooms = property.enclosed_rooms ?? 0;
+    if (enclosedRooms < filters.enclosedRoomsMin) return false;
+  }
   if (filters.rentalType && property.rental_type !== filters.rentalType) return false;
   if (filters.furnished !== null && property.furnished !== filters.furnished) return false;
   if (filters.powerBackup && !hasStructuredPowerBackup(property)) return false;

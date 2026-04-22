@@ -25,6 +25,12 @@ void test("properties advanced search uses shared drawer shell with apply/reset/
   assert.match(source, /createApplyAndCloseAction/);
   assert.match(source, /createResetDraftAction/);
   assert.match(source, /createClearApplyAndCloseAction/);
+  assert.match(source, /data-testid="advanced-commercial-layout-type"/);
+  assert.match(source, /data-testid="advanced-enclosed-rooms-min"/);
+  assert.match(
+    source,
+    /Commercial search uses layout, enclosed rooms, bathrooms, and floor size more/
+  );
 });
 
 void test("properties page uses shared filter chip row preview", () => {

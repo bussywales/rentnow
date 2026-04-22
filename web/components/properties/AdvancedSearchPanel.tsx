@@ -7,6 +7,11 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FilterDrawerShell } from "@/components/filters/FilterDrawerShell";
+import { COMMERCIAL_LAYOUT_TYPE_OPTIONS } from "@/lib/properties/commercial-space";
+import {
+  isCommercialListingType,
+  isNonRoomListingType,
+} from "@/lib/properties/listing-types";
 import {
   createApplyAndCloseAction,
   createClearApplyAndCloseAction,
@@ -25,6 +30,8 @@ type AdvancedFiltersDraft = {
   minPrice: string;
   maxPrice: string;
   propertyType: string;
+  commercialLayoutType: string;
+  enclosedRoomsMin: string;
   furnished: "any" | "true" | "false";
   powerBackup: boolean;
   waterBorehole: boolean;
@@ -66,6 +73,8 @@ function createDefaultDraft(): AdvancedFiltersDraft {
     minPrice: "",
     maxPrice: "",
     propertyType: "",
+    commercialLayoutType: "",
+    enclosedRoomsMin: "",
     furnished: "any",
     powerBackup: false,
     waterBorehole: false,
@@ -75,13 +84,27 @@ function createDefaultDraft(): AdvancedFiltersDraft {
 }
 
 function createDraftFromFilters(filters: ParsedSearchFilters): AdvancedFiltersDraft {
+  const selectedPropertyType = filters.propertyType ?? null;
+  const commercialListing = isCommercialListingType(selectedPropertyType);
+  const nonRoomListing = isNonRoomListingType(selectedPropertyType);
   return {
-    bedrooms: filters.bedrooms !== null ? String(filters.bedrooms) : "",
+    bedrooms:
+      filters.bedrooms !== null && !commercialListing && !nonRoomListing
+        ? String(filters.bedrooms)
+        : "",
     bedroomsMode: filters.bedroomsMode === "minimum" ? "minimum" : "exact",
-    includeSimilarOptions: Boolean(filters.includeSimilarOptions),
+    includeSimilarOptions:
+      !commercialListing && !nonRoomListing && Boolean(filters.includeSimilarOptions),
     minPrice: filters.minPrice !== null ? String(filters.minPrice) : "",
     maxPrice: filters.maxPrice !== null ? String(filters.maxPrice) : "",
     propertyType: filters.propertyType ?? "",
+    commercialLayoutType: commercialListing ? filters.commercialLayoutType ?? "" : "",
+    enclosedRoomsMin:
+      commercialListing &&
+      filters.enclosedRoomsMin !== null &&
+      typeof filters.enclosedRoomsMin !== "undefined"
+        ? String(filters.enclosedRoomsMin)
+        : "",
     furnished: filters.furnished === null ? "any" : filters.furnished ? "true" : "false",
     powerBackup: Boolean(filters.powerBackup),
     waterBorehole: Boolean(filters.waterBorehole),
@@ -98,6 +121,8 @@ function countActiveAdvancedFilters(draft: AdvancedFiltersDraft): number {
   if (draft.minPrice.trim()) count += 1;
   if (draft.maxPrice.trim()) count += 1;
   if (draft.propertyType) count += 1;
+  if (draft.commercialLayoutType) count += 1;
+  if (draft.enclosedRoomsMin.trim()) count += 1;
   if (draft.furnished !== "any") count += 1;
   if (draft.powerBackup) count += 1;
   if (draft.waterBorehole) count += 1;
@@ -141,8 +166,15 @@ export function AdvancedSearchPanel({ initialFilters }: Props) {
       const parsedBedrooms = toNumberOrNull(nextDraft.bedrooms);
       const parsedMinPrice = toNumberOrNull(nextDraft.minPrice);
       const parsedMaxPrice = toNumberOrNull(nextDraft.maxPrice);
+      const parsedEnclosedRoomsMin = toNumberOrNull(nextDraft.enclosedRoomsMin);
+      const commercialListing = isCommercialListingType(
+        (nextDraft.propertyType || null) as ListingType | null
+      );
+      const nonRoomListing = isNonRoomListingType(
+        (nextDraft.propertyType || null) as ListingType | null
+      );
 
-      if (parsedBedrooms === null) {
+      if (parsedBedrooms === null || commercialListing || nonRoomListing) {
         next.delete("bedrooms");
         next.delete("bedroomsMode");
         next.delete("includeSimilarOptions");
@@ -162,6 +194,18 @@ export function AdvancedSearchPanel({ initialFilters }: Props) {
 
       if (nextDraft.propertyType) next.set("propertyType", nextDraft.propertyType);
       else next.delete("propertyType");
+
+      if (commercialListing && nextDraft.commercialLayoutType) {
+        next.set("commercialLayoutType", nextDraft.commercialLayoutType);
+      } else {
+        next.delete("commercialLayoutType");
+      }
+
+      if (commercialListing && parsedEnclosedRoomsMin !== null) {
+        next.set("enclosedRoomsMin", String(Math.trunc(parsedEnclosedRoomsMin)));
+      } else {
+        next.delete("enclosedRoomsMin");
+      }
 
       if (nextDraft.furnished === "any") next.delete("furnished");
       else next.set("furnished", nextDraft.furnished);
@@ -190,6 +234,10 @@ export function AdvancedSearchPanel({ initialFilters }: Props) {
 
   const appliedDraft = useMemo(() => readAppliedDraft(), [readAppliedDraft]);
   const activeCount = useMemo(() => countActiveAdvancedFilters(appliedDraft), [appliedDraft]);
+  const selectedPropertyType = (draft.propertyType || null) as ListingType | null;
+  const showCommercialFilters = isCommercialListingType(selectedPropertyType);
+  const showBedroomsFilters =
+    !showCommercialFilters && !isNonRoomListingType(selectedPropertyType);
 
   const onReset = useMemo(
     () => createResetDraftAction(readAppliedDraft, setDraft),
@@ -249,53 +297,62 @@ export function AdvancedSearchPanel({ initialFilters }: Props) {
         dialogId={drawerId}
       >
         <div className="space-y-5">
-          <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-slate-900">Bedrooms</h2>
-            <label className="space-y-1 text-sm text-slate-700">
-              <span>Bedrooms</span>
-              <Input
-                type="number"
-                min={0}
-                step={1}
-                value={draft.bedrooms}
-                onChange={(event) => setDraft((current) => ({ ...current, bedrooms: event.target.value }))}
-                placeholder="e.g. 2"
-                data-testid="advanced-bedrooms"
-              />
-            </label>
-            <label className="space-y-1 text-sm text-slate-700">
-              <span>Beds mode</span>
-              <Select
-                value={draft.bedroomsMode}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    bedroomsMode: event.target.value === "minimum" ? "minimum" : "exact",
-                  }))
-                }
-                data-testid="advanced-bedrooms-mode"
-              >
-                <option value="exact">Exact</option>
-                <option value="minimum">Minimum</option>
-              </Select>
-            </label>
-            <label className="inline-flex items-start gap-2 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                checked={draft.includeSimilarOptions}
-                onChange={(event) =>
-                  setDraft((current) => ({ ...current, includeSimilarOptions: event.target.checked }))
-                }
-                data-testid="advanced-include-similar"
-              />
-              <span>
-                <span className="font-medium text-slate-900">Include similar options in main results</span>
-                <span className="block text-xs text-slate-600">
-                  Keep this off to show exact matches first and view other options separately.
+          {showBedroomsFilters ? (
+            <section className="space-y-2">
+              <h2 className="text-sm font-semibold text-slate-900">Bedrooms</h2>
+              <label className="space-y-1 text-sm text-slate-700">
+                <span>Bedrooms</span>
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={draft.bedrooms}
+                  onChange={(event) =>
+                    setDraft((current) => ({ ...current, bedrooms: event.target.value }))
+                  }
+                  placeholder="e.g. 2"
+                  data-testid="advanced-bedrooms"
+                />
+              </label>
+              <label className="space-y-1 text-sm text-slate-700">
+                <span>Beds mode</span>
+                <Select
+                  value={draft.bedroomsMode}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      bedroomsMode: event.target.value === "minimum" ? "minimum" : "exact",
+                    }))
+                  }
+                  data-testid="advanced-bedrooms-mode"
+                >
+                  <option value="exact">Exact</option>
+                  <option value="minimum">Minimum</option>
+                </Select>
+              </label>
+              <label className="inline-flex items-start gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={draft.includeSimilarOptions}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      includeSimilarOptions: event.target.checked,
+                    }))
+                  }
+                  data-testid="advanced-include-similar"
+                />
+                <span>
+                  <span className="font-medium text-slate-900">
+                    Include similar options in main results
+                  </span>
+                  <span className="block text-xs text-slate-600">
+                    Keep this off to show exact matches first and view other options separately.
+                  </span>
                 </span>
-              </span>
-            </label>
-          </section>
+              </label>
+            </section>
+          ) : null}
 
           <section className="space-y-2">
             <h2 className="text-sm font-semibold text-slate-900">Price</h2>
@@ -352,6 +409,51 @@ export function AdvancedSearchPanel({ initialFilters }: Props) {
                 ))}
               </Select>
             </label>
+            {showCommercialFilters ? (
+              <>
+                <label className="space-y-1 text-sm text-slate-700">
+                  <span>Layout type</span>
+                  <Select
+                    value={draft.commercialLayoutType}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        commercialLayoutType: event.target.value,
+                      }))
+                    }
+                    data-testid="advanced-commercial-layout-type"
+                  >
+                    <option value="">Any commercial layout</option>
+                    {COMMERCIAL_LAYOUT_TYPE_OPTIONS.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+                <label className="space-y-1 text-sm text-slate-700">
+                  <span>Minimum enclosed rooms</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={draft.enclosedRoomsMin}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        enclosedRoomsMin: event.target.value,
+                      }))
+                    }
+                    placeholder="e.g. 2"
+                    data-testid="advanced-enclosed-rooms-min"
+                  />
+                </label>
+                <p className="text-xs text-slate-500">
+                  Commercial search uses layout, enclosed rooms, bathrooms, and floor size more
+                  than bedroom counts.
+                </p>
+              </>
+            ) : null}
             <label className="space-y-1 text-sm text-slate-700">
               <span>Furnished</span>
               <Select

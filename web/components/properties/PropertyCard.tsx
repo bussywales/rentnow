@@ -138,7 +138,10 @@ export function PropertyCard({
   const sizeLabel = formatSizeLabel(property.size_value, property.size_unit);
   const spatialModel = getSpatialModelForListingType(property.listing_type);
   const commercialSpaceFacts = buildCommercialSpaceFacts(property);
-  const metaLine = [listingTypeLabel, sizeLabel].filter(Boolean).join(" \u00b7 ");
+  const metaLine =
+    spatialModel === "commercial"
+      ? [listingTypeLabel].filter(Boolean).join(" \u00b7 ")
+      : [listingTypeLabel, sizeLabel].filter(Boolean).join(" \u00b7 ");
   const listingIntent = normalizeListingIntent(property.listing_intent) ?? "rent_lease";
   const description =
     typeof property.description === "string" && property.description.trim().length > 0
@@ -387,7 +390,10 @@ export function PropertyCard({
               </>
             )}
             {spatialModel === "commercial" &&
-              commercialSpaceFacts.map((fact) => <span key={fact.key}>{fact.value}</span>)}
+              [
+                sizeLabel ? <span key="size">{sizeLabel}</span> : null,
+                ...commercialSpaceFacts.map((fact) => <span key={fact.key}>{fact.value}</span>),
+              ]}
             {spatialModel === "land" && sizeLabel ? <span>{sizeLabel}</span> : null}
           </div>
         </div>

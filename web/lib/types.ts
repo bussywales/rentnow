@@ -257,6 +257,8 @@ export interface ParsedSearchFilters {
   bedroomsMode?: BedroomMatchMode;
   includeSimilarOptions?: boolean;
   propertyType?: ListingType | null;
+  commercialLayoutType?: CommercialLayoutType | null;
+  enclosedRoomsMin?: number | null;
   listingIntent?: ListingIntentFilter;
   stay?: StayFilter | null;
   rentalType: RentalType | null;

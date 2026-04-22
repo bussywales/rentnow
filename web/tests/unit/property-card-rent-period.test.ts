@@ -32,4 +32,8 @@ void test("property card formats cadence with rent period", () => {
     contents.includes("spatialModel === \"commercial\""),
     "expected PropertyCard to branch commercial listings away from bedroom chips"
   );
+  assert.ok(
+    contents.includes('sizeLabel ? <span key="size">{sizeLabel}</span> : null'),
+    "expected PropertyCard to surface commercial floor size in the discovery facts row"
+  );
 });

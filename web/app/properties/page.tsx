@@ -61,6 +61,10 @@ import { mapSearchFilterToListingIntents, normalizeListingIntent } from "@/lib/l
 import { isShortletProperty } from "@/lib/shortlet/discovery";
 import { shouldPriorityImage } from "@/lib/images/loading-profile";
 import {
+  isCommercialListingType,
+  isNonRoomListingType,
+} from "@/lib/properties/listing-types";
+import {
   hasBoreholeWater,
   hasBroadbandOrFibre,
   hasSecurityFeature,
@@ -157,6 +161,9 @@ function applyMockFilters(
   } = {}
 ): Property[] {
   return items.filter((property) => {
+    const ignoreBedrooms =
+      isCommercialListingType(filters.propertyType ?? null) ||
+      isNonRoomListingType(filters.propertyType ?? null);
     if (!isListingPubliclyVisible(property)) return false;
     if (!options.includeDemo && property.is_demo) return false;
     if (options.featuredOnly && !property.is_featured) return false;
@@ -175,12 +182,25 @@ function applyMockFilters(
     if (filters.currency && property.currency.toLowerCase() !== filters.currency.toLowerCase()) {
       return false;
     }
-    if (filters.bedrooms !== null) {
+    if (filters.bedrooms !== null && !ignoreBedrooms) {
       const bedroomsMode = filters.bedroomsMode ?? "exact";
       if (bedroomsMode === "minimum" && property.bedrooms < filters.bedrooms) return false;
       if (bedroomsMode === "exact" && property.bedrooms !== filters.bedrooms) return false;
     }
     if (filters.propertyType && property.listing_type !== filters.propertyType) return false;
+    if (
+      filters.commercialLayoutType &&
+      property.commercial_layout_type !== filters.commercialLayoutType
+    ) {
+      return false;
+    }
+    if (
+      filters.enclosedRoomsMin !== null &&
+      typeof filters.enclosedRoomsMin !== "undefined"
+    ) {
+      const enclosedRooms = property.enclosed_rooms ?? 0;
+      if (enclosedRooms < filters.enclosedRoomsMin) return false;
+    }
     if (options.exactListingIntent) {
       const listingIntent = normalizeListingIntent(property.listing_intent);
       if (listingIntent !== options.exactListingIntent) return false;
@@ -584,8 +604,16 @@ export default async function PropertiesPage({ searchParams }: Props) {
   const requestedBedrooms = filters.bedrooms;
   const bedroomsMode = filters.bedroomsMode ?? "exact";
   const includeSimilarOptions = Boolean(filters.includeSimilarOptions);
+  const ignoreBedroomsInBrowse =
+    isCommercialListingType(filters.propertyType ?? null) ||
+    isNonRoomListingType(filters.propertyType ?? null);
 
-  if (requestedBedrooms !== null && !includeSimilarOptions && bedroomsMode === "exact") {
+  if (
+    requestedBedrooms !== null &&
+    !ignoreBedroomsInBrowse &&
+    !includeSimilarOptions &&
+    bedroomsMode === "exact"
+  ) {
     const strictExact = properties.filter((item) => item.bedrooms === requestedBedrooms);
     properties = strictExact;
 
@@ -626,7 +654,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
         }
       ).filter((item) => item.bedrooms > requestedBedrooms);
     }
-  } else if (requestedBedrooms !== null) {
+  } else if (requestedBedrooms !== null && !ignoreBedroomsInBrowse) {
     const exactMatches = properties.filter((item) => item.bedrooms === requestedBedrooms);
     const similarMatches = properties.filter((item) => item.bedrooms > requestedBedrooms);
     properties = [...exactMatches, ...similarMatches];
@@ -793,7 +821,10 @@ export default async function PropertiesPage({ searchParams }: Props) {
       ? `/properties?${buildSearchParams(resolvedSearchParams, { page: String(page + 1) }).toString()}`
       : null;
   const exactOnlyMode =
-    requestedBedrooms !== null && !includeSimilarOptions && bedroomsMode === "exact";
+    requestedBedrooms !== null &&
+    !ignoreBedroomsInBrowse &&
+    !includeSimilarOptions &&
+    bedroomsMode === "exact";
   const hasOtherOptionsSection = exactOnlyMode && otherOptionProperties.length > 0;
   const showingLabel = exactOnlyMode ? "exact matches" : "homes";
   const searchKey = buildSearchParams(resolvedSearchParams, { page: null }).toString() || "browse";

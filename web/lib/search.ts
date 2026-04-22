@@ -1,5 +1,9 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { includeDemoListingsForViewer } from "@/lib/properties/demo";
+import {
+  isCommercialListingType,
+  isNonRoomListingType,
+} from "@/lib/properties/listing-types";
 import { getDemoListingsVisibilityPolicy } from "@/lib/settings/demo";
 import type { ListingIntent, ParsedSearchFilters, RentalType } from "@/lib/types";
 import { mapSearchFilterToListingIntents } from "@/lib/listing-intents";
@@ -185,11 +189,16 @@ export async function searchProperties(
     }
     query = applyStayFilterToQuery(query, normalizedSelection);
     if (filters.bedrooms !== null) {
-      const bedroomsMode = filters.bedroomsMode ?? "exact";
-      query =
-        bedroomsMode === "minimum"
-          ? query.gte("bedrooms", filters.bedrooms)
-          : query.eq("bedrooms", filters.bedrooms);
+      const ignoreBedrooms =
+        isCommercialListingType(filters.propertyType ?? null) ||
+        isNonRoomListingType(filters.propertyType ?? null);
+      if (!ignoreBedrooms) {
+        const bedroomsMode = filters.bedroomsMode ?? "exact";
+        query =
+          bedroomsMode === "minimum"
+            ? query.gte("bedrooms", filters.bedrooms)
+            : query.eq("bedrooms", filters.bedrooms);
+      }
     }
     if (filters.minPrice !== null) {
       query = query.gte("price", filters.minPrice);
@@ -202,6 +211,15 @@ export async function searchProperties(
     }
     if (filters.propertyType) {
       query = query.eq("listing_type", filters.propertyType);
+    }
+    if (filters.commercialLayoutType) {
+      query = query.eq("commercial_layout_type", filters.commercialLayoutType);
+    }
+    if (
+      filters.enclosedRoomsMin !== null &&
+      typeof filters.enclosedRoomsMin !== "undefined"
+    ) {
+      query = query.gte("enclosed_rooms", filters.enclosedRoomsMin);
     }
     if (filters.furnished !== null) {
       query = query.eq("furnished", filters.furnished);
