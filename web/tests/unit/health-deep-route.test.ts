@@ -34,7 +34,10 @@ void test("deep health fails when critical schema columns are missing", async ()
   assert.equal(response.status, 503);
   const body = await response.json();
   assert.equal(body.schemaReady, false);
+  assert.equal(body.state, "broken");
+  assert.equal(body.stateLabel, "Monitoring needs attention");
   assert.equal(body.reasonCode, "SCHEMA_COLUMNS_MISSING");
+  assert.equal(body.reasonLabel, "Critical schema columns missing");
   assert.equal(body.errorReason, "Critical schema columns are missing");
   assert.deepEqual(body.missingColumns, ["properties.commercial_layout_type"]);
 });
@@ -69,7 +72,10 @@ void test("deep health reports success when supabase and schema are ready", asyn
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.ok, true);
+  assert.equal(body.state, "healthy");
+  assert.equal(body.stateLabel, "Deep health healthy");
   assert.equal(body.schemaReady, true);
   assert.equal(body.reasonCode, null);
+  assert.equal(body.reasonLabel, "Deep health checks passed");
   assert.equal(body.checkedCount, 8);
 });

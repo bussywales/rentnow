@@ -11,6 +11,16 @@ void test("admin alerts page enforces admin guard", () => {
   assert.ok(contents.includes("/auth/required?redirect=/admin/alerts&reason=auth"));
 });
 
+void test("admin alerts page surfaces monitoring snapshot summary for operators", () => {
+  const filePath = path.join(process.cwd(), "app", "admin", "alerts", "page.tsx");
+  const contents = fs.readFileSync(filePath, "utf8");
+
+  assert.ok(contents.includes("Monitoring snapshot"));
+  assert.ok(contents.includes("Release, database, schema, and Sentry readiness grouped for fast triage."));
+  assert.ok(contents.includes("diag.monitoring.overallLabel"));
+  assert.ok(contents.includes("diag.monitoring.runtimeEnvironment"));
+});
+
 void test("admin alerts page no longer renders temporary sentry verification controls", () => {
   const componentPath = path.join(
     process.cwd(),

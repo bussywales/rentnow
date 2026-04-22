@@ -12,6 +12,11 @@ import { formatRoleLabel } from "@/lib/roles";
 import { getAlertsLastRunStatus, getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
 import { AdminAlertsOpsActions } from "@/components/admin/AdminAlertsOpsActions";
+import {
+  getOperatorMonitoringSnapshot,
+  type MonitoringClient,
+  type OperatorMonitoringSnapshot,
+} from "@/lib/monitoring/operator-status";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +32,7 @@ type AlertDiagnostics = {
   envAlertsOverrideEnabled: boolean;
   resendConfigured: boolean;
   cronSecretConfigured: boolean;
+  monitoring: OperatorMonitoringSnapshot | null;
   lastRun: {
     ran_at_utc: string | null;
     mode: "cron" | "admin";
@@ -44,6 +50,12 @@ const severityStyles: Record<AdminAlert["severity"], string> = {
   critical: "bg-rose-100 text-rose-800",
 };
 
+const monitoringStateStyles: Record<"healthy" | "degraded" | "broken", string> = {
+  healthy: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  degraded: "border-amber-200 bg-amber-50 text-amber-800",
+  broken: "border-rose-200 bg-rose-50 text-rose-800",
+};
+
 async function getAlertDiagnostics(): Promise<AlertDiagnostics> {
   if (!hasServerSupabaseEnv()) {
     return {
@@ -58,6 +70,7 @@ async function getAlertDiagnostics(): Promise<AlertDiagnostics> {
       envAlertsOverrideEnabled: false,
       resendConfigured: false,
       cronSecretConfigured: false,
+      monitoring: null,
       lastRun: await getAlertsLastRunStatus(),
     };
   }
@@ -103,12 +116,17 @@ async function getAlertDiagnostics(): Promise<AlertDiagnostics> {
       envAlertsOverrideEnabled,
       resendConfigured,
       cronSecretConfigured,
+      monitoring: null,
       lastRun,
     };
   }
 
   const adminClient = createServiceRoleClient();
   const { alerts, error } = await buildAdminAlerts(adminClient, pushConfig);
+  const monitoring = await getOperatorMonitoringSnapshot(
+    adminClient as unknown as MonitoringClient,
+    process.env
+  );
 
   return {
     ready: true,
@@ -122,6 +140,7 @@ async function getAlertDiagnostics(): Promise<AlertDiagnostics> {
     envAlertsOverrideEnabled,
     resendConfigured,
     cronSecretConfigured,
+    monitoring,
     lastRun,
   };
 }
@@ -140,6 +159,45 @@ export default async function AdminAlertsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
+        {diag.monitoring ? (
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:col-span-2">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Monitoring snapshot</h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Release, database, schema, and Sentry readiness grouped for fast triage.
+                </p>
+              </div>
+              <div
+                className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${monitoringStateStyles[diag.monitoring.overallState]}`}
+              >
+                {diag.monitoring.overallLabel}
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-600">
+              <span>Runtime: {diag.monitoring.runtimeEnvironment}</span>
+              <span>Commit: {diag.monitoring.commitSha?.slice(0, 8) ?? "unknown"}</span>
+              <span>Checked: {diag.monitoring.checkedAt.replace("T", " ").replace("Z", " UTC")}</span>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {Object.values(diag.monitoring.checks).map((check) => (
+                <div key={check.key} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{check.key}</p>
+                    <span
+                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${monitoringStateStyles[check.state]}`}
+                    >
+                      {check.state}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm font-semibold text-slate-900">{check.label}</p>
+                  <p className="mt-1 text-xs text-slate-600">{check.detail}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Alerts status</h2>
           <dl className="mt-3 space-y-2 text-sm text-slate-700">

@@ -37,6 +37,21 @@ type DeepHealthReasonCode =
   | "SCHEMA_COLUMNS_MISSING"
   | "SCHEMA_READINESS_QUERY_FAILED";
 
+function getReasonLabel(reasonCode: DeepHealthReasonCode | null) {
+  switch (reasonCode) {
+    case "SUPABASE_ENV_MISSING":
+      return "Supabase server environment missing";
+    case "SUPABASE_QUERY_FAILED":
+      return "Supabase connectivity check failed";
+    case "SCHEMA_COLUMNS_MISSING":
+      return "Critical schema columns missing";
+    case "SCHEMA_READINESS_QUERY_FAILED":
+      return "Schema readiness query failed";
+    default:
+      return "Deep health checks passed";
+  }
+}
+
 export async function getDeepHealthResponse(
   request: Request,
   deps: DeepHealthDeps = defaultDeps
@@ -56,10 +71,13 @@ export async function getDeepHealthResponse(
     return NextResponse.json(
       {
         ok: false,
+        state: "broken",
+        stateLabel: "Monitoring needs attention",
         latencyMs: 0,
         supabaseReachable: false,
         schemaReady: false,
         reasonCode: "SUPABASE_ENV_MISSING" satisfies DeepHealthReasonCode,
+        reasonLabel: getReasonLabel("SUPABASE_ENV_MISSING"),
         errorReason: "Supabase env vars missing",
         commit,
       },
@@ -87,10 +105,13 @@ export async function getDeepHealthResponse(
       return NextResponse.json(
         {
           ok: false,
+          state: "broken",
+          stateLabel: "Monitoring needs attention",
           latencyMs,
           supabaseReachable: false,
           schemaReady: false,
           reasonCode: "SUPABASE_QUERY_FAILED" satisfies DeepHealthReasonCode,
+          reasonLabel: getReasonLabel("SUPABASE_QUERY_FAILED"),
           errorReason: "Supabase query failed",
           commit,
         },
@@ -115,12 +136,17 @@ export async function getDeepHealthResponse(
       return NextResponse.json(
         {
           ok: false,
+          state: "broken",
+          stateLabel: "Monitoring needs attention",
           latencyMs,
           supabaseReachable: true,
           schemaReady: false,
           reasonCode: (schema.queryError
             ? "SCHEMA_READINESS_QUERY_FAILED"
             : "SCHEMA_COLUMNS_MISSING") satisfies DeepHealthReasonCode,
+          reasonLabel: getReasonLabel(
+            schema.queryError ? "SCHEMA_READINESS_QUERY_FAILED" : "SCHEMA_COLUMNS_MISSING"
+          ),
           errorReason: schema.queryError
             ? "Schema readiness check failed"
             : "Critical schema columns are missing",
@@ -135,10 +161,13 @@ export async function getDeepHealthResponse(
 
     return NextResponse.json({
       ok: true,
+      state: "healthy",
+      stateLabel: "Deep health healthy",
       latencyMs,
       supabaseReachable: true,
       schemaReady: true,
       reasonCode: null,
+      reasonLabel: getReasonLabel(null),
       checkedCount: schema.checkedCount,
       checkedAt: schema.checkedAt,
       commit,
@@ -154,10 +183,13 @@ export async function getDeepHealthResponse(
     return NextResponse.json(
       {
         ok: false,
+        state: "broken",
+        stateLabel: "Monitoring needs attention",
         latencyMs: 0,
         supabaseReachable: false,
         schemaReady: false,
         reasonCode: "SUPABASE_QUERY_FAILED" satisfies DeepHealthReasonCode,
+        reasonLabel: getReasonLabel("SUPABASE_QUERY_FAILED"),
         errorReason: "Supabase query failed",
         commit,
       },

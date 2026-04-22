@@ -3,24 +3,23 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { getUserRole } from "@/lib/authz";
 import { normalizeRole } from "@/lib/roles";
 import { parseAppSettingBool } from "@/lib/settings/app-settings";
-import {
-  getCriticalSchemaReadiness,
-  type SchemaClient,
-} from "@/lib/ops/critical-schema-readiness";
-import { getSystemHealthEnvStatus } from "@/lib/admin/system-health";
+import { getOperatorMonitoringSnapshot, type MonitoringClient } from "@/lib/monitoring/operator-status";
 
 type ConfigStatusDeps = {
   hasServerSupabaseEnv: typeof hasServerSupabaseEnv;
   createServerSupabaseClient: typeof createServerSupabaseClient;
   getUserRole: typeof getUserRole;
-  getCriticalSchemaReadiness: (client: SchemaClient) => ReturnType<typeof getCriticalSchemaReadiness>;
+  getOperatorMonitoringSnapshot: (
+    client: MonitoringClient,
+    env?: NodeJS.ProcessEnv
+  ) => ReturnType<typeof getOperatorMonitoringSnapshot>;
 };
 
 const defaultDeps: ConfigStatusDeps = {
   hasServerSupabaseEnv,
   createServerSupabaseClient,
   getUserRole,
-  getCriticalSchemaReadiness,
+  getOperatorMonitoringSnapshot,
 };
 
 export async function getConfigStatusResponse(deps: ConfigStatusDeps = defaultDeps) {
@@ -53,8 +52,10 @@ export async function getConfigStatusResponse(deps: ConfigStatusDeps = defaultDe
   const parseFlag = (key: string) =>
     parseAppSettingBool(data?.find((row) => row.key === key)?.value, false);
 
-  const schema = await deps.getCriticalSchemaReadiness(supabase as unknown as SchemaClient);
-  const env = getSystemHealthEnvStatus();
+  const monitoring = await deps.getOperatorMonitoringSnapshot(
+    supabase as unknown as MonitoringClient,
+    process.env
+  );
 
   return NextResponse.json({
     ok: true,
@@ -64,6 +65,7 @@ export async function getConfigStatusResponse(deps: ConfigStatusDeps = defaultDe
       show_tenant_checkin_badge: parseFlag("show_tenant_checkin_badge"),
     },
     env: {
+      runtimeEnvironment: monitoring.runtimeEnvironment,
       mapboxServerConfigured: !!process.env.MAPBOX_TOKEN,
       mapboxClientConfigured: !!process.env.NEXT_PUBLIC_MAPBOX_TOKEN,
       sentryServerConfigured: !!process.env.SENTRY_DSN,
@@ -73,15 +75,16 @@ export async function getConfigStatusResponse(deps: ConfigStatusDeps = defaultDe
         !!process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
         !!process.env.VERCEL_GIT_COMMIT_SHA ||
         !!process.env.COMMIT_SHA,
-      commitSha: env.commitSha,
+      commitSha: monitoring.commitSha,
     },
     schema: {
-      ready: schema.ready,
-      checkedAt: schema.checkedAt,
-      checkedCount: schema.checkedCount,
-      missingColumns: schema.missing.map((item) => `${item.table}.${item.column}`),
-      queryError: schema.queryError,
+      ready: monitoring.schema.ready,
+      checkedAt: monitoring.schema.checkedAt,
+      checkedCount: monitoring.schema.checkedCount,
+      missingColumns: monitoring.schema.missing.map((item) => `${item.table}.${item.column}`),
+      queryError: monitoring.schema.queryError,
     },
+    monitoring,
   });
 }
 
