@@ -11,8 +11,7 @@ void test("admin alerts page enforces admin guard", () => {
   assert.ok(contents.includes("/auth/required?redirect=/admin/alerts&reason=auth"));
 });
 
-void test("admin alerts page hosts temporary Sentry verification controls on the admin-only surface", () => {
-  const pagePath = path.join(process.cwd(), "app", "admin", "alerts", "page.tsx");
+void test("admin alerts page no longer renders temporary sentry verification controls", () => {
   const componentPath = path.join(
     process.cwd(),
     "components",
@@ -20,11 +19,24 @@ void test("admin alerts page hosts temporary Sentry verification controls on the
     "AdminAlertsOpsActions.tsx"
   );
 
-  const pageContents = fs.readFileSync(pagePath, "utf8");
   const componentContents = fs.readFileSync(componentPath, "utf8");
 
-  assert.ok(pageContents.includes("<AdminAlertsOpsActions"));
-  assert.ok(componentContents.includes("Send test Sentry server event"));
-  assert.ok(componentContents.includes("Send test Sentry client event"));
-  assert.ok(componentContents.includes("Temporary Sentry verification tools for admin ops only"));
+  assert.ok(!componentContents.includes("Send test Sentry server event"));
+  assert.ok(!componentContents.includes("Send test Sentry client event"));
+  assert.ok(!componentContents.includes("Temporary Sentry verification tools for admin ops only"));
+  assert.ok(!componentContents.includes("/api/admin/sentry/test"));
+});
+
+void test("temporary admin sentry test route has been removed", () => {
+  const routePath = path.join(
+    process.cwd(),
+    "app",
+    "api",
+    "admin",
+    "sentry",
+    "test",
+    "route.ts"
+  );
+
+  assert.equal(fs.existsSync(routePath), false);
 });
