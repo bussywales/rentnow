@@ -188,6 +188,13 @@ export type PropertyRequestResponderBoardState = {
   respondedListingCount: number;
 };
 
+export type PropertyRequestResponseSummary = {
+  responseCount: number;
+  responderCount: number;
+  firstResponseAt: string | null;
+  latestResponseAt: string | null;
+};
+
 export const propertyRequestDraftSchema = z
   .object({
     intent: z.enum(PROPERTY_REQUEST_INTENTS).optional(),
@@ -513,7 +520,7 @@ export function getPropertyRequestLocationSummary(input: {
 export function getPropertyRequestBoardActionLabel(input: {
   responderState?: PropertyRequestResponderBoardState | null;
 }): string {
-  return input.responderState?.hasResponded ? "View request" : "Open request";
+  return input.responderState?.hasResponded ? "View your sent matches" : "Review and send matches";
 }
 
 export function getPropertyRequestResponderBoardStateLabel(
@@ -524,6 +531,84 @@ export function getPropertyRequestResponderBoardStateLabel(
     return `Responded · ${responderState.respondedListingCount} listing${responderState.respondedListingCount === 1 ? "" : "s"} sent`;
   }
   return "Responded";
+}
+
+export function getPropertyRequestFreshnessLabel(input: {
+  publishedAt?: string | null;
+  now?: Date;
+}): string | null {
+  const publishedAtMs = parseValidTimestamp(input.publishedAt);
+  if (publishedAtMs === null) return null;
+
+  const daysSincePublish = Math.floor(
+    Math.max(0, (input.now ?? new Date()).getTime() - publishedAtMs) / (24 * 60 * 60 * 1000)
+  );
+
+  if (daysSincePublish <= 0) return "Fresh today";
+  if (daysSincePublish <= 3) return "Fresh this week";
+  return null;
+}
+
+export function getPropertyRequestExpirySignalLabel(input: {
+  status: PropertyRequestStatus;
+  publishedAt?: string | null;
+  expiresAt?: string | null;
+  now?: Date;
+}): string | null {
+  if (
+    !isPropertyRequestOpenForResponses({
+      status: input.status,
+      publishedAt: input.publishedAt,
+      expiresAt: input.expiresAt,
+      now: input.now,
+    })
+  ) {
+    return null;
+  }
+
+  const expiresAtMs = parseValidTimestamp(input.expiresAt);
+  if (expiresAtMs === null) return null;
+  const daysLeft = Math.ceil(
+    Math.max(0, expiresAtMs - (input.now ?? new Date()).getTime()) / (24 * 60 * 60 * 1000)
+  );
+
+  if (daysLeft <= 2) return "Expiring soon";
+  if (daysLeft <= 7) return `${daysLeft} days left`;
+  return null;
+}
+
+export function getPropertyRequestBriefStrengthLabel(
+  request: Pick<
+    PropertyRequest,
+    | "budgetMin"
+    | "budgetMax"
+    | "propertyType"
+    | "bedrooms"
+    | "bathrooms"
+    | "furnished"
+    | "moveTimeline"
+    | "shortletDuration"
+    | "notes"
+    | "area"
+    | "city"
+    | "locationText"
+  >
+): string {
+  const detailSignals = [
+    typeof request.budgetMin === "number" && typeof request.budgetMax === "number",
+    Boolean(request.propertyType),
+    typeof request.bedrooms === "number",
+    typeof request.bathrooms === "number",
+    typeof request.furnished === "boolean",
+    Boolean(request.moveTimeline),
+    Boolean(request.shortletDuration),
+    Boolean(request.notes?.trim()),
+    Boolean(request.area || request.city || request.locationText),
+  ].filter(Boolean).length;
+
+  if (detailSignals >= 7) return "Detailed brief";
+  if (detailSignals >= 4) return "Clear brief";
+  return "Flexible brief";
 }
 
 export function mapPropertyRequestRecord(record: PropertyRequestRecord): PropertyRequest {

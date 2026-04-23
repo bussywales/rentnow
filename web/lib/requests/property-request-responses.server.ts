@@ -14,6 +14,7 @@ import {
   isPropertyRequestOpenForResponses,
   mapPropertyRequestResponseRecord,
   type PropertyRequest,
+  type PropertyRequestResponseSummary,
   type PropertyRequestResponderBoardState,
   type PropertyRequestResponse,
   type PropertyRequestResponseCreateInput,
@@ -300,6 +301,49 @@ export async function listPropertyRequestResponderBoardStates(input: {
   }
 
   return boardStates;
+}
+
+export async function listPropertyRequestResponseSummaries(input: {
+  supabase: AuthenticatedSupabase;
+  requestIds: string[];
+}): Promise<Map<string, PropertyRequestResponseSummary>> {
+  const requestIds = Array.from(new Set(input.requestIds));
+  if (requestIds.length === 0) return new Map();
+
+  const dataClient = getDataClient(input.supabase);
+  const { data } = await dataClient
+    .from<PropertyRequestResponseRecord>("property_request_responses")
+    .select("request_id,responder_user_id,created_at")
+    .in("request_id", requestIds)
+    .order("created_at", { ascending: true });
+
+  const summaries = new Map<string, PropertyRequestResponseSummary>();
+  for (const requestId of requestIds) {
+    summaries.set(requestId, {
+      responseCount: 0,
+      responderCount: 0,
+      firstResponseAt: null,
+      latestResponseAt: null,
+    });
+  }
+
+  const responderSets = new Map<string, Set<string>>();
+  for (const row of (data ?? []) as Array<
+    Pick<PropertyRequestResponseRecord, "request_id" | "responder_user_id" | "created_at">
+  >) {
+    const summary = summaries.get(row.request_id);
+    if (!summary) continue;
+    summary.responseCount += 1;
+    summary.firstResponseAt = summary.firstResponseAt ?? row.created_at;
+    summary.latestResponseAt = row.created_at;
+
+    const responders = responderSets.get(row.request_id) ?? new Set<string>();
+    responders.add(row.responder_user_id);
+    responderSets.set(row.request_id, responders);
+    summary.responderCount = responders.size;
+  }
+
+  return summaries;
 }
 
 async function resolveResponderEligibleListings(input: {

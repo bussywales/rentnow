@@ -8,6 +8,9 @@ import {
   canViewPropertyRequest,
   doesListingIntentMatchPropertyRequest,
   getPropertyRequestBoardActionLabel,
+  getPropertyRequestBriefStrengthLabel,
+  getPropertyRequestExpirySignalLabel,
+  getPropertyRequestFreshnessLabel,
   getPropertyRequestMoveTimelineLabel,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
@@ -362,15 +365,39 @@ void test("labels and location summaries stay human-readable", () => {
     getPropertyRequestLocationSummary({ city: null, area: null, locationText: "Near Yaba Tech" }),
     "Near Yaba Tech"
   );
+  assert.equal(
+    getPropertyRequestFreshnessLabel({
+      publishedAt: "2026-03-16T10:00:00.000Z",
+      now: new Date("2026-03-16T18:00:00.000Z"),
+    }),
+    "Fresh today"
+  );
+  assert.equal(
+    getPropertyRequestFreshnessLabel({
+      publishedAt: "2026-03-14T10:00:00.000Z",
+      now: new Date("2026-03-16T18:00:00.000Z"),
+    }),
+    "Fresh this week"
+  );
+  assert.equal(
+    getPropertyRequestExpirySignalLabel({
+      status: "open",
+      publishedAt: "2026-03-16T10:00:00.000Z",
+      expiresAt: "2026-03-18T10:00:00.000Z",
+      now: new Date("2026-03-16T12:00:00.000Z"),
+    }),
+    "Expiring soon"
+  );
+  assert.equal(getPropertyRequestBriefStrengthLabel(baseRequest), "Detailed brief");
 });
 
 void test("request board responder helpers keep prior response state compact and clear", () => {
-  assert.equal(getPropertyRequestBoardActionLabel({ responderState: null }), "Open request");
+  assert.equal(getPropertyRequestBoardActionLabel({ responderState: null }), "Review and send matches");
   assert.equal(
     getPropertyRequestBoardActionLabel({
       responderState: { hasResponded: true, respondedListingCount: 2 },
     }),
-    "View request"
+    "View your sent matches"
   );
   assert.equal(getPropertyRequestResponderBoardStateLabel(null), null);
   assert.equal(

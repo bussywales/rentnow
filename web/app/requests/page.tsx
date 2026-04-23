@@ -11,6 +11,9 @@ import {
   PROPERTY_REQUEST_PROPERTY_TYPE_OPTIONS,
   PROPERTY_REQUEST_STATUSES,
   getPropertyRequestBoardActionLabel,
+  getPropertyRequestBriefStrengthLabel,
+  getPropertyRequestExpirySignalLabel,
+  getPropertyRequestFreshnessLabel,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
   getPropertyRequestMoveTimelineLabel,
@@ -246,6 +249,9 @@ export default async function RequestsIndexPage({ searchParams }: RequestsPagePr
             const responderState = responderBoardStates.get(request.id) ?? null;
             const responderStateLabel = getPropertyRequestResponderBoardStateLabel(responderState);
             const actionLabel = getPropertyRequestBoardActionLabel({ responderState });
+            const freshnessLabel = getPropertyRequestFreshnessLabel(request);
+            const expirySignalLabel = getPropertyRequestExpirySignalLabel(request);
+            const briefStrengthLabel = getPropertyRequestBriefStrengthLabel(request);
 
             return (
               <article
@@ -262,6 +268,19 @@ export default async function RequestsIndexPage({ searchParams }: RequestsPagePr
                       <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
                         {request.marketCode}
                       </p>
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-700">
+                        {briefStrengthLabel}
+                      </span>
+                      {freshnessLabel ? (
+                        <span className="rounded-full bg-sky-100 px-2 py-1 text-[11px] font-semibold text-sky-700">
+                          {freshnessLabel}
+                        </span>
+                      ) : null}
+                      {expirySignalLabel ? (
+                        <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-800">
+                          {expirySignalLabel}
+                        </span>
+                      ) : null}
                     </div>
                     <div>
                       <h2 className="text-xl font-semibold text-slate-900">
@@ -272,7 +291,14 @@ export default async function RequestsIndexPage({ searchParams }: RequestsPagePr
                     <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600">
                       <span>Property type: {request.propertyType ?? "Any"}</span>
                       <span>Bedrooms: {request.bedrooms ?? "Any"}</span>
+                      <span>Bathrooms: {request.bathrooms ?? "Any"}</span>
                       <span>Move timeline: {getPropertyRequestMoveTimelineLabel(request.moveTimeline)}</span>
+                      {typeof request.furnished === "boolean" ? (
+                        <span>{request.furnished ? "Furnished preferred" : "Unfurnished preferred"}</span>
+                      ) : null}
+                      {request.shortletDuration ? (
+                        <span>Shortlet stay: {request.shortletDuration}</span>
+                      ) : null}
                       <span>
                         {request.expiresAt
                           ? `Expires ${new Date(request.expiresAt).toLocaleDateString()}`

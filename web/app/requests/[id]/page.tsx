@@ -9,6 +9,9 @@ import {
   PROPERTY_REQUEST_MAX_EXTENSION_COUNT,
   canSendPropertyRequestResponses,
   canExtendPropertyRequestExpiry,
+  getPropertyRequestBriefStrengthLabel,
+  getPropertyRequestExpirySignalLabel,
+  getPropertyRequestFreshnessLabel,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
   getPropertyRequestMoveTimelineLabel,
@@ -121,6 +124,13 @@ export default async function PropertyRequestDetailPage({
     : [];
   const extendState =
     typeof resolvedSearchParams.extend === "string" ? resolvedSearchParams.extend : null;
+  const responseCount = responses.length;
+  const responderCount = new Set(responses.map((response) => response.responderUserId)).size;
+  const firstResponseAt = responses.length > 0 ? responses[responses.length - 1]?.createdAt ?? null : null;
+  const latestResponseAt = responses[0]?.createdAt ?? null;
+  const freshnessLabel = getPropertyRequestFreshnessLabel(request);
+  const expirySignalLabel = getPropertyRequestExpirySignalLabel(request);
+  const briefStrengthLabel = getPropertyRequestBriefStrengthLabel(request);
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-8">
@@ -128,11 +138,24 @@ export default async function PropertyRequestDetailPage({
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-3">
             <PropertyRequestStatusBadge status={request.status} />
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
-              {getPropertyRequestIntentLabel(request.intent)}
-            </p>
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{request.marketCode}</p>
-          </div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                      {getPropertyRequestIntentLabel(request.intent)}
+                    </p>
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{request.marketCode}</p>
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-700">
+                      {briefStrengthLabel}
+                    </span>
+                    {freshnessLabel ? (
+                      <span className="rounded-full bg-sky-100 px-2 py-1 text-[11px] font-semibold text-sky-700">
+                        {freshnessLabel}
+                      </span>
+                    ) : null}
+                    {expirySignalLabel ? (
+                      <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-800">
+                        {expirySignalLabel}
+                      </span>
+                    ) : null}
+                  </div>
           <div>
             <h1 className="text-3xl font-semibold text-slate-900">
               {getPropertyRequestLocationSummary(request)}
@@ -217,6 +240,34 @@ export default async function PropertyRequestDetailPage({
           </p>
         </div>
       </section>
+
+      {viewerCanManage || access.role === "admin" ? (
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Marketplace progress</p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-900">Response activity</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Track whether this request is getting traction without exposing seeker contact details or other responder activity publicly.
+          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <RequestFact
+              label="Matches received"
+              value={`${responseCount} match${responseCount === 1 ? "" : "es"}`}
+            />
+            <RequestFact
+              label="Responders"
+              value={`${responderCount} responder${responderCount === 1 ? "" : "s"}`}
+            />
+            <RequestFact
+              label="First match"
+              value={firstResponseAt ? new Date(firstResponseAt).toLocaleString() : "No responses yet"}
+            />
+            <RequestFact
+              label="Latest activity"
+              value={latestResponseAt ? new Date(latestResponseAt).toLocaleString() : "No responses yet"}
+            />
+          </div>
+        </section>
+      ) : null}
 
       {viewerCanManage ? (
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">

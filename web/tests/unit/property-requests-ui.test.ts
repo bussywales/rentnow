@@ -13,6 +13,10 @@ void test("property requests pages expose discovery and owner management routes"
     path.join(process.cwd(), "app", "requests", "[id]", "page.tsx"),
     "utf8"
   );
+  const requestHelpers = fs.readFileSync(
+    path.join(process.cwd(), "lib", "requests", "property-requests.ts"),
+    "utf8"
+  );
   const editPage = fs.readFileSync(
     path.join(process.cwd(), "app", "requests", "[id]", "edit", "page.tsx"),
     "utf8"
@@ -24,12 +28,22 @@ void test("property requests pages expose discovery and owner management routes"
   assert.match(indexPage, /listPropertyRequestResponderBoardStates/);
   assert.match(indexPage, /getPropertyRequestResponderBoardStateLabel/);
   assert.match(indexPage, /getPropertyRequestBoardActionLabel/);
+  assert.match(indexPage, /getPropertyRequestBriefStrengthLabel/);
+  assert.match(indexPage, /getPropertyRequestFreshnessLabel/);
+  assert.match(indexPage, /getPropertyRequestExpirySignalLabel/);
+  assert.match(indexPage, /Bathrooms:/);
+  assert.match(requestHelpers, /Review and send matches/);
+  assert.match(requestHelpers, /View your sent matches/);
   assert.match(indexPage, /access\.role === "landlord" \|\| access\.role === "agent"/);
   assert.match(myPage, /My requests/);
+  assert.match(myPage, /Marketplace progress/);
+  assert.match(myPage, /Awaiting matches/);
   assert.match(myPage, /Create property request/);
+  assert.match(myPage, /listPropertyRequestResponseSummaries/);
   assert.match(detailPage, /PropertyRequestManageActions/);
   assert.match(detailPage, /PropertyRequestResponseComposer/);
   assert.match(detailPage, /PropertyRequestResponsesSection/);
+  assert.match(detailPage, /Response activity/);
   assert.match(detailPage, /Extend 30 days/);
   assert.match(detailPage, /keep this request live/i);
   assert.match(detailPage, /Back to request board/);
