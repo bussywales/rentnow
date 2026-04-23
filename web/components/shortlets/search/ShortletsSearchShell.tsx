@@ -1627,6 +1627,8 @@ export function ShortletsSearchShell({
         resultsCount={filteredTotal}
         filterCount={searchFilterCount}
         searchSource={searchSource}
+        commercialFilterUsed={false}
+        localLivingFilterUsed={false}
       />
       <div
         aria-hidden={mobileMapOpen}

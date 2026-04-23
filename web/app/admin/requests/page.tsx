@@ -7,6 +7,7 @@ import {
   buildPropertyRequestAdminAnalytics,
   buildPropertyRequestBreakdownByIntent,
   buildPropertyRequestBreakdownByMarket,
+  buildRecentPropertyRequestOutcomeSnapshot,
   buildPropertyRequestResponseSummaryMap,
   buildPropertyRequestStallSegments,
   matchesAdminPropertyRequestListFilters,
@@ -91,6 +92,9 @@ export default async function AdminPropertyRequestsPage({ searchParams }: Props)
   const responseRows = (responseRowsResult.data ?? []) as PropertyRequestAnalyticsResponseRow[];
   const responseSummary = buildPropertyRequestResponseSummaryMap(requests, responseRows);
   const analytics = buildPropertyRequestAdminAnalytics(requests, responseRows);
+  const recentOutcome = buildRecentPropertyRequestOutcomeSnapshot(requests, responseRows, {
+    windowDays: 14,
+  });
   const byIntent = buildPropertyRequestBreakdownByIntent(requests, responseRows);
   const byMarket = buildPropertyRequestBreakdownByMarket(requests, responseRows);
   const stallSegments = buildPropertyRequestStallSegments(requests, responseRows).slice(0, 6);
@@ -141,6 +145,18 @@ export default async function AdminPropertyRequestsPage({ searchParams }: Props)
           <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-700">
             <p className="text-xs uppercase tracking-wide text-slate-500">Median first response</p>
             <p className="mt-2 text-xl font-semibold text-slate-900">{formatHours(analytics.medianFirstResponseHours)}</p>
+          </div>
+        </div>
+        <div
+          className="mt-4 rounded-xl border border-sky-200 bg-sky-50/60 p-4 text-sm text-slate-700"
+          data-testid="admin-requests-recent-outcomes"
+        >
+          <p className="text-xs uppercase tracking-wide text-slate-500">Recent 14-day outcome</p>
+          <div className="mt-2 grid gap-2 md:grid-cols-4">
+            <p>Published: <span className="font-semibold text-slate-900">{recentOutcome.requestsPublished}</span></p>
+            <p>With response: <span className="font-semibold text-slate-900">{recentOutcome.requestsWithResponses}</span></p>
+            <p>Response rate: <span className="font-semibold text-slate-900">{formatRate(recentOutcome.responseRate)}</span></p>
+            <p>Median first response: <span className="font-semibold text-slate-900">{formatHours(recentOutcome.medianFirstResponseHours)}</span></p>
           </div>
         </div>
         <div className="mt-5 grid gap-5 xl:grid-cols-2">

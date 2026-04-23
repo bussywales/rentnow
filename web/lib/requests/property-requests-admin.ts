@@ -69,6 +69,17 @@ export type PropertyRequestStallSegment = {
   totalResponsesSent: number;
 };
 
+export type PropertyRequestRecentOutcomeSnapshot = {
+  windowDays: number;
+  requestsPublished: number;
+  requestsWithResponses: number;
+  requestsWithoutResponses: number;
+  totalResponsesSent: number;
+  responseRate: number | null;
+  averageFirstResponseHours: number | null;
+  medianFirstResponseHours: number | null;
+};
+
 export function parseAdminPropertyRequestListFilters(
   input: URLSearchParams | Record<string, string | string[] | undefined>
 ): AdminPropertyRequestListFilters {
@@ -338,4 +349,40 @@ export function buildPropertyRequestStallSegments(
         (right.zeroResponseRate ?? 0) - (left.zeroResponseRate ?? 0) ||
         left.label.localeCompare(right.label)
     );
+}
+
+export function buildRecentPropertyRequestOutcomeSnapshot(
+  requests: PropertyRequest[],
+  responses: PropertyRequestAnalyticsResponseRow[],
+  options: { windowDays?: number; now?: Date } = {}
+): PropertyRequestRecentOutcomeSnapshot {
+  const windowDays = options.windowDays ?? 14;
+  const now = options.now ?? new Date();
+  const cutoff = now.getTime() - windowDays * 24 * 60 * 60 * 1000;
+  const recentRequests = requests.filter((request) => {
+    if (!request.publishedAt) return false;
+    const publishedTs = Date.parse(request.publishedAt);
+    return Number.isFinite(publishedTs) && publishedTs >= cutoff;
+  });
+
+  const summary = buildPropertyRequestResponseSummaryMap(recentRequests, responses);
+  const firstResponseHours = recentRequests
+    .map((request) => summary.get(request.id)?.hoursToFirstResponse ?? null)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  const requestsWithResponses = recentRequests.filter(
+    (request) => (summary.get(request.id)?.responseCount ?? 0) > 0
+  ).length;
+  const recentRequestIds = new Set(recentRequests.map((request) => request.id));
+  const totalResponsesSent = responses.filter((response) => recentRequestIds.has(response.request_id)).length;
+
+  return {
+    windowDays,
+    requestsPublished: recentRequests.length,
+    requestsWithResponses,
+    requestsWithoutResponses: recentRequests.length - requestsWithResponses,
+    totalResponsesSent,
+    responseRate: calculateRate(requestsWithResponses, recentRequests.length),
+    averageFirstResponseHours: average(firstResponseHours),
+    medianFirstResponseHours: median(firstResponseHours),
+  };
 }

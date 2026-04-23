@@ -75,6 +75,7 @@ import { resolvePropertyDetailWithFallback } from "@/lib/properties/property-det
 import { BRAND_OG_SHARE_IMAGE } from "@/lib/brand";
 import { getPropertyRequestQuickStartEntry } from "@/lib/requests/property-request-entry";
 import { ProductEventTracker } from "@/components/analytics/ProductEventTracker";
+import { ProductEventSectionTracker } from "@/components/analytics/ProductEventSectionTracker";
 
 type Params = { id?: string };
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -843,6 +844,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
           propertyType: property.listing_type ?? undefined,
           listingId: property.id,
           listingStatus: property.status ?? undefined,
+          hasLocalLivingDetails: localLivingFacts.length > 0 || undefined,
         }}
       />
       <CtaHashAnchorClient targetId="cta" topOffsetPx={104} />
@@ -1061,6 +1063,21 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
           )}
           {localLivingFacts.length > 0 && (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <ProductEventSectionTracker
+                eventName="listing_detail_section_viewed"
+                dedupeKey={`listing-local-living:${property.id}`}
+                properties={{
+                  market: market.country,
+                  role: normalizeRole(currentUser?.role ?? null) ?? undefined,
+                  propertyType: property.listing_type ?? undefined,
+                  listingId: property.id,
+                  listingStatus: property.status ?? undefined,
+                  category: "local_living",
+                  action: "section_viewed",
+                  surface: "property_detail",
+                  hasLocalLivingDetails: true,
+                }}
+              />
               <div className="space-y-1">
                 <h3 className="text-lg font-semibold text-slate-900">Local living details</h3>
                 <p className="text-xs text-slate-500">

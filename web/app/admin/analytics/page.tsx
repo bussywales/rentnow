@@ -9,6 +9,10 @@ import {
   ADMIN_ANALYTICS_DESTINATIONS,
 } from "@/components/admin/AdminAnalyticsSectionNav";
 import { getDemandFunnelSnapshot, type DemandFunnelSnapshot } from "@/lib/analytics/demand-funnel";
+import {
+  loadOutcomeLearningSnapshot,
+  type OutcomeLearningSnapshot,
+} from "@/lib/analytics/outcome-learning.server";
 import { resolveAnalyticsRange } from "@/lib/analytics/landlord-analytics";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
@@ -24,6 +28,7 @@ type AnalyticsDiagnostics = {
   funnel: DemandFunnelSnapshot | null;
   dataQuality: DataQualitySnapshot | null;
   betaReadiness: ReturnType<typeof buildBetaReadinessSnapshot> | null;
+  outcomeLearning: OutcomeLearningSnapshot | null;
   error: string | null;
 };
 
@@ -36,6 +41,7 @@ async function getAnalyticsDiagnostics(): Promise<AnalyticsDiagnostics> {
       funnel: null,
       dataQuality: null,
       betaReadiness: null,
+      outcomeLearning: null,
       error: "Supabase env vars missing.",
     };
   }
@@ -70,6 +76,7 @@ async function getAnalyticsDiagnostics(): Promise<AnalyticsDiagnostics> {
       funnel: null,
       dataQuality: null,
       betaReadiness,
+      outcomeLearning: null,
       error: "Service role key missing; analytics unavailable.",
     };
   }
@@ -88,6 +95,7 @@ async function getAnalyticsDiagnostics(): Promise<AnalyticsDiagnostics> {
     pushConfigured: pushConfig.configured,
     missingPhotosAvailable: snapshot.counts.missingPhotos !== null,
   });
+  const outcomeLearning = await loadOutcomeLearningSnapshot({ supabase: adminClient, windowDays: 14 });
 
   return {
     supabaseReady: true,
@@ -96,6 +104,7 @@ async function getAnalyticsDiagnostics(): Promise<AnalyticsDiagnostics> {
     funnel,
     dataQuality: snapshot,
     betaReadiness,
+    outcomeLearning,
     error: analytics.errors.length ? analytics.errors.join(" | ") : dataQualityError,
   };
 }
@@ -130,6 +139,7 @@ export default async function AdminAnalyticsPage() {
   const overview = diag.analytics?.overview ?? null;
   const trends = diag.analytics?.trends ?? null;
   const funnel = diag.funnel;
+  const outcomeLearning = diag.outcomeLearning;
   const totalListings = overview?.total ?? null;
   const showEmpty = totalListings === 0;
 
@@ -240,6 +250,50 @@ export default async function AdminAnalyticsPage() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
+            <div
+              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+              data-testid="admin-analytics-outcome-learning"
+            >
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold text-slate-900">Outcome learning</h2>
+                <p className="text-sm text-slate-600">
+                  Last {outcomeLearning?.windowDays ?? 14} days of behaviour on recent product improvements.
+                </p>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Commercial discovery</p>
+                  <p className="mt-2 text-sm text-slate-700">
+                    Filters used: {renderMetric(outcomeLearning?.commercialDiscovery.commercialFilterUses ?? null)}
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    Result clicks: {renderMetric(outcomeLearning?.commercialDiscovery.commercialResultClicks ?? null)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Listing-limit recovery</p>
+                  <p className="mt-2 text-sm text-slate-700">
+                    Recovery views: {renderMetric(outcomeLearning?.listingLimitRecovery.recoveryViews ?? null)}
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    View plans clicks: {renderMetric(outcomeLearning?.listingLimitRecovery.plansClicks ?? null)}
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    Manage listings clicks: {renderMetric(outcomeLearning?.listingLimitRecovery.manageListingsClicks ?? null)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Local living</p>
+                  <p className="mt-2 text-sm text-slate-700">
+                    Filter uses: {renderMetric(outcomeLearning?.localLiving.localLivingFilterUses ?? null)}
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    Section views: {renderMetric(outcomeLearning?.localLiving.localLivingSectionViews ?? null)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">Listing coverage</h2>
               <p className="text-sm text-slate-600">Percent of listings with key fields.</p>

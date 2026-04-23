@@ -12,6 +12,7 @@ test('product analytics event names stay constrained to the approved funnel set'
     'filter_applied',
     'result_clicked',
     'listing_viewed',
+    'listing_detail_section_viewed',
     'listing_save_clicked',
     'listing_unsave_clicked',
     'shortlist_created',
@@ -21,6 +22,8 @@ test('product analytics event names stay constrained to the approved funnel set'
     'contact_submitted',
     'viewing_request_submitted',
     'billing_page_viewed',
+    'listing_limit_recovery_viewed',
+    'listing_limit_recovery_cta_clicked',
     'plan_selected',
     'checkout_started',
     'checkout_succeeded',
@@ -46,7 +49,9 @@ test('product analytics event names stay constrained to the approved funnel set'
 test('event family mapping stays stable', () => {
   assert.equal(getProductAnalyticsEventFamily('search_performed'), 'search_browse');
   assert.equal(getProductAnalyticsEventFamily('listing_viewed'), 'listing_engagement');
+  assert.equal(getProductAnalyticsEventFamily('listing_detail_section_viewed'), 'listing_engagement');
   assert.equal(getProductAnalyticsEventFamily('property_request_published'), 'tenant_intent');
+  assert.equal(getProductAnalyticsEventFamily('listing_limit_recovery_viewed'), 'billing');
   assert.equal(getProductAnalyticsEventFamily('checkout_succeeded'), 'billing');
   assert.equal(getProductAnalyticsEventFamily('listing_published_live'), 'host_activation');
   assert.equal(getProductAnalyticsEventFamily('qr_generated'), 'host_activation');
@@ -60,12 +65,14 @@ test('normalizeProductAnalyticsProperties drops unknown properties', () => {
       market: 'UK',
       role: 'tenant',
       listingId: '9dfe19b2-f303-470f-b896-e7127195c9b4',
+      commercialFilterUsed: true,
       unknown: 'ignore-me',
     }),
     {
       market: 'UK',
       role: 'tenant',
       listingId: '9dfe19b2-f303-470f-b896-e7127195c9b4',
+      commercialFilterUsed: true,
     }
   );
 });

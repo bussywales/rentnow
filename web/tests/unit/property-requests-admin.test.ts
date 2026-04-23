@@ -4,6 +4,7 @@ import {
   buildPropertyRequestAdminAnalytics,
   buildPropertyRequestBreakdownByIntent,
   buildPropertyRequestBreakdownByMarket,
+  buildRecentPropertyRequestOutcomeSnapshot,
   buildPropertyRequestResponseSummaryMap,
   buildPropertyRequestStallSegments,
   matchesAdminPropertyRequestListFilters,
@@ -276,5 +277,23 @@ void test("admin property request stall segments rank published zero-response de
     requestsWithoutResponses: 1,
     zeroResponseRate: 0.5,
     totalResponsesSent: 2,
+  });
+});
+
+void test("admin property request recent outcome snapshot focuses on recent published demand", () => {
+  const snapshot = buildRecentPropertyRequestOutcomeSnapshot(requests, responses, {
+    windowDays: 14,
+    now: new Date("2026-03-12T12:00:00.000Z"),
+  });
+
+  assert.deepEqual(snapshot, {
+    windowDays: 14,
+    requestsPublished: 3,
+    requestsWithResponses: 2,
+    requestsWithoutResponses: 1,
+    totalResponsesSent: 3,
+    responseRate: 2 / 3,
+    averageFirstResponseHours: 13,
+    medianFirstResponseHours: 13,
   });
 });

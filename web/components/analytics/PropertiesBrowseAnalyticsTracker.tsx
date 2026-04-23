@@ -16,6 +16,8 @@ type Props = {
   resultsCount: number;
   filterCount: number;
   searchSource: string | null;
+  commercialFilterUsed?: boolean;
+  localLivingFilterUsed?: boolean;
 };
 
 export function PropertiesBrowseAnalyticsTracker(props: Props) {
@@ -31,6 +33,9 @@ export function PropertiesBrowseAnalyticsTracker(props: Props) {
       resultsCount: props.resultsCount,
       filterCount: props.filterCount,
       searchSource: props.searchSource ?? undefined,
+      commercialFilterUsed: props.commercialFilterUsed ?? undefined,
+      localLivingFilterUsed: props.localLivingFilterUsed ?? undefined,
+      surface: "properties_browse",
     };
 
     trackProductEvent("search_performed", base, {
@@ -41,6 +46,34 @@ export function PropertiesBrowseAnalyticsTracker(props: Props) {
       trackProductEvent("filter_applied", base, {
         dedupeKey: `filter:${props.searchKey}`,
       });
+
+      if (props.commercialFilterUsed) {
+        trackProductEvent(
+          "filter_applied",
+          {
+            ...base,
+            category: "commercial_discovery",
+            action: "commercial_filters_applied",
+          },
+          {
+            dedupeKey: `filter:commercial:${props.searchKey}`,
+          }
+        );
+      }
+
+      if (props.localLivingFilterUsed) {
+        trackProductEvent(
+          "filter_applied",
+          {
+            ...base,
+            category: "local_living",
+            action: "local_living_filters_applied",
+          },
+          {
+            dedupeKey: `filter:local-living:${props.searchKey}`,
+          }
+        );
+      }
     }
   }, [props]);
 

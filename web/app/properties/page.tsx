@@ -839,6 +839,16 @@ export default async function PropertiesPage({ searchParams }: Props) {
     !!createdAfter ||
     hasCategoryFilter ||
     hasActiveFilters(filters);
+  const commercialFilterUsed =
+    !!filters.commercialLayoutType ||
+    (filters.enclosedRoomsMin !== null && typeof filters.enclosedRoomsMin !== "undefined");
+  const localLivingFilterUsed =
+    !!(
+    filters.powerBackup ||
+    filters.waterBorehole ||
+    filters.broadbandReady ||
+    filters.securityFeature
+    );
   const sourceParam = readParam(resolvedSearchParams, "source")?.trim() || null;
   const searchSource =
     sourceParam ?? (savedSearch ? "saved_search" : hasFilters ? "browse_filtered" : "browse");
@@ -863,6 +873,8 @@ export default async function PropertiesPage({ searchParams }: Props) {
         resultsCount={properties.length}
         filterCount={filterCount}
         searchSource={searchSource}
+        commercialFilterUsed={commercialFilterUsed}
+        localLivingFilterUsed={localLivingFilterUsed}
       />
       {savedSearchNoticeNode}
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -1067,6 +1079,14 @@ export default async function PropertiesPage({ searchParams }: Props) {
                   listingId: property.id,
                   listingStatus: property.status ?? undefined,
                   searchSource,
+                  surface: "properties_browse",
+                  commercialFilterUsed: commercialFilterUsed || undefined,
+                  localLivingFilterUsed: localLivingFilterUsed || undefined,
+                  category: commercialFilterUsed
+                    ? "commercial_discovery"
+                    : localLivingFilterUsed
+                      ? "local_living"
+                      : undefined,
                 }}
               />
             </div>
@@ -1111,12 +1131,20 @@ export default async function PropertiesPage({ searchParams }: Props) {
                     intent: filters.listingIntent ?? undefined,
                     city: property.city ?? undefined,
                     area: property.neighbourhood ?? undefined,
-                    propertyType: property.listing_type ?? undefined,
-                    listingId: property.id,
-                    listingStatus: property.status ?? undefined,
-                    searchSource,
-                  }}
-                />
+                  propertyType: property.listing_type ?? undefined,
+                  listingId: property.id,
+                  listingStatus: property.status ?? undefined,
+                  searchSource,
+                  surface: "properties_browse",
+                  commercialFilterUsed: commercialFilterUsed || undefined,
+                  localLivingFilterUsed: localLivingFilterUsed || undefined,
+                  category: commercialFilterUsed
+                    ? "commercial_discovery"
+                    : localLivingFilterUsed
+                      ? "local_living"
+                      : undefined,
+                }}
+              />
               </div>
             ))}
           </div>

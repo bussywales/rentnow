@@ -5431,6 +5431,16 @@ export function PropertyStepper({
         preferPlans
         billingOnly={monetizationGateActive && !monetizationNeedsPayment}
         closeLabel={monetizationNeedsLimitRecovery ? "Manage listings" : "Save and exit"}
+        trackingDedupeKey={propertyId ? `listing-limit:${propertyId}` : "listing-limit:unknown"}
+        trackingProperties={
+          monetizationNeedsLimitRecovery
+            ? {
+                listingId: propertyId ?? undefined,
+                planTier: monetizationPlanName,
+                entrypointSource: monetizationQueryContext ?? undefined,
+              }
+            : undefined
+        }
         limitSummary={
           monetizationNeedsLimitRecovery
             ? {

@@ -48,6 +48,22 @@ void test("admin analytics page includes admin guard and empty state copy", () =
     "expected analytics QA guidance panel heading"
   );
   assert.ok(
+    contents.includes('data-testid="admin-analytics-outcome-learning"'),
+    "expected compact outcome learning section on admin analytics page"
+  );
+  assert.ok(
+    contents.includes("Commercial discovery"),
+    "expected commercial discovery learning copy"
+  );
+  assert.ok(
+    contents.includes("Listing-limit recovery"),
+    "expected listing-limit recovery learning copy"
+  );
+  assert.ok(
+    contents.includes("Local living"),
+    "expected local living learning copy"
+  );
+  assert.ok(
     contents.includes("/help/admin/analytics"),
     "expected link to analytics guide from admin analytics page"
   );

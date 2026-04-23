@@ -8,6 +8,7 @@ const propertyDetailPage = readFileSync('/Users/olubusayoadewale/rentnow/web/app
 const billingPage = readFileSync('/Users/olubusayoadewale/rentnow/web/app/dashboard/billing/page.tsx', 'utf8');
 const plansGrid = readFileSync('/Users/olubusayoadewale/rentnow/web/components/billing/PlansGrid.tsx', 'utf8');
 const shortletsSearchShell = readFileSync('/Users/olubusayoadewale/rentnow/web/components/shortlets/search/ShortletsSearchShell.tsx', 'utf8');
+const browseTrackerSource = readFileSync('/Users/olubusayoadewale/rentnow/web/components/analytics/PropertiesBrowseAnalyticsTracker.tsx', 'utf8');
 
 test('root layout mounts product analytics bootstrap', () => {
   assert.match(rootLayout, /ProductAnalyticsBootstrap/);
@@ -15,6 +16,10 @@ test('root layout mounts product analytics bootstrap', () => {
 
 test('browse page mounts properties analytics tracker', () => {
   assert.match(propertiesPage, /PropertiesBrowseAnalyticsTracker/);
+  assert.match(propertiesPage, /commercialFilterUsed/);
+  assert.match(propertiesPage, /localLivingFilterUsed/);
+  assert.match(browseTrackerSource, /commercial_filters_applied/);
+  assert.match(browseTrackerSource, /local_living_filters_applied/);
 });
 
 test('shortlets search reuses product browse analytics tracking', () => {
@@ -24,6 +29,9 @@ test('shortlets search reuses product browse analytics tracking', () => {
 test('property detail page tracks listing view', () => {
   assert.match(propertyDetailPage, /ProductEventTracker/);
   assert.match(propertyDetailPage, /listing_viewed/);
+  assert.match(propertyDetailPage, /ProductEventSectionTracker/);
+  assert.match(propertyDetailPage, /listing_detail_section_viewed/);
+  assert.match(propertyDetailPage, /hasLocalLivingDetails/);
 });
 
 test('billing page tracks billing page view and plans grid tracks plan selection', () => {

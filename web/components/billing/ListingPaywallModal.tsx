@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import { Button } from "@/components/ui/Button";
+import { trackProductEvent } from "@/lib/analytics/product-events.client";
+import type { ProductAnalyticsEventProperties } from "@/lib/analytics/product-events";
 import { formatPriceValue } from "@/lib/property-discovery";
 
 type Props = {
@@ -16,6 +19,8 @@ type Props = {
   preferPlans?: boolean;
   billingOnly?: boolean;
   closeLabel?: string;
+  trackingProperties?: ProductAnalyticsEventProperties;
+  trackingDedupeKey?: string | null;
   limitSummary?: {
     activeCount: number;
     maxListings: number;
@@ -37,9 +42,10 @@ export function ListingPaywallModal({
   preferPlans = false,
   billingOnly = false,
   closeLabel = "Save and exit",
+  trackingProperties,
+  trackingDedupeKey = null,
   limitSummary = null,
 }: Props) {
-  if (!open) return null;
   const formatted =
     typeof amount === "number" && Number.isFinite(amount)
       ? formatPriceValue(currency, amount)
@@ -71,6 +77,34 @@ export function ListingPaywallModal({
   const payLabel = isFeatured ? primaryLabel : `Pay ${formatted} for this listing`;
   const planLabel = isListingLimit ? "View plans" : "Continue to billing";
 
+  useEffect(() => {
+    if (!open || !isListingLimit) return;
+    trackProductEvent(
+      "listing_limit_recovery_viewed",
+      {
+        ...trackingProperties,
+        category: "listing_limit_recovery",
+        action: "modal_viewed",
+        surface: "listing_paywall_modal",
+      },
+      {
+        dedupeKey: trackingDedupeKey ? `${trackingDedupeKey}:viewed` : "listing-limit-recovery:viewed",
+      }
+    );
+  }, [isListingLimit, open, trackingDedupeKey, trackingProperties]);
+
+  function trackListingLimitAction(action: "view_plans" | "manage_listings") {
+    if (!isListingLimit) return;
+    trackProductEvent("listing_limit_recovery_cta_clicked", {
+      ...trackingProperties,
+      category: "listing_limit_recovery",
+      action,
+      surface: "listing_paywall_modal",
+    });
+  }
+
+  if (!open) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 px-4" role="dialog" aria-modal="true" aria-labelledby="payg-modal-title" data-testid="payg-modal">
       <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
@@ -100,12 +134,28 @@ export function ListingPaywallModal({
           {error && <p className="text-xs text-rose-600">{error}</p>}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-          <Button size="sm" variant="secondary" onClick={onClose} disabled={loading}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              if (isListingLimit) trackListingLimitAction("manage_listings");
+              onClose();
+            }}
+            disabled={loading}
+          >
             {closeLabel}
           </Button>
           {preferPlans && onPlans ? (
             <>
-              <Button size="sm" onClick={onPlans} disabled={loading} data-testid="payg-modal-plans">
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (isListingLimit) trackListingLimitAction("view_plans");
+                  onPlans();
+                }}
+                disabled={loading}
+                data-testid="payg-modal-plans"
+              >
                 {planLabel}
               </Button>
               {!isListingLimit && !billingOnly && onPay ? (
