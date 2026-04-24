@@ -22,19 +22,44 @@ export function SectionIntro({
   heading,
   subheading,
   align = "left",
+  tone = "default",
 }: {
   label?: string;
   heading: string;
   subheading?: string;
   align?: "left" | "center";
+  tone?: "default" | "inverse";
 }) {
   return (
     <div className={cn("max-w-3xl", align === "center" && "mx-auto text-center") }>
       {label ? (
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">{label}</p>
+        <p
+          className={cn(
+            "text-xs font-semibold uppercase tracking-[0.24em]",
+            tone === "inverse" ? "text-sky-200" : "text-sky-700"
+          )}
+        >
+          {label}
+        </p>
       ) : null}
-      <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">{heading}</h2>
-      {subheading ? <p className="mt-4 text-base leading-7 text-slate-600 sm:text-lg">{subheading}</p> : null}
+      <h2
+        className={cn(
+          "mt-3 text-3xl font-semibold tracking-tight sm:text-4xl",
+          tone === "inverse" ? "text-white" : "text-slate-950"
+        )}
+      >
+        {heading}
+      </h2>
+      {subheading ? (
+        <p
+          className={cn(
+            "mt-4 text-base leading-7 sm:text-lg",
+            tone === "inverse" ? "text-slate-300" : "text-slate-600"
+          )}
+        >
+          {subheading}
+        </p>
+      ) : null}
     </div>
   );
 }

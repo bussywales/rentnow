@@ -10,6 +10,7 @@ export function AttendeeValueSection() {
         <SectionIntro
           heading={BOOTCAMP_ATTENDEE_VALUE.heading}
           subheading={BOOTCAMP_ATTENDEE_VALUE.subheading}
+          tone="inverse"
         />
         <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {BOOTCAMP_ATTENDEE_VALUE.items.map((item, index) => {

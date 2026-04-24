@@ -8,12 +8,16 @@ const contentPath = path.join(process.cwd(), "components", "bootcamp", "content.
 const heroPath = path.join(process.cwd(), "components", "bootcamp", "HeroSection.tsx");
 const faqPath = path.join(process.cwd(), "components", "bootcamp", "FAQSection.tsx");
 const overviewPath = path.join(process.cwd(), "components", "bootcamp", "ProgrammeOverviewSection.tsx");
+const attendeeValuePath = path.join(process.cwd(), "components", "bootcamp", "AttendeeValueSection.tsx");
+const sharedPath = path.join(process.cwd(), "components", "bootcamp", "shared.tsx");
 
 const pageSource = fs.readFileSync(pagePath, "utf8");
 const contentSource = fs.readFileSync(contentPath, "utf8");
 const heroSource = fs.readFileSync(heroPath, "utf8");
 const faqSource = fs.readFileSync(faqPath, "utf8");
 const overviewSource = fs.readFileSync(overviewPath, "utf8");
+const attendeeValueSource = fs.readFileSync(attendeeValuePath, "utf8");
+const sharedSource = fs.readFileSync(sharedPath, "utf8");
 const audienceSource = fs.readFileSync(
   path.join(process.cwd(), "components", "bootcamp", "AudienceSection.tsx"),
   "utf8"
@@ -105,4 +109,11 @@ void test("bootcamp hero no longer duplicates the full five-day overview cards",
   assert.doesNotMatch(heroSource, /day\.copy/);
   assert.match(overviewSource, /item\.title/);
   assert.match(overviewSource, /item\.copy/);
+});
+
+void test("attendee value section uses inverse heading contrast on the dark panel", () => {
+  assert.match(attendeeValueSource, /bg-slate-950/);
+  assert.match(attendeeValueSource, /tone="inverse"/);
+  assert.match(sharedSource, /tone === "inverse" \? "text-white"/);
+  assert.match(sharedSource, /tone === "inverse" \? "text-slate-300"/);
 });
