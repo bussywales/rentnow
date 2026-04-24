@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { trackProductEvent } from "@/lib/analytics/product-events.client";
 import { BOOTCAMP_FAQS } from "@/components/bootcamp/content";
 import { SectionIntro, SectionShell } from "@/components/bootcamp/shared";
 
@@ -19,6 +20,17 @@ export function FAQSection() {
               open={openId === item.id}
               onToggle={(event) => {
                 const nextOpen = event.currentTarget.open;
+                if (nextOpen) {
+                  trackProductEvent(
+                    "bootcamp_faq_expanded",
+                    {
+                      category: "bootcamp_launch",
+                      action: item.id,
+                      surface: "bootcamp_faq",
+                    },
+                    { dedupeKey: `bootcamp:faq:${item.id}` }
+                  );
+                }
                 setOpenId(nextOpen ? item.id : null);
               }}
             >

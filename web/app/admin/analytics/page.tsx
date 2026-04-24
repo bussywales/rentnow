@@ -260,7 +260,22 @@ export default async function AdminAnalyticsPage() {
                   Last {outcomeLearning?.windowDays ?? 14} days of behaviour on recent product improvements.
                 </p>
               </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Bootcamp launch</p>
+                  <p className="mt-2 text-sm text-slate-700">
+                    Page views: {renderMetric(outcomeLearning?.bootcamp.pageViews ?? null)}
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    Primary CTA clicks: {renderMetric(outcomeLearning?.bootcamp.primaryCtaClicks ?? null)}
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    Roadmap clicks: {renderMetric(outcomeLearning?.bootcamp.roadmapClicks ?? null)}
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    FAQ expands: {renderMetric(outcomeLearning?.bootcamp.faqExpands ?? null)}
+                  </p>
+                </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Commercial discovery</p>
                   <p className="mt-2 text-sm text-slate-700">

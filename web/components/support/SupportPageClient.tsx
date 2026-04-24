@@ -16,6 +16,8 @@ import {
 type Props = {
   prefillName?: string | null;
   prefillEmail?: string | null;
+  initialCategory?: SupportCategory;
+  initialMessage?: string | null;
   isAdmin: boolean;
   appVersion: string;
   releaseDate: string;
@@ -25,13 +27,17 @@ type Props = {
 export default function SupportPageClient({
   prefillName,
   prefillEmail,
+  initialCategory,
+  initialMessage,
   isAdmin,
   appVersion,
   releaseDate,
   releaseNotes,
 }: Props) {
   const faqRef = useRef<HTMLDivElement | null>(null);
-  const [category, setCategory] = useState<SupportCategory>("general");
+  const [category, setCategory] = useState<SupportCategory>(
+    initialCategory ?? "general"
+  );
   const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
   const [openFaqId, setOpenFaqId] = useState<string | null>(null);
   const helperText = useMemo(
@@ -104,6 +110,7 @@ export default function SupportPageClient({
           <SupportContactForm
             prefillName={prefillName}
             prefillEmail={prefillEmail}
+            initialMessage={initialMessage}
             category={category}
             helperText={helperText}
             onCategoryChange={handleCategoryChange}

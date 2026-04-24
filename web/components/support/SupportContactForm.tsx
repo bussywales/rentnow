@@ -12,6 +12,7 @@ import {
 type Props = {
   prefillName?: string | null;
   prefillEmail?: string | null;
+  initialMessage?: string | null;
   category: SupportCategory;
   helperText?: string | null;
   onCategoryChange: (value: SupportCategory) => void;
@@ -26,13 +27,14 @@ const urgencyOptions = [
 export default function SupportContactForm({
   prefillName,
   prefillEmail,
+  initialMessage,
   category,
   helperText,
   onCategoryChange,
 }: Props) {
   const [name, setName] = useState(prefillName ?? "");
   const [email, setEmail] = useState(prefillEmail ?? "");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(initialMessage ?? "");
   const [listingRef, setListingRef] = useState("");
   const [urgency, setUrgency] = useState("normal");
   const [submitting, setSubmitting] = useState(false);
@@ -125,7 +127,12 @@ export default function SupportContactForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4" data-testid="support-form">
+    <form
+      id="support-form"
+      onSubmit={handleSubmit}
+      className="space-y-4"
+      data-testid="support-form"
+    >
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-1">
           <label htmlFor="support-name" className="text-[11px] font-semibold text-slate-500">

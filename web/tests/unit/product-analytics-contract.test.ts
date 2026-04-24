@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const rootLayout = readFileSync('/Users/olubusayoadewale/rentnow/web/app/layout.tsx', 'utf8');
+const bootcampPage = readFileSync('/Users/olubusayoadewale/rentnow/web/app/bootcamp/page.tsx', 'utf8');
+const bootcampHero = readFileSync('/Users/olubusayoadewale/rentnow/web/components/bootcamp/HeroSection.tsx', 'utf8');
+const bootcampHeader = readFileSync('/Users/olubusayoadewale/rentnow/web/components/bootcamp/HeaderNav.tsx', 'utf8');
+const bootcampFinalCta = readFileSync('/Users/olubusayoadewale/rentnow/web/components/bootcamp/FinalCTASection.tsx', 'utf8');
+const bootcampFaq = readFileSync('/Users/olubusayoadewale/rentnow/web/components/bootcamp/FAQSection.tsx', 'utf8');
+const bootcampTrackedLink = readFileSync('/Users/olubusayoadewale/rentnow/web/components/bootcamp/BootcampTrackedButtonLink.tsx', 'utf8');
 const propertiesPage = readFileSync('/Users/olubusayoadewale/rentnow/web/app/properties/page.tsx', 'utf8');
 const propertyDetailPage = readFileSync('/Users/olubusayoadewale/rentnow/web/app/properties/[id]/page.tsx', 'utf8');
 const billingPage = readFileSync('/Users/olubusayoadewale/rentnow/web/app/dashboard/billing/page.tsx', 'utf8');
@@ -12,6 +18,16 @@ const browseTrackerSource = readFileSync('/Users/olubusayoadewale/rentnow/web/co
 
 test('root layout mounts product analytics bootstrap', () => {
   assert.match(rootLayout, /ProductAnalyticsBootstrap/);
+});
+
+test('bootcamp page mounts narrow launch analytics tracking', () => {
+  assert.match(bootcampPage, /BootcampPageAnalytics/);
+  assert.match(bootcampPage, /buildBootcampMetadata/);
+  assert.match(bootcampTrackedLink, /bootcamp_cta_clicked/);
+  assert.match(bootcampHero, /BootcampTrackedButtonLink/);
+  assert.match(bootcampHeader, /BootcampTrackedButtonLink/);
+  assert.match(bootcampFinalCta, /BootcampTrackedButtonLink/);
+  assert.match(bootcampFaq, /bootcamp_faq_expanded/);
 });
 
 test('browse page mounts properties analytics tracker', () => {

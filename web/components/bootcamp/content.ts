@@ -1,4 +1,7 @@
-export const BOOTCAMP_PRIMARY_CTA_HREF = "/support?topic=bootcamp-pilot";
+export const BOOTCAMP_PRIMARY_CTA_HREF =
+  "/support?category=general&message=I%27m%20interested%20in%20the%20PropatyHub%20Property%20Opportunity%20Bootcamp%20pilot%20cohort.%20Please%20share%20next%20steps.#support-form";
+export const BOOTCAMP_PRICING_CTA_HREF =
+  "/support?category=general&message=I%27d%20like%20pricing%20details%20for%20the%20PropatyHub%20Property%20Opportunity%20Bootcamp.#support-form";
 export const BOOTCAMP_SECONDARY_CTA_HREF = "#programme-overview";
 export const BOOTCAMP_CONTACT_HREF = "mailto:support@propatyhub.com?subject=PropatyHub%20Property%20Opportunity%20Bootcamp";
 
@@ -6,7 +9,7 @@ export const BOOTCAMP_NAV_ITEMS = [
   { label: "Home", href: "/" },
   { label: "About", href: "/about" },
   { label: "Bootcamp", href: "#hero" },
-  { label: "Pricing", href: BOOTCAMP_PRIMARY_CTA_HREF },
+  { label: "Pricing", href: BOOTCAMP_PRICING_CTA_HREF },
   { label: "Resources", href: BOOTCAMP_SECONDARY_CTA_HREF },
   { label: "Contact", href: BOOTCAMP_CONTACT_HREF },
 ] as const;

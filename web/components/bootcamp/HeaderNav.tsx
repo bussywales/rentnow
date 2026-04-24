@@ -1,5 +1,5 @@
 import { BrandLogo } from "@/components/branding/BrandLogo";
-import { ButtonLink } from "@/components/ui/ButtonLink";
+import { BootcampTrackedButtonLink } from "@/components/bootcamp/BootcampTrackedButtonLink";
 import { BOOTCAMP_NAV_ITEMS, BOOTCAMP_HERO, BOOTCAMP_PRIMARY_CTA_HREF } from "@/components/bootcamp/content";
 
 export function HeaderNav() {
@@ -15,9 +15,16 @@ export function HeaderNav() {
           ))}
         </nav>
         <div className="flex items-center gap-3">
-          <ButtonLink href={BOOTCAMP_PRIMARY_CTA_HREF} size="md" className="rounded-full bg-sky-700 px-5 hover:bg-sky-800">
+          <BootcampTrackedButtonLink
+            href={BOOTCAMP_PRIMARY_CTA_HREF}
+            size="md"
+            className="rounded-full bg-sky-700 px-5 hover:bg-sky-800"
+            action="secure_your_spot"
+            surface="bootcamp_header"
+            dedupeKey="bootcamp:cta:header:secure"
+          >
             {BOOTCAMP_HERO.primaryCta}
-          </ButtonLink>
+          </BootcampTrackedButtonLink>
         </div>
       </div>
       <div className="overflow-x-auto border-t border-slate-200/70 lg:hidden">

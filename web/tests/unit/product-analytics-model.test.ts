@@ -8,6 +8,9 @@ import {
 
 test('product analytics event names stay constrained to the approved funnel set', () => {
   assert.deepEqual(PRODUCT_ANALYTICS_EVENT_NAMES, [
+    'bootcamp_page_viewed',
+    'bootcamp_cta_clicked',
+    'bootcamp_faq_expanded',
     'search_performed',
     'filter_applied',
     'result_clicked',
@@ -47,6 +50,9 @@ test('product analytics event names stay constrained to the approved funnel set'
 });
 
 test('event family mapping stays stable', () => {
+  assert.equal(getProductAnalyticsEventFamily('bootcamp_page_viewed'), 'host_activation');
+  assert.equal(getProductAnalyticsEventFamily('bootcamp_cta_clicked'), 'host_activation');
+  assert.equal(getProductAnalyticsEventFamily('bootcamp_faq_expanded'), 'host_activation');
   assert.equal(getProductAnalyticsEventFamily('search_performed'), 'search_browse');
   assert.equal(getProductAnalyticsEventFamily('listing_viewed'), 'listing_engagement');
   assert.equal(getProductAnalyticsEventFamily('listing_detail_section_viewed'), 'listing_engagement');

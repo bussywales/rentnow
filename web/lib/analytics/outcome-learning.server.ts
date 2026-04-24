@@ -10,6 +10,12 @@ type OutcomeLearningRow = {
 export type OutcomeLearningSnapshot = {
   windowDays: number;
   windowStart: string;
+  bootcamp: {
+    pageViews: number;
+    primaryCtaClicks: number;
+    roadmapClicks: number;
+    faqExpands: number;
+  };
   commercialDiscovery: {
     commercialFilterUses: number;
     commercialResultClicks: number;
@@ -42,6 +48,10 @@ export function buildOutcomeLearningSnapshot(
   const now = options.now ?? new Date();
   const windowStart = new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000).toISOString();
 
+  let bootcampPageViews = 0;
+  let bootcampPrimaryCtaClicks = 0;
+  let bootcampRoadmapClicks = 0;
+  let bootcampFaqExpands = 0;
   let commercialFilterUses = 0;
   let commercialResultClicks = 0;
   let recoveryViews = 0;
@@ -52,6 +62,23 @@ export function buildOutcomeLearningSnapshot(
 
   for (const row of rows) {
     const properties = row.properties ?? null;
+    if (row.event_name === "bootcamp_page_viewed") {
+      bootcampPageViews += 1;
+    }
+
+    if (row.event_name === "bootcamp_cta_clicked") {
+      const action = readString(properties, "action");
+      if (action === "secure_your_spot" || action === "join_pilot_cohort") {
+        bootcampPrimaryCtaClicks += 1;
+      } else if (action === "view_programme_roadmap") {
+        bootcampRoadmapClicks += 1;
+      }
+    }
+
+    if (row.event_name === "bootcamp_faq_expanded") {
+      bootcampFaqExpands += 1;
+    }
+
     if (row.event_name === "filter_applied" && readBoolean(properties, "commercialFilterUsed")) {
       commercialFilterUses += 1;
     }
@@ -91,6 +118,12 @@ export function buildOutcomeLearningSnapshot(
   return {
     windowDays,
     windowStart,
+    bootcamp: {
+      pageViews: bootcampPageViews,
+      primaryCtaClicks: bootcampPrimaryCtaClicks,
+      roadmapClicks: bootcampRoadmapClicks,
+      faqExpands: bootcampFaqExpands,
+    },
     commercialDiscovery: {
       commercialFilterUses,
       commercialResultClicks,

@@ -83,3 +83,15 @@ void test("bootcamp hero and faq keep the expected interactions", () => {
   assert.match(faqSource, /details/);
   assert.match(faqSource, /setOpenId/);
 });
+
+void test("bootcamp CTA destinations stay truthful and routed to support or roadmap", () => {
+  assert.match(
+    contentSource,
+    /\/support\?category=general&message=.*PropatyHub%20Property%20Opportunity%20Bootcamp.*#support-form/
+  );
+  assert.match(
+    contentSource,
+    /\/support\?category=general&message=.*pricing.*PropatyHub%20Property%20Opportunity%20Bootcamp.*#support-form/
+  );
+  assert.match(contentSource, /BOOTCAMP_SECONDARY_CTA_HREF = "#programme-overview"/);
+});

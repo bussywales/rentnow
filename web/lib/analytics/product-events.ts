@@ -1,6 +1,9 @@
 import { z } from "zod";
 
 export const PRODUCT_ANALYTICS_EVENT_NAMES = [
+  "bootcamp_page_viewed",
+  "bootcamp_cta_clicked",
+  "bootcamp_faq_expanded",
   "search_performed",
   "filter_applied",
   "result_clicked",
@@ -49,6 +52,9 @@ export const PRODUCT_ANALYTICS_EVENT_FAMILY_BY_NAME: Record<
   | "host_activation"
   | "move_ready_services"
 > = {
+  bootcamp_page_viewed: "host_activation",
+  bootcamp_cta_clicked: "host_activation",
+  bootcamp_faq_expanded: "host_activation",
   search_performed: "search_browse",
   filter_applied: "search_browse",
   result_clicked: "search_browse",

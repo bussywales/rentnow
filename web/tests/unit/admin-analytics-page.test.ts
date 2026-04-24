@@ -56,6 +56,10 @@ void test("admin analytics page includes admin guard and empty state copy", () =
     "expected commercial discovery learning copy"
   );
   assert.ok(
+    contents.includes("Bootcamp launch"),
+    "expected bootcamp launch learning copy"
+  );
+  assert.ok(
     contents.includes("Listing-limit recovery"),
     "expected listing-limit recovery learning copy"
   );

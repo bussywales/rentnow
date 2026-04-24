@@ -1,4 +1,4 @@
-import { ButtonLink } from "@/components/ui/ButtonLink";
+import { BootcampTrackedButtonLink } from "@/components/bootcamp/BootcampTrackedButtonLink";
 import { BOOTCAMP_FINAL_CTA, BOOTCAMP_PRIMARY_CTA_HREF, BOOTCAMP_SECONDARY_CTA_HREF } from "@/components/bootcamp/content";
 import { SectionShell } from "@/components/bootcamp/shared";
 
@@ -9,12 +9,27 @@ export function FinalCTASection() {
         <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">{BOOTCAMP_FINAL_CTA.heading}</h2>
         <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-sky-50/92 sm:text-lg">{BOOTCAMP_FINAL_CTA.copy}</p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <ButtonLink href={BOOTCAMP_PRIMARY_CTA_HREF} size="lg" className="min-w-[220px] rounded-full bg-white px-6 text-slate-950 hover:bg-slate-100">
+          <BootcampTrackedButtonLink
+            href={BOOTCAMP_PRIMARY_CTA_HREF}
+            size="lg"
+            className="min-w-[220px] rounded-full bg-white px-6 text-slate-950 hover:bg-slate-100"
+            action="join_pilot_cohort"
+            surface="bootcamp_final_cta"
+            dedupeKey="bootcamp:cta:final:join"
+          >
             {BOOTCAMP_FINAL_CTA.primaryCta}
-          </ButtonLink>
-          <ButtonLink href={BOOTCAMP_SECONDARY_CTA_HREF} variant="secondary" size="lg" className="min-w-[220px] rounded-full border-white/25 bg-white/10 px-6 text-white hover:border-white/40 hover:bg-white/15">
+          </BootcampTrackedButtonLink>
+          <BootcampTrackedButtonLink
+            href={BOOTCAMP_SECONDARY_CTA_HREF}
+            variant="secondary"
+            size="lg"
+            className="min-w-[220px] rounded-full border-white/25 bg-white/10 px-6 text-white hover:border-white/40 hover:bg-white/15"
+            action="view_programme_roadmap"
+            surface="bootcamp_final_cta"
+            dedupeKey="bootcamp:cta:final:roadmap"
+          >
             {BOOTCAMP_FINAL_CTA.secondaryCta}
-          </ButtonLink>
+          </BootcampTrackedButtonLink>
         </div>
       </div>
     </SectionShell>

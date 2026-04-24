@@ -1,4 +1,4 @@
-import { ButtonLink } from "@/components/ui/ButtonLink";
+import { BootcampTrackedButtonLink } from "@/components/bootcamp/BootcampTrackedButtonLink";
 import { AccentGrid, CheckIcon, CompassIcon, ListingIcon, SectionShell } from "@/components/bootcamp/shared";
 import { BOOTCAMP_HERO, BOOTCAMP_OVERVIEW, BOOTCAMP_PRIMARY_CTA_HREF, BOOTCAMP_SECONDARY_CTA_HREF } from "@/components/bootcamp/content";
 
@@ -16,12 +16,27 @@ export function HeroSection() {
               {BOOTCAMP_HERO.subheadline}
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <ButtonLink href={BOOTCAMP_PRIMARY_CTA_HREF} size="lg" className="rounded-full bg-white px-6 text-slate-950 hover:bg-slate-100">
+              <BootcampTrackedButtonLink
+                href={BOOTCAMP_PRIMARY_CTA_HREF}
+                size="lg"
+                className="rounded-full bg-white px-6 text-slate-950 hover:bg-slate-100"
+                action="secure_your_spot"
+                surface="bootcamp_hero"
+                dedupeKey="bootcamp:cta:hero:secure"
+              >
                 {BOOTCAMP_HERO.primaryCta}
-              </ButtonLink>
-              <ButtonLink href={BOOTCAMP_SECONDARY_CTA_HREF} variant="secondary" size="lg" className="rounded-full border-white/25 bg-white/10 px-6 text-white hover:border-white/40 hover:bg-white/15">
+              </BootcampTrackedButtonLink>
+              <BootcampTrackedButtonLink
+                href={BOOTCAMP_SECONDARY_CTA_HREF}
+                variant="secondary"
+                size="lg"
+                className="rounded-full border-white/25 bg-white/10 px-6 text-white hover:border-white/40 hover:bg-white/15"
+                action="view_programme_roadmap"
+                surface="bootcamp_hero"
+                dedupeKey="bootcamp:cta:hero:roadmap"
+              >
                 {BOOTCAMP_HERO.secondaryCta}
-              </ButtonLink>
+              </BootcampTrackedButtonLink>
             </div>
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
               {BOOTCAMP_HERO.trustStrip.map((item) => (
