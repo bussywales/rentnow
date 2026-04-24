@@ -15,6 +15,7 @@ import { LegalAcceptanceModalGate } from "@/components/legal/LegalAcceptanceModa
 import { SupportWidget } from "@/components/support/SupportWidget";
 import { GlassDock } from "@/components/layout/GlassDock";
 import { AppStartupShellRemover } from "@/components/layout/AppStartupShellRemover";
+import { HideOnPath } from "@/components/layout/HideOnPath";
 import {
   BRAND,
   BRAND_NAME,
@@ -74,6 +75,7 @@ const ROOT_LAYOUT_SETTING_KEYS = [
   APP_SETTING_KEYS.brandSocialFacebookUrl,
   APP_SETTING_KEYS.brandSocialWhatsappLink,
 ] as const;
+const HIDE_GLOBAL_CHROME_PREFIXES = ["/bootcamp"] as const;
 
 export const metadata: Metadata = {
   metadataBase: new URL(BRAND.siteUrl),
@@ -247,14 +249,16 @@ export default async function RootLayout({
         ) : null}
         <ImageOptimizationModeProvider mode={imageOptimizationMode}>
           <MarketPreferenceProvider initialMarket={market}>
-            <MainNav
-              marketSelectorEnabled={marketSettings.selectorEnabled}
-              initialAuthed={navInitialAuthed}
-              initialRole={navInitialRole}
-              initialAccountName={navInitialAccountName}
-              initialAccountAvatarUrl={navInitialAccountAvatarUrl}
-              socialLinks={socialLinks}
-            />
+            <HideOnPath hiddenPrefixes={[...HIDE_GLOBAL_CHROME_PREFIXES]}>
+              <MainNav
+                marketSelectorEnabled={marketSettings.selectorEnabled}
+                initialAuthed={navInitialAuthed}
+                initialRole={navInitialRole}
+                initialAccountName={navInitialAccountName}
+                initialAccountAvatarUrl={navInitialAccountAvatarUrl}
+                socialLinks={socialLinks}
+              />
+            </HideOnPath>
             <SessionBootstrap />
             <ProductAnalyticsBootstrap
               measurementId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? null}
@@ -269,14 +273,22 @@ export default async function RootLayout({
             <main className="min-h-[80vh] pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] pt-6 md:pb-24">
               {children}
             </main>
-            <SupportWidget
-              prefillName={supportPrefillName}
-              prefillEmail={supportPrefillEmail}
-              prefillRole={supportPrefillRole}
-            />
-            <GlassDock />
-            <Footer />
-            <LegalDisclaimerBanner />
+            <HideOnPath hiddenPrefixes={[...HIDE_GLOBAL_CHROME_PREFIXES]}>
+              <SupportWidget
+                prefillName={supportPrefillName}
+                prefillEmail={supportPrefillEmail}
+                prefillRole={supportPrefillRole}
+              />
+            </HideOnPath>
+            <HideOnPath hiddenPrefixes={[...HIDE_GLOBAL_CHROME_PREFIXES]}>
+              <GlassDock />
+            </HideOnPath>
+            <HideOnPath hiddenPrefixes={[...HIDE_GLOBAL_CHROME_PREFIXES]}>
+              <Footer />
+            </HideOnPath>
+            <HideOnPath hiddenPrefixes={[...HIDE_GLOBAL_CHROME_PREFIXES]}>
+              <LegalDisclaimerBanner />
+            </HideOnPath>
           </MarketPreferenceProvider>
         </ImageOptimizationModeProvider>
       </body>
