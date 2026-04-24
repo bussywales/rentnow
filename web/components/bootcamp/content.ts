@@ -1,7 +1,7 @@
 export const BOOTCAMP_PRIMARY_CTA_HREF =
-  "/support?category=general&message=I%27m%20interested%20in%20the%20PropatyHub%20Property%20Opportunity%20Bootcamp%20pilot%20cohort.%20Please%20share%20next%20steps.#support-form";
+  "/support?category=general&source=bootcamp&message=I%27m%20interested%20in%20the%20PropatyHub%20Property%20Opportunity%20Bootcamp%20pilot%20cohort.%20Please%20share%20next%20steps.#support-form";
 export const BOOTCAMP_PRICING_CTA_HREF =
-  "/support?category=general&message=I%27d%20like%20pricing%20details%20for%20the%20PropatyHub%20Property%20Opportunity%20Bootcamp.#support-form";
+  "/support?category=general&source=bootcamp&message=I%27d%20like%20pricing%20details%20for%20the%20PropatyHub%20Property%20Opportunity%20Bootcamp.#support-form";
 export const BOOTCAMP_SECONDARY_CTA_HREF = "#programme-overview";
 export const BOOTCAMP_CONTACT_HREF = "mailto:support@propatyhub.com?subject=PropatyHub%20Property%20Opportunity%20Bootcamp";
 
@@ -207,5 +207,5 @@ export const BOOTCAMP_FOOTER = {
     { label: "Terms of Service", href: "/legal/disclaimer" },
     { label: "Contact", href: BOOTCAMP_CONTACT_HREF },
   ],
-  copyright: "© 2024 PropatyHub. All rights reserved.",
+  copyright: "© 2026 PropatyHub. All rights reserved.",
 } as const;

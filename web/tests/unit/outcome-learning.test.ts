@@ -36,6 +36,16 @@ void test("outcome learning snapshot aggregates commercial, recovery, and local 
         properties: { action: "need-experience", surface: "bootcamp_faq" },
       },
       {
+        event_name: "contact_submitted",
+        created_at: "2026-04-20T09:20:00.000Z",
+        property_type: null,
+        properties: {
+          category: "bootcamp_launch",
+          action: "support_form_submitted",
+          surface: "support_form",
+        },
+      },
+      {
         event_name: "filter_applied",
         created_at: "2026-04-20T10:00:00.000Z",
         property_type: null,
@@ -92,6 +102,7 @@ void test("outcome learning snapshot aggregates commercial, recovery, and local 
       primaryCtaClicks: 2,
       roadmapClicks: 1,
       faqExpands: 1,
+      supportSubmissions: 1,
     },
     commercialDiscovery: {
       commercialFilterUses: 1,

@@ -15,6 +15,7 @@ export type OutcomeLearningSnapshot = {
     primaryCtaClicks: number;
     roadmapClicks: number;
     faqExpands: number;
+    supportSubmissions: number;
   };
   commercialDiscovery: {
     commercialFilterUses: number;
@@ -52,6 +53,7 @@ export function buildOutcomeLearningSnapshot(
   let bootcampPrimaryCtaClicks = 0;
   let bootcampRoadmapClicks = 0;
   let bootcampFaqExpands = 0;
+  let bootcampSupportSubmissions = 0;
   let commercialFilterUses = 0;
   let commercialResultClicks = 0;
   let recoveryViews = 0;
@@ -77,6 +79,14 @@ export function buildOutcomeLearningSnapshot(
 
     if (row.event_name === "bootcamp_faq_expanded") {
       bootcampFaqExpands += 1;
+    }
+
+    if (
+      row.event_name === "contact_submitted" &&
+      readString(properties, "category") === "bootcamp_launch" &&
+      readString(properties, "action") === "support_form_submitted"
+    ) {
+      bootcampSupportSubmissions += 1;
     }
 
     if (row.event_name === "filter_applied" && readBoolean(properties, "commercialFilterUsed")) {
@@ -123,6 +133,7 @@ export function buildOutcomeLearningSnapshot(
       primaryCtaClicks: bootcampPrimaryCtaClicks,
       roadmapClicks: bootcampRoadmapClicks,
       faqExpands: bootcampFaqExpands,
+      supportSubmissions: bootcampSupportSubmissions,
     },
     commercialDiscovery: {
       commercialFilterUses,

@@ -7,11 +7,13 @@ const pagePath = path.join(process.cwd(), "app", "bootcamp", "page.tsx");
 const contentPath = path.join(process.cwd(), "components", "bootcamp", "content.ts");
 const heroPath = path.join(process.cwd(), "components", "bootcamp", "HeroSection.tsx");
 const faqPath = path.join(process.cwd(), "components", "bootcamp", "FAQSection.tsx");
+const overviewPath = path.join(process.cwd(), "components", "bootcamp", "ProgrammeOverviewSection.tsx");
 
 const pageSource = fs.readFileSync(pagePath, "utf8");
 const contentSource = fs.readFileSync(contentPath, "utf8");
 const heroSource = fs.readFileSync(heroPath, "utf8");
 const faqSource = fs.readFileSync(faqPath, "utf8");
+const overviewSource = fs.readFileSync(overviewPath, "utf8");
 const audienceSource = fs.readFileSync(
   path.join(process.cwd(), "components", "bootcamp", "AudienceSection.tsx"),
   "utf8"
@@ -68,7 +70,7 @@ void test("bootcamp content file keeps the locked visible copy", () => {
     "Why PropatyHub",
     "Start With Practical Guidance, Not Hype",
     "Join the Pilot Cohort",
-    "© 2024 PropatyHub. All rights reserved.",
+    "© 2026 PropatyHub. All rights reserved.",
   ];
 
   for (const copy of requiredCopy) {
@@ -87,11 +89,20 @@ void test("bootcamp hero and faq keep the expected interactions", () => {
 void test("bootcamp CTA destinations stay truthful and routed to support or roadmap", () => {
   assert.match(
     contentSource,
-    /\/support\?category=general&message=.*PropatyHub%20Property%20Opportunity%20Bootcamp.*#support-form/
+    /\/support\?category=general&source=bootcamp&message=.*PropatyHub%20Property%20Opportunity%20Bootcamp.*#support-form/
   );
   assert.match(
     contentSource,
-    /\/support\?category=general&message=.*pricing.*PropatyHub%20Property%20Opportunity%20Bootcamp.*#support-form/
+    /\/support\?category=general&source=bootcamp&message=.*pricing.*PropatyHub%20Property%20Opportunity%20Bootcamp.*#support-form/
   );
   assert.match(contentSource, /BOOTCAMP_SECONDARY_CTA_HREF = "#programme-overview"/);
+});
+
+void test("bootcamp hero no longer duplicates the full five-day overview cards", () => {
+  assert.match(heroSource, /bootcamp_hero_day_teaser/);
+  assert.match(heroSource, /bootcamp_hero_overview_teaser/);
+  assert.doesNotMatch(heroSource, /day\.title/);
+  assert.doesNotMatch(heroSource, /day\.copy/);
+  assert.match(overviewSource, /item\.title/);
+  assert.match(overviewSource, /item\.copy/);
 });

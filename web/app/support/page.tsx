@@ -45,6 +45,7 @@ export default async function SupportPage({
     readSingleParam(resolvedSearchParams, "category")
   );
   const initialMessage = readSingleParam(resolvedSearchParams, "message");
+  const initialSource = readSingleParam(resolvedSearchParams, "source");
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8">
@@ -53,6 +54,7 @@ export default async function SupportPage({
         prefillEmail={prefillEmail}
         initialCategory={initialCategory}
         initialMessage={initialMessage}
+        initialSource={initialSource}
         isAdmin={isAdmin}
         appVersion={appVersion}
         releaseDate={releaseDate}

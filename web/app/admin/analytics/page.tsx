@@ -275,6 +275,9 @@ export default async function AdminAnalyticsPage() {
                   <p className="text-sm text-slate-700">
                     FAQ expands: {renderMetric(outcomeLearning?.bootcamp.faqExpands ?? null)}
                   </p>
+                  <p className="text-sm text-slate-700">
+                    Support submissions: {renderMetric(outcomeLearning?.bootcamp.supportSubmissions ?? null)}
+                  </p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Commercial discovery</p>

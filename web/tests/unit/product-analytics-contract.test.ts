@@ -9,6 +9,7 @@ const bootcampHeader = readFileSync('/Users/olubusayoadewale/rentnow/web/compone
 const bootcampFinalCta = readFileSync('/Users/olubusayoadewale/rentnow/web/components/bootcamp/FinalCTASection.tsx', 'utf8');
 const bootcampFaq = readFileSync('/Users/olubusayoadewale/rentnow/web/components/bootcamp/FAQSection.tsx', 'utf8');
 const bootcampTrackedLink = readFileSync('/Users/olubusayoadewale/rentnow/web/components/bootcamp/BootcampTrackedButtonLink.tsx', 'utf8');
+const bootcampTrackedTextLink = readFileSync('/Users/olubusayoadewale/rentnow/web/components/bootcamp/BootcampTrackedTextLink.tsx', 'utf8');
 const propertiesPage = readFileSync('/Users/olubusayoadewale/rentnow/web/app/properties/page.tsx', 'utf8');
 const propertyDetailPage = readFileSync('/Users/olubusayoadewale/rentnow/web/app/properties/[id]/page.tsx', 'utf8');
 const billingPage = readFileSync('/Users/olubusayoadewale/rentnow/web/app/dashboard/billing/page.tsx', 'utf8');
@@ -24,8 +25,11 @@ test('bootcamp page mounts narrow launch analytics tracking', () => {
   assert.match(bootcampPage, /BootcampPageAnalytics/);
   assert.match(bootcampPage, /buildBootcampMetadata/);
   assert.match(bootcampTrackedLink, /bootcamp_cta_clicked/);
+  assert.match(bootcampTrackedTextLink, /bootcamp_cta_clicked/);
   assert.match(bootcampHero, /BootcampTrackedButtonLink/);
+  assert.match(bootcampHero, /BootcampTrackedTextLink/);
   assert.match(bootcampHeader, /BootcampTrackedButtonLink/);
+  assert.match(bootcampHeader, /BootcampTrackedTextLink/);
   assert.match(bootcampFinalCta, /BootcampTrackedButtonLink/);
   assert.match(bootcampFaq, /bootcamp_faq_expanded/);
 });

@@ -1,5 +1,6 @@
 import { BootcampTrackedButtonLink } from "@/components/bootcamp/BootcampTrackedButtonLink";
-import { AccentGrid, CheckIcon, CompassIcon, ListingIcon, SectionShell } from "@/components/bootcamp/shared";
+import { BootcampTrackedTextLink } from "@/components/bootcamp/BootcampTrackedTextLink";
+import { AccentGrid, SectionShell } from "@/components/bootcamp/shared";
 import { BOOTCAMP_HERO, BOOTCAMP_OVERVIEW, BOOTCAMP_PRIMARY_CTA_HREF, BOOTCAMP_SECONDARY_CTA_HREF } from "@/components/bootcamp/content";
 
 export function HeroSection() {
@@ -50,24 +51,35 @@ export function HeroSection() {
 
         <aside className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white px-6 py-7 shadow-[0_24px_60px_rgba(15,23,42,0.08)] sm:px-8 sm:py-8">
           <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.12),transparent_70%)]" />
-          <div className="relative">
+          <div className="relative flex h-full flex-col justify-center">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">{BOOTCAMP_OVERVIEW.heading}</p>
             <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">{BOOTCAMP_OVERVIEW.subheading}</p>
-            <div className="mt-6 space-y-4">
-              {BOOTCAMP_OVERVIEW.days.map((day, index) => (
-                <div key={day.day} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                  <div className="flex items-start gap-3">
-                    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
-                      {index === 0 ? <CompassIcon /> : index === 1 ? <CheckIcon /> : index === 2 ? <ListingIcon /> : index === 3 ? <ListingIcon /> : <CheckIcon />}
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-sky-700">{day.day}</p>
-                      <h2 className="mt-1 text-lg font-semibold text-slate-950">{day.title}</h2>
-                      <p className="mt-2 text-sm leading-6 text-slate-600">{day.copy}</p>
-                    </div>
-                  </div>
-                </div>
+            <div className="mt-8 grid grid-cols-5 gap-2">
+              {BOOTCAMP_OVERVIEW.days.map((day) => (
+                <BootcampTrackedTextLink
+                  key={day.day}
+                  href="#programme-overview"
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-2 py-4 text-center text-sm font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-50"
+                  action="view_programme_roadmap"
+                  surface="bootcamp_hero_day_teaser"
+                  dedupeKey={`bootcamp:day-teaser:${day.day}`}
+                >
+                  {day.day}
+                </BootcampTrackedTextLink>
               ))}
+            </div>
+            <div className="mt-8 border-t border-slate-200 pt-6">
+              <BootcampTrackedButtonLink
+                href={BOOTCAMP_SECONDARY_CTA_HREF}
+                variant="secondary"
+                size="md"
+                className="w-full rounded-full border-slate-300 bg-white text-slate-950 hover:border-sky-300 hover:bg-sky-50"
+                action="view_programme_roadmap"
+                surface="bootcamp_hero_overview_teaser"
+                dedupeKey="bootcamp:cta:hero-teaser:roadmap"
+              >
+                {BOOTCAMP_HERO.secondaryCta}
+              </BootcampTrackedButtonLink>
             </div>
           </div>
         </aside>

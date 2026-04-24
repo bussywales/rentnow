@@ -18,6 +18,7 @@ type Props = {
   prefillEmail?: string | null;
   initialCategory?: SupportCategory;
   initialMessage?: string | null;
+  initialSource?: string | null;
   isAdmin: boolean;
   appVersion: string;
   releaseDate: string;
@@ -29,6 +30,7 @@ export default function SupportPageClient({
   prefillEmail,
   initialCategory,
   initialMessage,
+  initialSource,
   isAdmin,
   appVersion,
   releaseDate,
@@ -111,6 +113,7 @@ export default function SupportPageClient({
             prefillName={prefillName}
             prefillEmail={prefillEmail}
             initialMessage={initialMessage}
+            initialSource={initialSource}
             category={category}
             helperText={helperText}
             onCategoryChange={handleCategoryChange}

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { trackProductEvent } from "@/lib/analytics/product-events.client";
 import {
   SUPPORT_CATEGORY_HELP,
   SUPPORT_CATEGORY_OPTIONS,
@@ -13,6 +14,7 @@ type Props = {
   prefillName?: string | null;
   prefillEmail?: string | null;
   initialMessage?: string | null;
+  initialSource?: string | null;
   category: SupportCategory;
   helperText?: string | null;
   onCategoryChange: (value: SupportCategory) => void;
@@ -28,6 +30,7 @@ export default function SupportContactForm({
   prefillName,
   prefillEmail,
   initialMessage,
+  initialSource,
   category,
   helperText,
   onCategoryChange,
@@ -114,6 +117,13 @@ export default function SupportContactForm({
       setSuccessId(data?.id ?? null);
       setSuccess(true);
       setMessage("");
+      if (initialSource === "bootcamp") {
+        trackProductEvent("contact_submitted", {
+          category: "bootcamp_launch",
+          action: "support_form_submitted",
+          surface: "support_form",
+        });
+      }
       logSupportEvent("submit_success", { category, id: data?.id ?? null });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to submit request.");

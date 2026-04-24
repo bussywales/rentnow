@@ -1,5 +1,6 @@
 import { BrandLogo } from "@/components/branding/BrandLogo";
 import { BootcampTrackedButtonLink } from "@/components/bootcamp/BootcampTrackedButtonLink";
+import { BootcampTrackedTextLink } from "@/components/bootcamp/BootcampTrackedTextLink";
 import { BOOTCAMP_NAV_ITEMS, BOOTCAMP_HERO, BOOTCAMP_PRIMARY_CTA_HREF } from "@/components/bootcamp/content";
 
 export function HeaderNav() {
@@ -9,9 +10,16 @@ export function HeaderNav() {
         <BrandLogo variant="header" size="md" href="/bootcamp" />
         <nav className="hidden items-center gap-6 text-sm font-medium text-slate-600 lg:flex">
           {BOOTCAMP_NAV_ITEMS.map((item) => (
-            <a key={item.label} href={item.href} className="transition hover:text-slate-950">
+            <BootcampTrackedTextLink
+              key={item.label}
+              href={item.href}
+              className="transition hover:text-slate-950"
+              action={`nav_${item.label.toLowerCase().replaceAll(" ", "_")}`}
+              surface="bootcamp_header_nav"
+              dedupeKey={`bootcamp:nav:desktop:${item.label}`}
+            >
               {item.label}
-            </a>
+            </BootcampTrackedTextLink>
           ))}
         </nav>
         <div className="flex items-center gap-3">
@@ -30,9 +38,16 @@ export function HeaderNav() {
       <div className="overflow-x-auto border-t border-slate-200/70 lg:hidden">
         <nav className="mx-auto flex max-w-6xl items-center gap-5 px-4 py-3 text-sm font-medium text-slate-600 sm:px-6 lg:px-8">
           {BOOTCAMP_NAV_ITEMS.map((item) => (
-            <a key={item.label} href={item.href} className="shrink-0 transition hover:text-slate-950">
+            <BootcampTrackedTextLink
+              key={item.label}
+              href={item.href}
+              className="shrink-0 transition hover:text-slate-950"
+              action={`nav_${item.label.toLowerCase().replaceAll(" ", "_")}`}
+              surface="bootcamp_mobile_nav"
+              dedupeKey={`bootcamp:nav:mobile:${item.label}`}
+            >
               {item.label}
-            </a>
+            </BootcampTrackedTextLink>
           ))}
         </nav>
       </div>
