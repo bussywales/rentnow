@@ -22,6 +22,8 @@ summary: Replaced hardcoded GBP subscription pricing in billing with a market-aw
 - If the active market changes while the billing page is open, checkout is paused until pricing is refreshed.
 - `/api/debug/env` now exposes market-aware Stripe subscription price readiness for GBP, NGN, and CAD.
 
+Historical note: `/api/debug/env` has since been deprecated and current diagnostics live behind admin-only routes.
+
 Rollback:
 
 - `git revert <sha>`
