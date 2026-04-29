@@ -117,7 +117,7 @@ curl -X POST "https://www.propatyhub.com/api/jobs/payments/reconcile" \
 For provider readiness and mode verification, also check:
 
 - `/admin/settings/billing`
-- `/api/debug/env`
+- `/admin/system`
 
 ## Idempotency guarantees
 

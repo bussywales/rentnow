@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getUserRole } from "@/lib/authz";
 import { logFailure } from "@/lib/observability";
 import {
   getCriticalSchemaReadiness,
   type SchemaClient,
 } from "@/lib/ops/critical-schema-readiness";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+
+const routeLabel = "/api/health/deep";
+const publicServiceName = "propatyhub-web";
+
+type DeepHealthAccess = {
+  isAdmin: boolean;
+};
 
 type DeepHealthDeps = {
   hasServerSupabaseEnv: typeof hasServerSupabaseEnv;
@@ -12,7 +20,31 @@ type DeepHealthDeps = {
   getCriticalSchemaReadiness: (client: SchemaClient) => ReturnType<typeof getCriticalSchemaReadiness>;
   logFailure: typeof logFailure;
   now: () => number;
+  resolveDiagnosticAccess: (request: Request) => Promise<DeepHealthAccess>;
 };
+
+async function resolveDiagnosticAccess(): Promise<DeepHealthAccess> {
+  if (!hasServerSupabaseEnv()) {
+    return { isAdmin: false };
+  }
+
+  try {
+    const supabase = await createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { isAdmin: false };
+    }
+
+    return {
+      isAdmin: (await getUserRole(supabase, user.id)) === "admin",
+    };
+  } catch {
+    return { isAdmin: false };
+  }
+}
 
 const defaultDeps: DeepHealthDeps = {
   hasServerSupabaseEnv,
@@ -20,6 +52,7 @@ const defaultDeps: DeepHealthDeps = {
   getCriticalSchemaReadiness,
   logFailure,
   now: () => Date.now(),
+  resolveDiagnosticAccess,
 };
 
 function resolveCommitSha() {
@@ -52,13 +85,31 @@ function getReasonLabel(reasonCode: DeepHealthReasonCode | null) {
   }
 }
 
+function getPublicHealthPayload(ok: boolean) {
+  return {
+    ok,
+    service: publicServiceName,
+  };
+}
+
+function getDeepHealthPayload(
+  diagnosticsEnabled: boolean,
+  payload: Record<string, unknown> & { ok: boolean }
+) {
+  if (!diagnosticsEnabled) {
+    return getPublicHealthPayload(payload.ok);
+  }
+
+  return payload;
+}
+
 export async function getDeepHealthResponse(
   request: Request,
   deps: DeepHealthDeps = defaultDeps
 ) {
   const startTime = deps.now();
-  const routeLabel = "/api/health/deep";
   const commit = resolveCommitSha();
+  const diagnosticsEnabled = (await deps.resolveDiagnosticAccess(request)).isAdmin;
 
   if (!deps.hasServerSupabaseEnv()) {
     deps.logFailure({
@@ -69,7 +120,7 @@ export async function getDeepHealthResponse(
       error: "Supabase env vars missing",
     });
     return NextResponse.json(
-      {
+      getDeepHealthPayload(diagnosticsEnabled, {
         ok: false,
         state: "broken",
         stateLabel: "Monitoring needs attention",
@@ -80,7 +131,7 @@ export async function getDeepHealthResponse(
         reasonLabel: getReasonLabel("SUPABASE_ENV_MISSING"),
         errorReason: "Supabase env vars missing",
         commit,
-      },
+      }),
       { status: 503 }
     );
   }
@@ -103,7 +154,7 @@ export async function getDeepHealthResponse(
         error,
       });
       return NextResponse.json(
-        {
+        getDeepHealthPayload(diagnosticsEnabled, {
           ok: false,
           state: "broken",
           stateLabel: "Monitoring needs attention",
@@ -114,7 +165,7 @@ export async function getDeepHealthResponse(
           reasonLabel: getReasonLabel("SUPABASE_QUERY_FAILED"),
           errorReason: "Supabase query failed",
           commit,
-        },
+        }),
         { status: 503 }
       );
     }
@@ -134,7 +185,7 @@ export async function getDeepHealthResponse(
               .join(", ")}`,
       });
       return NextResponse.json(
-        {
+        getDeepHealthPayload(diagnosticsEnabled, {
           ok: false,
           state: "broken",
           stateLabel: "Monitoring needs attention",
@@ -154,24 +205,26 @@ export async function getDeepHealthResponse(
           checkedCount: schema.checkedCount,
           checkedAt: schema.checkedAt,
           commit,
-        },
+        }),
         { status: 503 }
       );
     }
 
-    return NextResponse.json({
-      ok: true,
-      state: "healthy",
-      stateLabel: "Deep health healthy",
-      latencyMs,
-      supabaseReachable: true,
-      schemaReady: true,
-      reasonCode: null,
-      reasonLabel: getReasonLabel(null),
-      checkedCount: schema.checkedCount,
-      checkedAt: schema.checkedAt,
-      commit,
-    });
+    return NextResponse.json(
+      getDeepHealthPayload(diagnosticsEnabled, {
+        ok: true,
+        state: "healthy",
+        stateLabel: "Deep health healthy",
+        latencyMs,
+        supabaseReachable: true,
+        schemaReady: true,
+        reasonCode: null,
+        reasonLabel: getReasonLabel(null),
+        checkedCount: schema.checkedCount,
+        checkedAt: schema.checkedAt,
+        commit,
+      })
+    );
   } catch (err) {
     deps.logFailure({
       request,
@@ -181,7 +234,7 @@ export async function getDeepHealthResponse(
       error: err,
     });
     return NextResponse.json(
-      {
+      getDeepHealthPayload(diagnosticsEnabled, {
         ok: false,
         state: "broken",
         stateLabel: "Monitoring needs attention",
@@ -192,7 +245,7 @@ export async function getDeepHealthResponse(
         reasonLabel: getReasonLabel("SUPABASE_QUERY_FAILED"),
         errorReason: "Supabase query failed",
         commit,
-      },
+      }),
       { status: 500 }
     );
   }

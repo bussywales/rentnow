@@ -469,7 +469,8 @@ export default async function AdminBillingSettingsPage() {
         </p>
         <p className="mt-2 text-xs text-slate-500">
           Market-aware Stripe subscription prices can also be supplied with currency suffixes such
-          as <code>STRIPE_PRICE_TENANT_MONTHLY_NGN_LIVE</code>. Use <Link href="/api/debug/env" className="underline underline-offset-4">/api/debug/env</Link> to inspect current market-aware price readiness.
+          as <code>STRIPE_PRICE_TENANT_MONTHLY_NGN_LIVE</code>. Use the readiness summary on this
+          page and <Link href="/admin/system" className="underline underline-offset-4">/admin/system</Link> for admin diagnostics.
         </p>
         <div className="mt-4 grid gap-6 md:grid-cols-3">
           <div>

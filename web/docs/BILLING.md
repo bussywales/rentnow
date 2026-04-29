@@ -188,7 +188,7 @@ Optional:
 2) Configure webhook endpoints:
    - `/api/billing/stripe/webhook`
    - `/api/webhooks/stripe`
-3) Validate via `/api/debug/env` (Stripe section).
+3) Validate billing readiness from `/admin/settings/billing` and `/admin/system`.
 4) Validate `/api/debug/rls` for Stripe columns in `profile_plans`.
 
 ## Live-mode checklist

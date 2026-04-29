@@ -29,7 +29,7 @@ This checklist is the go-live gate for PropatyHub / RentNow subscription billing
 - Confirm webhook price mapping resolves canonical Stripe `price_...` values.
 
 ## Webhook readiness
-- Confirm `/api/debug/env` reports Stripe live readiness.
+- Confirm Stripe live readiness from `/admin/settings/billing` and `/admin/system`.
 - Confirm the billing webhook endpoint is pointed at `/api/billing/stripe/webhook`.
 - Confirm recent webhook rows are visible in `/admin/billing`.
 - Confirm ignored reasons are understandable and replay-eligible events are operator-visible.

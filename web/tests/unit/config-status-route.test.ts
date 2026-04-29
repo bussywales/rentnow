@@ -19,6 +19,42 @@ test("config status rejects when supabase env missing", async () => {
   assert.equal(response.status, 503);
 });
 
+test("config status rejects anonymous callers", async () => {
+  const response = await getConfigStatusResponse({
+    hasServerSupabaseEnv: () => true,
+    createServerSupabaseClient: async () =>
+      ({
+        auth: {
+          getUser: async () => ({ data: { user: null } }),
+        },
+      }) as never,
+    getUserRole: async () => "admin",
+    getOperatorMonitoringSnapshot: async () => {
+      throw new Error("should not build monitoring snapshot");
+    },
+  });
+
+  assert.equal(response.status, 403);
+});
+
+test("config status rejects non-admin callers", async () => {
+  const response = await getConfigStatusResponse({
+    hasServerSupabaseEnv: () => true,
+    createServerSupabaseClient: async () =>
+      ({
+        auth: {
+          getUser: async () => ({ data: { user: { id: "user-1" } } }),
+        },
+      }) as never,
+    getUserRole: async () => "tenant",
+    getOperatorMonitoringSnapshot: async () => {
+      throw new Error("should not build monitoring snapshot");
+    },
+  });
+
+  assert.equal(response.status, 403);
+});
+
 test("config status exposes schema readiness details for admins", async () => {
   const response = await getConfigStatusResponse({
     hasServerSupabaseEnv: () => true,

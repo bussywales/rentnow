@@ -27,7 +27,7 @@
 - Visit `/dashboard/billing` and confirm plan tier, billing source, status, and valid_until render.
 - Replay a webhook event (duplicate) and confirm no double-apply occurs.
 - Confirm `stripe_status` changes surface in billing UI (past_due/unpaid/canceled).
-- In `/admin/settings/billing`, toggle Stripe mode and confirm `/api/debug/env` shows the current mode and key presence.
+- In `/admin/settings/billing`, toggle Stripe mode and confirm the readiness badges update without exposing secrets publicly.
 - Confirm the Payments mode badge shows TEST/LIVE on `/dashboard/billing`, `/admin/billing`, and `/admin/settings/billing`.
 - Set Paystack/Flutterwave keys in `/admin/settings/billing`, save, and confirm they show as “Saved” (masked).
 - Start a Paystack test checkout and confirm redirect to Paystack (test mode).

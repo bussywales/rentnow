@@ -62,8 +62,8 @@ export function SupportStatusCard({
                 <li key={note}>{note}</li>
               ))}
             </ul>
-            <Link href="/api/debug/env" className="mt-3 inline-flex text-sm font-semibold text-sky-700">
-              Runtime env check
+            <Link href="/admin/system" className="mt-3 inline-flex text-sm font-semibold text-sky-700">
+              Admin diagnostics
             </Link>
           </div>
         </details>

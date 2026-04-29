@@ -98,7 +98,7 @@ Tables: `profiles`, `properties`, `property_images`, `saved_properties`, `messag
 - Required envs for prod: `NEXT_PUBLIC_SITE_URL`, `SITE_URL` (optional), Supabase URL/keys, and bucket name. Optional `OPENAI_API_KEY` for AI routes.
 - Supabase RLS: apply `supabase/rls_policies.sql` in the Supabase SQL editor after seeding schema; keep canonical host (`https://www.propatyhub.com`) in Supabase Auth redirect URLs.
 - Supabase for DB/Auth/Storage (free tier). Allow `*.vercel.app` origins in Auth settings.
-- Health: `/api/health` returns `{ ok, supabase, error? }` (use for uptime/alerting).
+- Health: `/api/health` returns a minimal public uptime payload (`{ ok, service }`).
 - Releases: tag deployments as `vX.Y.Z` after merging to `main` and bump `package.json`/`package-lock.json`. Example: `git tag v0.2.3 && git push origin v0.2.3`.
 - E2E tests: Playwright with `npm run test:e2e` (env: `PLAYWRIGHT_BASE_URL`, `PLAYWRIGHT_USER_EMAIL`, `PLAYWRIGHT_USER_PASSWORD`; `PLAYWRIGHT_ALLOW_WRITE=true` to enable viewing requests/approvals; optional `PLAYWRIGHT_TENANT_EMAIL`/`PLAYWRIGHT_TENANT_PASSWORD` for tenant isolation test).
 - Admin user management: requires `SUPABASE_SERVICE_ROLE_KEY` on the server to list/delete users and send password reset links via `/admin/users`.
@@ -111,5 +111,6 @@ Tables: `profiles`, `properties`, `property_images`, `saved_properties`, `messag
 
 ## Support
 - Status & release notes: `/support`
-- Runtime env check: `/api/debug/env`
+- Public uptime check: `/api/health`
+- Admin diagnostics: `/admin/system` and `/api/admin/config-status`
 - Contact: hello@propatyhub.com

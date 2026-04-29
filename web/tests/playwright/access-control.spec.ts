@@ -149,9 +149,9 @@ test.describe("Access control", () => {
     const tenantContext = await browser.newContext();
     const tenantPage = await tenantContext.newPage();
     await login(tenantPage, TENANT_EMAIL, TENANT_PASSWORD);
-    const sessionRes = await tenantPage.request.get("/api/debug/session");
+    const sessionRes = await tenantPage.request.get("/api/auth/health");
     const sessionJson = await sessionRes.json();
-    const tenantId = sessionJson?.user?.id as string | undefined;
+    const tenantId = sessionJson?.userId as string | undefined;
 
     if (!tenantId) {
       test.skip(true, "Unable to resolve tenant id for isolation check.");

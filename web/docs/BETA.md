@@ -122,7 +122,7 @@ Use this alongside the full QA checklist at `web/docs/qa/checklist.md`.
 
 ### Triage first
 1. Check `/admin/support` and `/admin/alerts` for errors or missing telemetry.
-2. Check `/api/debug/env` for missing env vars.
+2. Check `/admin/system` and `/api/admin/config-status` for admin-only diagnostics.
 3. Confirm `/api/properties` returns results for a public user.
 
 ### Rollback

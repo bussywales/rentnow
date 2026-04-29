@@ -826,8 +826,8 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
               <Link href="/api/debug/session" className="text-sky-700 underline">
                 /api/debug/session
               </Link>
-              <Link href="/api/debug/env" className="text-sky-700 underline">
-                /api/debug/env
+              <Link href="/api/admin/config-status" className="text-sky-700 underline">
+                /api/admin/config-status
               </Link>
               <Link href="/api/debug/rls" className="text-sky-700 underline">
                 /api/debug/rls

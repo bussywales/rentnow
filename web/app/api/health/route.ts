@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
 
-export async function GET() {
-  const commit =
-    process.env.VERCEL_GIT_COMMIT_SHA ||
-    process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
-    null;
-  const version = process.env.npm_package_version || null;
+const PUBLIC_SERVICE_NAME = "propatyhub-web";
 
+export function getPublicHealthResponse() {
   return NextResponse.json({
     ok: true,
-    timestamp: new Date().toISOString(),
-    commit,
-    version,
+    service: PUBLIC_SERVICE_NAME,
   });
+}
+
+export async function GET() {
+  return getPublicHealthResponse();
 }
