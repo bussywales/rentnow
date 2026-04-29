@@ -158,7 +158,8 @@ void test("submit blocks when active listing limit is already reached", async ()
   assert.equal(body.maxListings, 5);
   assert.equal(body.activeCount, 5);
   assert.equal(body.billingUrl, "/dashboard/billing#plans");
-  assert.equal(body.manageUrl, "/dashboard");
+  assert.equal(body.manageUrl, "/host/listings?view=manage");
+  assert.match(String(body.resumeUrl ?? ""), /^\/host\/properties\/prop-?1\/edit\?/);
   assert.match(String(body.resumeUrl ?? ""), /monetization=listing_limit/);
   assert.match(String(body.resumeUrl ?? ""), /monetization_context=submission/);
   assert.match(String(body.detail ?? ""), /Upgrade your plan or manage active listings/);
@@ -221,6 +222,7 @@ void test("submit returns payment required when no credits", async () => {
   const json = await res.json();
   assert.equal(json.reason, "PAYMENT_REQUIRED");
   assert.equal(json.billingUrl, "/dashboard/billing#plans");
+  assert.match(String(json.resumeUrl ?? ""), /^\/host\/properties\/prop1\/edit\?/);
   assert.match(String(json.resumeUrl ?? ""), /monetization=payment_required/);
 });
 
@@ -338,6 +340,7 @@ void test("expired listing resubmission still requires payment when no entitleme
   assert.equal(res.status, 402);
   const json = await res.json();
   assert.equal(json.reason, "PAYMENT_REQUIRED");
+  assert.match(String(json.resumeUrl ?? ""), /^\/host\/properties\/prop1\/edit\?/);
   assert.match(String(json.resumeUrl ?? ""), /monetization_context=renewal/);
 });
 

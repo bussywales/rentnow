@@ -47,6 +47,7 @@ export default async function LegacyDashboardPropertyAvailabilityRedirectPage({
     role,
     propertyId: await extractId(params),
     searchParams: await extractSearchParams(searchParams),
+    targetSurface: "availability",
   });
 
   redirect(target);

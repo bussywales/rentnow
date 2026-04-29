@@ -118,7 +118,8 @@ void test("active listing limit recovery payload includes billing and resume rou
 
   assert.equal(recovery.reason, "LISTING_LIMIT_REACHED");
   assert.equal(recovery.billingUrl, "/dashboard/billing#plans");
-  assert.equal(recovery.manageUrl, "/dashboard");
+  assert.equal(recovery.manageUrl, "/host/listings?view=manage");
+  assert.match(recovery.resumeUrl ?? "", /^\/host\/properties\/prop-1\/edit\?/);
   assert.match(recovery.resumeUrl ?? "", /monetization=listing_limit/);
   assert.match(recovery.resumeUrl ?? "", /active_count=5/);
   assert.match(recovery.detail, /5 active listings out of 5/);

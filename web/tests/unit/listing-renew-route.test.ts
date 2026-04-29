@@ -119,6 +119,7 @@ void test("renew returns payment required when no listing entitlement exists", a
   const body = await res.json();
   assert.equal(body.reason, "PAYMENT_REQUIRED");
   assert.equal(body.billingUrl, "/dashboard/billing#plans");
+  assert.match(String(body.resumeUrl ?? ""), /^\/host\/properties\/prop1\/edit\?/);
   assert.match(String(body.resumeUrl ?? ""), /monetization_context=renewal/);
   assert.equal(capture.updatePayload, null);
 });
@@ -240,7 +241,8 @@ void test("renew blocks when active listing limit is already reached", async () 
   assert.equal(body.maxListings, 5);
   assert.equal(body.activeCount, 5);
   assert.equal(body.billingUrl, "/dashboard/billing#plans");
-  assert.equal(body.manageUrl, "/dashboard");
+  assert.equal(body.manageUrl, "/host/listings?view=manage");
+  assert.match(String(body.resumeUrl ?? ""), /^\/host\/properties\/prop1\/edit\?/);
   assert.match(String(body.resumeUrl ?? ""), /monetization=listing_limit/);
   assert.match(String(body.resumeUrl ?? ""), /monetization_context=renewal/);
   assert.equal(consumedAttempted, false);

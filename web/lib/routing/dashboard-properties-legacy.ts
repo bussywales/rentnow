@@ -34,8 +34,14 @@ export function normalizePropertyId(id: string | undefined): string | null {
 export function buildHostPropertyAvailabilityHref(id: string, params: SearchParams): string {
   const cleanId = encodeURIComponent(id);
   const query = buildQueryString(params);
-  // Availability is the closest host-native management route for listing-specific operations.
   const base = `/host/properties/${cleanId}/availability`;
+  return query ? `${base}?${query}` : base;
+}
+
+export function buildHostPropertyEditHref(id: string, params: SearchParams): string {
+  const cleanId = encodeURIComponent(id);
+  const query = buildQueryString(params);
+  const base = `/host/properties/${cleanId}/edit`;
   return query ? `${base}?${query}` : base;
 }
 
@@ -44,6 +50,7 @@ export function resolveLegacyDashboardPropertyRedirect(input: {
   role: UserRole | null;
   propertyId: string | undefined;
   searchParams: SearchParams;
+  targetSurface?: "edit" | "availability";
 }): string {
   if (!input.userPresent) {
     return "/auth/login?reason=auth";
@@ -62,5 +69,9 @@ export function resolveLegacyDashboardPropertyRedirect(input: {
     return "/host/listings?view=manage";
   }
 
-  return buildHostPropertyAvailabilityHref(cleanId, input.searchParams);
+  if (input.targetSurface === "availability") {
+    return buildHostPropertyAvailabilityHref(cleanId, input.searchParams);
+  }
+
+  return buildHostPropertyEditHref(cleanId, input.searchParams);
 }

@@ -90,7 +90,7 @@ export async function postAdminPropertyApproveResponse(
           requesterRole: "admin",
           context: "submission",
           propertyId: id,
-          manageUrl: "/admin/properties",
+          manageUrl: "/admin/listings",
         }),
         { status: 409 }
       );

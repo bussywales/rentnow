@@ -4,6 +4,7 @@ import {
   consumeListingCredit,
   issueTrialCreditsIfEligible,
 } from "@/lib/billing/listing-credits.server";
+import { buildHostPropertyEditHref } from "@/lib/routing/dashboard-properties-legacy";
 import type { UserRole } from "@/lib/types";
 
 export type ListingMonetizationReason = "PAYMENT_REQUIRED" | "BILLING_REQUIRED";
@@ -93,7 +94,7 @@ export function buildListingMonetizationResumeUrl({
   if (currency) {
     params.set("monetization_currency", currency);
   }
-  return `/dashboard/properties/${propertyId}?${params.toString()}`;
+  return buildHostPropertyEditHref(propertyId, Object.fromEntries(params.entries()));
 }
 
 export async function ensureListingPublishEntitlement(

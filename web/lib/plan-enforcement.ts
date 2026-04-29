@@ -9,6 +9,7 @@ import {
   resolveListingBillingUrl,
   type ListingMonetizationContext,
 } from "@/lib/billing/listing-publish-entitlement.server";
+import { buildHostPropertyEditHref } from "@/lib/routing/dashboard-properties-legacy";
 import type { UserRole } from "@/lib/types";
 
 type PlanUsage = {
@@ -178,10 +179,10 @@ export function buildActiveListingLimitRecoveryPayload({
   const normalizedManageUrl =
     manageUrl ??
     (requesterRole === "admin"
-      ? "/admin/properties"
+      ? "/admin/listings"
       : requesterRole === "tenant"
         ? "/tenant"
-        : "/dashboard");
+        : "/host/listings?view=manage");
   const actionLabel = resolveActiveListingLimitActionLabel(context);
   const resumeUrl = propertyId
     ? (() => {
@@ -194,7 +195,7 @@ export function buildActiveListingLimitRecoveryPayload({
           plan_tier: gate.planTier,
           plan_name: gate.usage.plan.name,
         });
-        return `/dashboard/properties/${propertyId}?${params.toString()}`;
+        return buildHostPropertyEditHref(propertyId, Object.fromEntries(params.entries()));
       })()
     : undefined;
 

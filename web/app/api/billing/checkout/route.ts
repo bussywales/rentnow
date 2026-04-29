@@ -12,6 +12,7 @@ import { getFeaturedConfig } from "@/lib/billing/featured";
 import { getSiteUrl } from "@/lib/env";
 import { logFailure } from "@/lib/observability";
 import { logPropertyEvent, resolveEventSessionKey } from "@/lib/analytics/property-events.server";
+import { buildHostPropertyEditHref } from "@/lib/routing/dashboard-properties-legacy";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 const routeLabel = "/api/billing/checkout";
@@ -137,7 +138,7 @@ export async function POST(request: Request) {
   const baseUrl = await getSiteUrl();
   const callbackUrl =
     purpose === "listing_submission"
-      ? `${baseUrl}/dashboard/properties/${listingId}?payment=payg`
+      ? `${baseUrl}${buildHostPropertyEditHref(listingId, { payment: "payg" })}`
       : `${baseUrl}/host?featured=${listingId}`;
   const paymentIdempotency = idempotencyKey || crypto.randomUUID();
 

@@ -450,6 +450,7 @@ void test("reactivation returns payment required when no listing entitlement exi
   const body = await res.json();
   assert.equal(body.reason, "PAYMENT_REQUIRED");
   assert.equal(body.billingUrl, "/dashboard/billing#plans");
+  assert.match(String(body.resumeUrl ?? ""), /^\/host\/properties\/prop1\/edit\?/);
   assert.match(String(body.resumeUrl ?? ""), /monetization_context=reactivation/);
   assert.equal(capture.updatePayload, null);
 });
@@ -517,7 +518,8 @@ void test("reactivation blocks when active listing limit is already reached", as
   assert.equal(body.maxListings, 5);
   assert.equal(body.activeCount, 5);
   assert.equal(body.billingUrl, "/dashboard/billing#plans");
-  assert.equal(body.manageUrl, "/dashboard");
+  assert.equal(body.manageUrl, "/host/listings?view=manage");
+  assert.match(String(body.resumeUrl ?? ""), /^\/host\/properties\/prop1\/edit\?/);
   assert.match(String(body.resumeUrl ?? ""), /monetization=listing_limit/);
   assert.match(String(body.resumeUrl ?? ""), /monetization_context=reactivation/);
   assert.equal(consumedAttempted, false);
