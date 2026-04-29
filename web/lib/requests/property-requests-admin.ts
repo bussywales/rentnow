@@ -120,6 +120,7 @@ export function matchesAdminPropertyRequestListFilters(
 
   const haystack = [
     request.id,
+    request.title,
     request.intent,
     request.marketCode,
     request.city,

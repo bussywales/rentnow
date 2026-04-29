@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -11,6 +11,8 @@ import {
   PROPERTY_REQUEST_BEDROOM_OPTIONS,
   PROPERTY_REQUEST_MOVE_TIMELINE_OPTIONS,
   PROPERTY_REQUEST_PROPERTY_TYPE_OPTIONS,
+  shouldShowPropertyRequestBathrooms,
+  shouldShowPropertyRequestBedrooms,
   type PropertyRequest,
   type PropertyRequestIntent,
   type PropertyRequestOwnerWriteStatus,
@@ -25,6 +27,7 @@ type FormState = {
   intent: PropertyRequestIntent;
   marketCode: string;
   currencyCode: string;
+  title: string;
   city: string;
   area: string;
   locationText: string;
@@ -45,6 +48,7 @@ function buildInitialState(initialRequest?: PropertyRequest | null): FormState {
     intent: initialRequest?.intent ?? "rent",
     marketCode: initialRequest?.marketCode ?? defaultMarket.country,
     currencyCode: initialRequest?.currencyCode ?? defaultMarket.currency,
+    title: initialRequest?.title ?? "",
     city: initialRequest?.city ?? "",
     area: initialRequest?.area ?? "",
     locationText: initialRequest?.locationText ?? "",
@@ -78,18 +82,22 @@ function parseOptionalString(value: string): string | null {
 }
 
 function buildPayload(form: FormState, status: PropertyRequestOwnerWriteStatus) {
+  const showBedrooms = shouldShowPropertyRequestBedrooms(form.propertyType);
+  const showBathrooms = shouldShowPropertyRequestBathrooms(form.propertyType);
+
   return {
     intent: form.intent,
     marketCode: form.marketCode,
     currencyCode: form.currencyCode,
+    title: parseOptionalString(form.title),
     city: parseOptionalString(form.city),
     area: parseOptionalString(form.area),
     locationText: parseOptionalString(form.locationText),
     budgetMin: parseOptionalInt(form.budgetMin),
     budgetMax: parseOptionalInt(form.budgetMax),
     propertyType: parseOptionalString(form.propertyType),
-    bedrooms: parseOptionalInt(form.bedrooms),
-    bathrooms: parseOptionalInt(form.bathrooms),
+    bedrooms: showBedrooms ? parseOptionalInt(form.bedrooms) : null,
+    bathrooms: showBathrooms ? parseOptionalInt(form.bathrooms) : null,
     furnished:
       form.furnished === "" ? null : form.furnished === "true",
     moveTimeline: parseOptionalString(form.moveTimeline),
@@ -104,8 +112,11 @@ export function PropertyRequestFormClient({ initialRequest = null }: Props) {
   const [form, setForm] = useState<FormState>(() => buildInitialState(initialRequest));
   const [pendingAction, setPendingAction] = useState<"draft" | "open" | "save" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const submitInFlightRef = useRef(false);
 
   const isShortlet = form.intent === "shortlet";
+  const showBedrooms = shouldShowPropertyRequestBedrooms(form.propertyType);
+  const showBathrooms = shouldShowPropertyRequestBathrooms(form.propertyType);
   const currentStatus = initialRequest?.status ?? "draft";
   const saveActionLabel = currentStatus === "open" ? "Save changes" : "Save draft";
 
@@ -133,6 +144,8 @@ export function PropertyRequestFormClient({ initialRequest = null }: Props) {
   }
 
   async function submit(nextStatus: "draft" | "open" | "save") {
+    if (submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
     setPendingAction(nextStatus);
     setError(null);
 
@@ -167,11 +180,18 @@ export function PropertyRequestFormClient({ initialRequest = null }: Props) {
         throw new Error("Saved request is missing an id");
       }
 
-      router.push(`/requests/${nextId}`);
+      const savedState =
+        status === "open"
+          ? initialRequest && currentStatus === "open"
+            ? "updated"
+            : "published"
+          : "draft";
+      router.push(`/requests/${nextId}?saved=${savedState}`);
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to save request");
     } finally {
+      submitInFlightRef.current = false;
       setPendingAction(null);
     }
   }
@@ -180,6 +200,7 @@ export function PropertyRequestFormClient({ initialRequest = null }: Props) {
     <form
       className="space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
       data-testid="property-request-form"
+      aria-busy={pendingAction !== null}
       onSubmit={(event) => {
         event.preventDefault();
         void submit("save");
@@ -212,6 +233,17 @@ export function PropertyRequestFormClient({ initialRequest = null }: Props) {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
+        <label className="space-y-2 md:col-span-2">
+          <span className="text-sm font-medium text-slate-700">Request headline</span>
+          <Input
+            value={form.title}
+            onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+            placeholder="2 bedroom apartment near Lekki Phase 1"
+          />
+          <span className="block text-xs text-slate-500">
+            Use this for the readable request title. Keep city and area as structured location fields.
+          </span>
+        </label>
         <label className="space-y-2">
           <span className="text-sm font-medium text-slate-700">City</span>
           <Input
@@ -269,7 +301,15 @@ export function PropertyRequestFormClient({ initialRequest = null }: Props) {
           <Select
             value={form.propertyType}
             onChange={(event) =>
-              setForm((current) => ({ ...current, propertyType: event.target.value }))
+              setForm((current) => {
+                const nextPropertyType = event.target.value;
+                return {
+                  ...current,
+                  propertyType: nextPropertyType,
+                  bedrooms: shouldShowPropertyRequestBedrooms(nextPropertyType) ? current.bedrooms : "",
+                  bathrooms: shouldShowPropertyRequestBathrooms(nextPropertyType) ? current.bathrooms : "",
+                };
+              })
             }
           >
             {PROPERTY_REQUEST_PROPERTY_TYPE_OPTIONS.map((option) => (
@@ -281,32 +321,42 @@ export function PropertyRequestFormClient({ initialRequest = null }: Props) {
         </label>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="space-y-2">
-          <span className="text-sm font-medium text-slate-700">Bedrooms</span>
-          <Select
-            value={form.bedrooms}
-            onChange={(event) => setForm((current) => ({ ...current, bedrooms: event.target.value }))}
-          >
-            {PROPERTY_REQUEST_BEDROOM_OPTIONS.map((option) => (
-              <option key={option.label} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-        </label>
-        <label className="space-y-2">
-          <span className="text-sm font-medium text-slate-700">Bathrooms</span>
-          <Input
-            inputMode="numeric"
-            value={form.bathrooms}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, bathrooms: event.target.value }))
-            }
-            placeholder="Optional"
-          />
-        </label>
-      </div>
+      {showBedrooms || showBathrooms ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          {showBedrooms ? (
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Bedrooms</span>
+              <Select
+                value={form.bedrooms}
+                onChange={(event) => setForm((current) => ({ ...current, bedrooms: event.target.value }))}
+              >
+                {PROPERTY_REQUEST_BEDROOM_OPTIONS.map((option) => (
+                  <option key={option.label} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          ) : null}
+          {showBathrooms ? (
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Bathrooms</span>
+              <Input
+                inputMode="numeric"
+                value={form.bathrooms}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, bathrooms: event.target.value }))
+                }
+                placeholder="Optional"
+              />
+            </label>
+          ) : null}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          Room counts are not needed for this request type.
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-2">

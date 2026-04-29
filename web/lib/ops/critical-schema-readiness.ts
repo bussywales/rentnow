@@ -63,6 +63,11 @@ export const CRITICAL_SCHEMA_REQUIREMENTS: CriticalSchemaRequirement[] = [
     column: "flood_risk_disclosure",
     feature: "local living details",
   },
+  {
+    table: "property_requests",
+    column: "title",
+    feature: "property request headline integrity",
+  },
 ] as const;
 
 export async function getCriticalSchemaReadiness(

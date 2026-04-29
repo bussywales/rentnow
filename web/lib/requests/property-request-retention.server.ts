@@ -5,6 +5,7 @@ import { buildPropertyRequestExpiryReminderEmail } from "@/lib/email/templates/p
 import {
   PROPERTY_REQUEST_SELECT_COLUMNS,
   canExtendPropertyRequestExpiry,
+  getPropertyRequestDisplayTitle,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
   isPropertyRequestDueForExpiryReminder,
@@ -205,6 +206,7 @@ export async function dispatchPropertyRequestExpiryReminders(
     const extendUrl = `${siteUrl.replace(/\/$/, "")}/requests/${encodeURIComponent(request.id)}/extend`;
     const manageUrl = `${siteUrl.replace(/\/$/, "")}/requests/${encodeURIComponent(request.id)}`;
     const email = buildPropertyRequestExpiryReminderEmail({
+      titleLabel: getPropertyRequestDisplayTitle(request),
       intentLabel: getPropertyRequestIntentLabel(request.intent),
       marketLabel: request.marketCode,
       locationLabel: getPropertyRequestLocationSummary(request),

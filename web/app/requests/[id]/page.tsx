@@ -10,11 +10,15 @@ import {
   canSendPropertyRequestResponses,
   canExtendPropertyRequestExpiry,
   getPropertyRequestBriefStrengthLabel,
+  getPropertyRequestDisplayTitle,
   getPropertyRequestExpirySignalLabel,
   getPropertyRequestFreshnessLabel,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
   getPropertyRequestMoveTimelineLabel,
+  getPropertyRequestPropertyTypeLabel,
+  shouldShowPropertyRequestBathrooms,
+  shouldShowPropertyRequestBedrooms,
   type PropertyRequest,
 } from "@/lib/requests/property-requests";
 import {
@@ -124,6 +128,8 @@ export default async function PropertyRequestDetailPage({
     : [];
   const extendState =
     typeof resolvedSearchParams.extend === "string" ? resolvedSearchParams.extend : null;
+  const savedState =
+    typeof resolvedSearchParams.saved === "string" ? resolvedSearchParams.saved : null;
   const responseCount = responses.length;
   const responderCount = new Set(responses.map((response) => response.responderUserId)).size;
   const firstResponseAt = responses.length > 0 ? responses[responses.length - 1]?.createdAt ?? null : null;
@@ -158,8 +164,11 @@ export default async function PropertyRequestDetailPage({
                   </div>
           <div>
             <h1 className="text-3xl font-semibold text-slate-900">
-              {getPropertyRequestLocationSummary(request)}
+              {getPropertyRequestDisplayTitle(request)}
             </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              {getPropertyRequestLocationSummary(request)}
+            </p>
             <p className="mt-2 text-sm text-slate-600">
               {viewerCanManage
                 ? "Manage your request privately. Only you, admins, and eligible responders for open requests can access this demand brief."
@@ -186,6 +195,21 @@ export default async function PropertyRequestDetailPage({
           Request extended by another 30 days.
         </div>
       ) : null}
+      {savedState === "published" ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          Request published. Eligible hosts and agents can now review the demand brief.
+        </div>
+      ) : null}
+      {savedState === "draft" ? (
+        <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+          Draft saved. Your request is still private until you publish it.
+        </div>
+      ) : null}
+      {savedState === "updated" ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          Request changes saved.
+        </div>
+      ) : null}
       {extendState === "unavailable" ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           This request cannot be extended right now.
@@ -200,9 +224,13 @@ export default async function PropertyRequestDetailPage({
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2">
           <RequestFact label="Budget" value={formatBudget(request)} />
-          <RequestFact label="Property type" value={request.propertyType ?? "Any"} />
-          <RequestFact label="Bedrooms" value={request.bedrooms?.toString() ?? "Any"} />
-          <RequestFact label="Bathrooms" value={request.bathrooms?.toString() ?? "Any"} />
+          <RequestFact label="Property type" value={getPropertyRequestPropertyTypeLabel(request.propertyType)} />
+          {shouldShowPropertyRequestBedrooms(request.propertyType) ? (
+            <RequestFact label="Bedrooms" value={request.bedrooms?.toString() ?? "Any"} />
+          ) : null}
+          {shouldShowPropertyRequestBathrooms(request.propertyType) ? (
+            <RequestFact label="Bathrooms" value={request.bathrooms?.toString() ?? "Any"} />
+          ) : null}
           <RequestFact
             label="Move timeline"
             value={getPropertyRequestMoveTimelineLabel(request.moveTimeline)}

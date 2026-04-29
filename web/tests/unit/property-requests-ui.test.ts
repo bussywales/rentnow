@@ -24,7 +24,8 @@ void test("property requests pages expose discovery and owner management routes"
 
   assert.match(indexPage, /Request discovery/);
   assert.match(indexPage, /property-request-discovery-board/);
-  assert.match(indexPage, /Search city or area/);
+  assert.match(indexPage, /Search title, city, or area/);
+  assert.match(indexPage, /getPropertyRequestDisplayTitle/);
   assert.match(indexPage, /listPropertyRequestResponderBoardStates/);
   assert.match(indexPage, /getPropertyRequestResponderBoardStateLabel/);
   assert.match(indexPage, /getPropertyRequestBoardActionLabel/);
@@ -44,6 +45,7 @@ void test("property requests pages expose discovery and owner management routes"
   assert.match(detailPage, /PropertyRequestResponseComposer/);
   assert.match(detailPage, /PropertyRequestResponsesSection/);
   assert.match(detailPage, /Response activity/);
+  assert.match(detailPage, /savedState === "published"/);
   assert.match(detailPage, /Extend 30 days/);
   assert.match(detailPage, /keep this request live/i);
   assert.match(detailPage, /Back to request board/);
@@ -59,6 +61,10 @@ void test("property request form exposes draft publish and save-change actions",
   );
 
   assert.match(formSource, /Publish request/);
+  assert.match(formSource, /Request headline/);
+  assert.match(formSource, /submitInFlightRef/);
+  assert.match(formSource, /shouldShowPropertyRequestBedrooms/);
+  assert.match(formSource, /Room counts are not needed for this request type/);
   assert.match(formSource, /Save draft/);
   assert.match(formSource, /Save changes/);
   assert.match(formSource, /property-request-form-actions/);

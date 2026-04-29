@@ -21,6 +21,7 @@ void test("operator monitoring snapshot reports healthy runtime when database, s
           { table_name: "properties", column_name: "security_type" },
           { table_name: "properties", column_name: "road_access_quality" },
           { table_name: "properties", column_name: "flood_risk_disclosure" },
+          { table_name: "property_requests", column_name: "title" },
         ],
         error: null,
       }),

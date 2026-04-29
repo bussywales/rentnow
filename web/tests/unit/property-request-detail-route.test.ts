@@ -25,6 +25,7 @@ const openRow: PropertyRequestRecord = {
   intent: "rent",
   market_code: "NG",
   currency_code: "NGN",
+  title: "2 bedroom apartment near Lekki",
   city: "Lagos",
   area: null,
   location_text: "Lekki",
@@ -171,7 +172,7 @@ void test("property request detail patch publishes a draft when required fields 
   let updates: Record<string, unknown> | null = null;
   let notifiedRequestId: string | null = null;
   const response = await patchPropertyRequestDetailResponse(
-    makePatchRequest({ status: "open", notes: "Ready to publish" }),
+    makePatchRequest({ status: "open", title: "2 bedroom apartment near Lekki", notes: "Ready to publish" }),
     "req-1",
     buildDeps({
       role: "tenant",
@@ -191,6 +192,7 @@ void test("property request detail patch publishes a draft when required fields 
           data: {
             ...openRow,
             status: "open",
+            title: "2 bedroom apartment near Lekki",
             notes: "Ready to publish",
             published_at: String(payload.published_at),
             expires_at: String(payload.expires_at),

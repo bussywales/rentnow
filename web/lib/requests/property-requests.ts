@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { isRentIntent, isSaleLikeIntent, isShortletIntent, normalizeListingIntent } from "@/lib/listing-intents";
-import type { UserRole } from "@/lib/types";
+import {
+  isCommercialListingType,
+  isNonRoomListingType,
+  isResidentialListingType,
+} from "@/lib/properties/listing-types";
+import type { ListingType, UserRole } from "@/lib/types";
 
 export const PROPERTY_REQUEST_INTENTS = ["rent", "buy", "shortlet"] as const;
 export type PropertyRequestIntent = (typeof PROPERTY_REQUEST_INTENTS)[number];
@@ -32,11 +37,17 @@ export const PROPERTY_REQUEST_MAX_EXTENSION_COUNT = 2;
 export const PROPERTY_REQUEST_PROPERTY_TYPE_OPTIONS = [
   { value: "", label: "Any property type" },
   { value: "apartment", label: "Apartment" },
+  { value: "condo", label: "Condo" },
   { value: "house", label: "House" },
-  { value: "studio", label: "Studio" },
   { value: "duplex", label: "Duplex" },
+  { value: "bungalow", label: "Bungalow" },
+  { value: "studio", label: "Studio" },
+  { value: "room", label: "Room" },
+  { value: "student", label: "Student housing" },
+  { value: "hostel", label: "Hostel" },
   { value: "office", label: "Office" },
   { value: "shop", label: "Shop" },
+  { value: "land", label: "Land" },
 ] as const;
 export const PROPERTY_REQUEST_BEDROOM_OPTIONS = [
   { value: "", label: "Any bedrooms" },
@@ -56,6 +67,7 @@ export const PROPERTY_REQUEST_MOVE_TIMELINE_OPTIONS = [
 ] as const;
 
 export type PropertyRequestPublishMissingField =
+  | "title"
   | "intent"
   | "marketCode"
   | "currencyCode"
@@ -84,6 +96,7 @@ export type PropertyRequestRecord = {
   intent: PropertyRequestIntent;
   market_code: string;
   currency_code: string;
+  title?: string | null;
   city: string | null;
   area: string | null;
   location_text: string | null;
@@ -112,6 +125,7 @@ export type PropertyRequest = {
   intent: PropertyRequestIntent;
   marketCode: string;
   currencyCode: string;
+  title?: string | null;
   city: string | null;
   area: string | null;
   locationText: string | null;
@@ -200,6 +214,7 @@ export const propertyRequestDraftSchema = z
     intent: z.enum(PROPERTY_REQUEST_INTENTS).optional(),
     marketCode: z.string().trim().toUpperCase().regex(/^[A-Z]{2}$/).optional(),
     currencyCode: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).optional(),
+    title: z.string().trim().min(3).max(120).nullable().optional(),
     city: z.string().trim().min(1).max(80).nullable().optional(),
     area: z.string().trim().max(120).nullable().optional(),
     locationText: z.string().trim().max(160).nullable().optional(),
@@ -368,6 +383,7 @@ export function resolvePropertyRequestPublishMissingFields(
   input: z.infer<typeof propertyRequestDraftSchema>
 ): PropertyRequestPublishMissingField[] {
   const missing: PropertyRequestPublishMissingField[] = [];
+  if (!input.title) missing.push("title");
   if (!input.intent) missing.push("intent");
   if (!input.marketCode) missing.push("marketCode");
   if (!input.currencyCode) missing.push("currencyCode");
@@ -488,6 +504,12 @@ const PROPERTY_REQUEST_MOVE_TIMELINE_LABELS: Record<string, string> = {
   within_90_days: "Within 90 days",
   planning_ahead: "Planning ahead",
 };
+const PROPERTY_REQUEST_PROPERTY_TYPE_LABELS: ReadonlyMap<string, string> = new Map(
+  PROPERTY_REQUEST_PROPERTY_TYPE_OPTIONS.filter((option) => option.value).map((option) => [
+    option.value,
+    option.label,
+  ])
+);
 
 export function getPropertyRequestStatusLabel(status: PropertyRequestStatus): string {
   return PROPERTY_REQUEST_STATUS_LABELS[status];
@@ -500,6 +522,38 @@ export function getPropertyRequestIntentLabel(intent: PropertyRequestIntent): st
 export function getPropertyRequestMoveTimelineLabel(moveTimeline: string | null | undefined): string {
   if (!moveTimeline) return "Flexible";
   return PROPERTY_REQUEST_MOVE_TIMELINE_LABELS[moveTimeline] ?? moveTimeline;
+}
+
+function normalizePropertyRequestType(type: string | null | undefined): ListingType | null {
+  if (!type) return null;
+  return PROPERTY_REQUEST_PROPERTY_TYPE_LABELS.has(type) ? (type as ListingType) : null;
+}
+
+export function getPropertyRequestPropertyTypeLabel(type: string | null | undefined): string {
+  if (!type) return "Any";
+  return PROPERTY_REQUEST_PROPERTY_TYPE_LABELS.get(type) ?? type;
+}
+
+export function isPropertyRequestResidentialType(type: string | null | undefined): boolean {
+  return isResidentialListingType(normalizePropertyRequestType(type));
+}
+
+export function isPropertyRequestCommercialType(type: string | null | undefined): boolean {
+  return isCommercialListingType(normalizePropertyRequestType(type));
+}
+
+export function isPropertyRequestNonRoomType(type: string | null | undefined): boolean {
+  return isNonRoomListingType(normalizePropertyRequestType(type));
+}
+
+export function shouldShowPropertyRequestBedrooms(type: string | null | undefined): boolean {
+  const normalized = normalizePropertyRequestType(type);
+  if (!normalized) return true;
+  return isResidentialListingType(normalized);
+}
+
+export function shouldShowPropertyRequestBathrooms(type: string | null | undefined): boolean {
+  return !isPropertyRequestNonRoomType(type);
 }
 
 export function getPropertyRequestLocationSummary(input: {
@@ -515,6 +569,26 @@ export function getPropertyRequestLocationSummary(input: {
     return input.locationText.trim();
   }
   return "Location not set";
+}
+
+export function getPropertyRequestDisplayTitle(input: {
+  title?: string | null;
+  intent: PropertyRequestIntent;
+  propertyType?: string | null;
+  city?: string | null;
+  area?: string | null;
+  locationText?: string | null;
+}): string {
+  const title = input.title?.trim();
+  if (title) return title;
+
+  const location = getPropertyRequestLocationSummary(input);
+  const propertyTypeLabel =
+    input.propertyType && getPropertyRequestPropertyTypeLabel(input.propertyType) !== "Any"
+      ? getPropertyRequestPropertyTypeLabel(input.propertyType).toLowerCase()
+      : "property";
+  const base = `${getPropertyRequestIntentLabel(input.intent)} ${propertyTypeLabel} request`;
+  return location === "Location not set" ? base : `${base} in ${location}`;
 }
 
 export function getPropertyRequestBoardActionLabel(input: {
@@ -589,6 +663,7 @@ export function getPropertyRequestBriefStrengthLabel(
     | "moveTimeline"
     | "shortletDuration"
     | "notes"
+    | "title"
     | "area"
     | "city"
     | "locationText"
@@ -603,6 +678,7 @@ export function getPropertyRequestBriefStrengthLabel(
     Boolean(request.moveTimeline),
     Boolean(request.shortletDuration),
     Boolean(request.notes?.trim()),
+    Boolean(request.title?.trim()),
     Boolean(request.area || request.city || request.locationText),
   ].filter(Boolean).length;
 
@@ -619,6 +695,7 @@ export function mapPropertyRequestRecord(record: PropertyRequestRecord): Propert
     intent: record.intent,
     marketCode: record.market_code,
     currencyCode: record.currency_code,
+    title: record.title ?? null,
     city: record.city,
     area: record.area,
     locationText: record.location_text,
@@ -727,7 +804,13 @@ export function matchesPropertyRequestDiscoverFilters(
   if (filters.intent && request.intent !== filters.intent) return false;
   if (filters.marketCode && request.marketCode !== filters.marketCode) return false;
   if (filters.propertyType && request.propertyType !== filters.propertyType) return false;
-  if (typeof filters.bedrooms === "number" && request.bedrooms !== filters.bedrooms) return false;
+  if (
+    typeof filters.bedrooms === "number" &&
+    shouldShowPropertyRequestBedrooms(filters.propertyType) &&
+    request.bedrooms !== filters.bedrooms
+  ) {
+    return false;
+  }
   if (filters.moveTimeline && request.moveTimeline !== filters.moveTimeline) return false;
   if (filters.status && request.status !== filters.status) return false;
 
@@ -746,7 +829,7 @@ export function matchesPropertyRequestDiscoverFilters(
   }
 
   if (filters.q) {
-    const haystack = [request.city, request.area, request.locationText]
+    const haystack = [request.title, request.city, request.area, request.locationText]
       .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
       .join(" ")
       .toLowerCase();
@@ -763,6 +846,7 @@ export const PROPERTY_REQUEST_SELECT_COLUMNS = [
   "intent",
   "market_code",
   "currency_code",
+  "title",
   "city",
   "area",
   "location_text",

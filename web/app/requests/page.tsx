@@ -12,12 +12,16 @@ import {
   PROPERTY_REQUEST_STATUSES,
   getPropertyRequestBoardActionLabel,
   getPropertyRequestBriefStrengthLabel,
+  getPropertyRequestDisplayTitle,
   getPropertyRequestExpirySignalLabel,
   getPropertyRequestFreshnessLabel,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
   getPropertyRequestMoveTimelineLabel,
+  getPropertyRequestPropertyTypeLabel,
   getPropertyRequestResponderBoardStateLabel,
+  shouldShowPropertyRequestBathrooms,
+  shouldShowPropertyRequestBedrooms,
   type PropertyRequest,
 } from "@/lib/requests/property-requests";
 import { listPropertyRequestResponderBoardStates } from "@/lib/requests/property-request-responses.server";
@@ -115,7 +119,7 @@ export default async function RequestsIndexPage({ searchParams }: RequestsPagePr
       >
         <label className="space-y-2 xl:col-span-2">
           <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-            Search city or area
+            Search title, city, or area
           </span>
           <Input name="q" defaultValue={filters.q ?? ""} placeholder="Lekki, Yaba, Abuja" />
         </label>
@@ -159,18 +163,20 @@ export default async function RequestsIndexPage({ searchParams }: RequestsPagePr
           </Select>
         </label>
 
-        <label className="space-y-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-            Bedrooms
-          </span>
-          <Select name="bedrooms" defaultValue={filters.bedrooms !== null ? String(filters.bedrooms) : ""}>
-            {PROPERTY_REQUEST_BEDROOM_OPTIONS.map((option) => (
-              <option key={option.label} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-        </label>
+        {shouldShowPropertyRequestBedrooms(filters.propertyType) ? (
+          <label className="space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Bedrooms
+            </span>
+            <Select name="bedrooms" defaultValue={filters.bedrooms !== null ? String(filters.bedrooms) : ""}>
+              {PROPERTY_REQUEST_BEDROOM_OPTIONS.map((option) => (
+                <option key={option.label} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </label>
+        ) : null}
 
         <label className="space-y-2">
           <span className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -284,14 +290,21 @@ export default async function RequestsIndexPage({ searchParams }: RequestsPagePr
                     </div>
                     <div>
                       <h2 className="text-xl font-semibold text-slate-900">
-                        {getPropertyRequestLocationSummary(request)}
+                        {getPropertyRequestDisplayTitle(request)}
                       </h2>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {getPropertyRequestLocationSummary(request)}
+                      </p>
                       <p className="mt-1 text-sm text-slate-600">{formatBudget(request)}</p>
                     </div>
                     <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600">
-                      <span>Property type: {request.propertyType ?? "Any"}</span>
-                      <span>Bedrooms: {request.bedrooms ?? "Any"}</span>
-                      <span>Bathrooms: {request.bathrooms ?? "Any"}</span>
+                      <span>Property type: {getPropertyRequestPropertyTypeLabel(request.propertyType)}</span>
+                      {shouldShowPropertyRequestBedrooms(request.propertyType) ? (
+                        <span>Bedrooms: {request.bedrooms ?? "Any"}</span>
+                      ) : null}
+                      {shouldShowPropertyRequestBathrooms(request.propertyType) ? (
+                        <span>Bathrooms: {request.bathrooms ?? "Any"}</span>
+                      ) : null}
                       <span>Move timeline: {getPropertyRequestMoveTimelineLabel(request.moveTimeline)}</span>
                       {typeof request.furnished === "boolean" ? (
                         <span>{request.furnished ? "Furnished preferred" : "Unfurnished preferred"}</span>

@@ -3,10 +3,12 @@ import { Button } from "@/components/ui/Button";
 import { PropertyRequestStatusBadge } from "@/components/requests/PropertyRequestStatusBadge";
 import {
   getPropertyRequestBriefStrengthLabel,
+  getPropertyRequestDisplayTitle,
   getPropertyRequestExpirySignalLabel,
   getPropertyRequestFreshnessLabel,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
+  shouldShowPropertyRequestBedrooms,
   type PropertyRequest,
 } from "@/lib/requests/property-requests";
 import {
@@ -120,13 +122,18 @@ export default async function MyPropertyRequestsPage() {
                     </div>
                     <div>
                       <h2 className="text-xl font-semibold text-slate-900">
-                        {getPropertyRequestLocationSummary(request)}
+                        {getPropertyRequestDisplayTitle(request)}
                       </h2>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {getPropertyRequestLocationSummary(request)}
+                      </p>
                       <p className="mt-1 text-sm text-slate-600">{formatBudget(request)}</p>
                     </div>
                     <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600">
                       <span>Move timeline: {request.moveTimeline ?? "Flexible"}</span>
-                      <span>Bedrooms: {request.bedrooms ?? "Any"}</span>
+                      {shouldShowPropertyRequestBedrooms(request.propertyType) ? (
+                        <span>Bedrooms: {request.bedrooms ?? "Any"}</span>
+                      ) : null}
                       <span>Updated: {new Date(request.updatedAt).toLocaleDateString()}</span>
                       <span>
                         {request.expiresAt

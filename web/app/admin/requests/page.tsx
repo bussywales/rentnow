@@ -15,8 +15,10 @@ import {
   type PropertyRequestAnalyticsResponseRow,
 } from "@/lib/requests/property-requests-admin";
 import {
+  getPropertyRequestDisplayTitle,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
+  getPropertyRequestPropertyTypeLabel,
   getPropertyRequestStatusLabel,
   mapPropertyRequestRecord,
   type PropertyRequestRecord,
@@ -69,7 +71,7 @@ export default async function AdminPropertyRequestsPage({ searchParams }: Props)
   const { data: requestRows } = await client
     .from("property_requests")
     .select(
-      "id,owner_user_id,owner_role,intent,market_code,currency_code,city,area,location_text,budget_min,budget_max,property_type,bedrooms,bathrooms,furnished,move_timeline,shortlet_duration,notes,status,published_at,expires_at,created_at,updated_at"
+      "id,owner_user_id,owner_role,intent,market_code,currency_code,title,city,area,location_text,budget_min,budget_max,property_type,bedrooms,bathrooms,furnished,move_timeline,shortlet_duration,notes,status,published_at,expires_at,created_at,updated_at"
     )
     .order("created_at", { ascending: false });
 
@@ -324,9 +326,10 @@ export default async function AdminPropertyRequestsPage({ searchParams }: Props)
                   return (
                     <tr key={request.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 align-top">
-                        <div className="font-semibold text-slate-900">{getPropertyRequestLocationSummary(request)}</div>
+                        <div className="font-semibold text-slate-900">{getPropertyRequestDisplayTitle(request)}</div>
+                        <div className="mt-1 text-xs text-slate-500">{getPropertyRequestLocationSummary(request)}</div>
                         <div className="mt-1 text-xs text-slate-500">
-                          {getPropertyRequestIntentLabel(request.intent)} · {request.marketCode} · {request.propertyType ?? "Any type"}
+                          {getPropertyRequestIntentLabel(request.intent)} · {request.marketCode} · {getPropertyRequestPropertyTypeLabel(request.propertyType)}
                         </div>
                         <div className="mt-1 text-xs text-slate-500">{request.id}</div>
                       </td>

@@ -11,9 +11,13 @@ import {
   type PropertyRequestAnalyticsResponseRow,
 } from "@/lib/requests/property-requests-admin";
 import {
+  getPropertyRequestDisplayTitle,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
   getPropertyRequestMoveTimelineLabel,
+  getPropertyRequestPropertyTypeLabel,
+  shouldShowPropertyRequestBathrooms,
+  shouldShowPropertyRequestBedrooms,
   mapPropertyRequestRecord,
   type PropertyRequestRecord,
 } from "@/lib/requests/property-requests";
@@ -72,7 +76,7 @@ export default async function AdminPropertyRequestDetailPage({ params }: { param
   const { data: requestRow } = await client
     .from("property_requests")
     .select(
-      "id,owner_user_id,owner_role,intent,market_code,currency_code,city,area,location_text,budget_min,budget_max,property_type,bedrooms,bathrooms,furnished,move_timeline,shortlet_duration,notes,status,published_at,expires_at,created_at,updated_at"
+      "id,owner_user_id,owner_role,intent,market_code,currency_code,title,city,area,location_text,budget_min,budget_max,property_type,bedrooms,bathrooms,furnished,move_timeline,shortlet_duration,notes,status,published_at,expires_at,created_at,updated_at"
     )
     .eq("id", id)
     .maybeSingle();
@@ -109,7 +113,8 @@ export default async function AdminPropertyRequestDetailPage({ params }: { param
             <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{request.marketCode}</p>
           </div>
           <div>
-            <h1 className="text-3xl font-semibold text-slate-900">{getPropertyRequestLocationSummary(request)}</h1>
+            <h1 className="text-3xl font-semibold text-slate-900">{getPropertyRequestDisplayTitle(request)}</h1>
+            <p className="mt-1 text-sm text-slate-500">{getPropertyRequestLocationSummary(request)}</p>
             <p className="mt-2 text-sm text-slate-600">
               Admin inspection view for request moderation, expiry management, and response oversight.
             </p>
@@ -123,9 +128,13 @@ export default async function AdminPropertyRequestDetailPage({ params }: { param
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <RequestFact label="Budget" value={formatBudget(request)} />
-          <RequestFact label="Property type" value={request.propertyType ?? "Any"} />
-          <RequestFact label="Bedrooms" value={request.bedrooms?.toString() ?? "Any"} />
-          <RequestFact label="Bathrooms" value={request.bathrooms?.toString() ?? "Any"} />
+          <RequestFact label="Property type" value={getPropertyRequestPropertyTypeLabel(request.propertyType)} />
+          {shouldShowPropertyRequestBedrooms(request.propertyType) ? (
+            <RequestFact label="Bedrooms" value={request.bedrooms?.toString() ?? "Any"} />
+          ) : null}
+          {shouldShowPropertyRequestBathrooms(request.propertyType) ? (
+            <RequestFact label="Bathrooms" value={request.bathrooms?.toString() ?? "Any"} />
+          ) : null}
           <RequestFact label="Move timeline" value={getPropertyRequestMoveTimelineLabel(request.moveTimeline)} />
           <RequestFact label="Furnished" value={request.furnished === null ? "No preference" : request.furnished ? "Furnished" : "Unfurnished"} />
           <RequestFact label="Published" value={request.publishedAt ? new Date(request.publishedAt).toLocaleString() : "Not published"} />

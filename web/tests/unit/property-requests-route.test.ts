@@ -28,6 +28,7 @@ const baseRow: PropertyRequestRecord = {
   intent: "rent",
   market_code: "NG",
   currency_code: "NGN",
+  title: "2 bedroom apartment near Lekki",
   city: "Lagos",
   area: "Lekki",
   location_text: "Lekki Phase 1",
@@ -148,7 +149,7 @@ void test("property requests create returns missing-field payload when open requ
 
   assert.equal(response.status, 400);
   assert.equal(json.code, "REQUEST_PUBLISH_FIELDS_MISSING");
-  assert.deepEqual(json.missingFields, ["location", "budgetMin", "budgetMax", "shortletDuration"]);
+  assert.deepEqual(json.missingFields, ["title", "location", "budgetMin", "budgetMax", "shortletDuration"]);
 });
 
 void test("property requests create inserts draft rows for tenants", async () => {
@@ -159,6 +160,7 @@ void test("property requests create inserts draft rows for tenants", async () =>
       marketCode: "NG",
       currencyCode: "NGN",
       city: "Abuja",
+      title: "Apartment around Wuse",
       budgetMin: 200000,
       budgetMax: 450000,
     }),
@@ -194,6 +196,7 @@ void test("property requests create publishes open rows with published and expir
       intent: "rent",
       marketCode: "NG",
       currencyCode: "NGN",
+      title: "2 bedroom apartment near Lekki",
       city: "Lagos",
       budgetMin: 100000,
       budgetMax: 300000,

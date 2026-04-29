@@ -13,6 +13,7 @@ import {
   propertyRequestCreateSchema,
   resolvePropertyRequestListScope,
   resolvePropertyRequestPublishMissingFields,
+  shouldShowPropertyRequestBedrooms,
   type PropertyRequestCreateInput,
   type PropertyRequestRecord,
 } from "@/lib/requests/property-requests";
@@ -77,7 +78,10 @@ const defaultDeps: PropertyRequestsRouteDeps = {
     if (filters.propertyType) {
       query = query.eq("property_type", filters.propertyType);
     }
-    if (typeof filters.bedrooms === "number") {
+    if (
+      typeof filters.bedrooms === "number" &&
+      shouldShowPropertyRequestBedrooms(filters.propertyType)
+    ) {
       query = query.eq("bedrooms", filters.bedrooms);
     }
     if (filters.moveTimeline) {
@@ -116,6 +120,7 @@ const defaultDeps: PropertyRequestsRouteDeps = {
       intent: payload.intent ?? "rent",
       market_code: payload.marketCode ?? "NG",
       currency_code: payload.currencyCode ?? "NGN",
+      title: payload.title ?? null,
       city: payload.city ?? null,
       area: payload.area ?? null,
       location_text: payload.locationText ?? null,
@@ -257,6 +262,7 @@ export async function postPropertyRequestsResponse(
         city: item.city ?? undefined,
         area: item.area ?? undefined,
         propertyType: item.propertyType ?? undefined,
+        requestTitle: item.title ?? undefined,
         requestStatus: item.status,
       },
     });

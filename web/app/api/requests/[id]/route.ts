@@ -179,6 +179,7 @@ export async function patchPropertyRequestDetailResponse(
     intent: getPatchedValue("intent", existing.intent),
     marketCode: getPatchedValue("marketCode", existing.marketCode),
     currencyCode: getPatchedValue("currencyCode", existing.currencyCode),
+    title: getPatchedValue("title", existing.title ?? null),
     city: getPatchedValue("city", existing.city),
     area: getPatchedValue("area", existing.area),
     locationText: getPatchedValue("locationText", existing.locationText),
@@ -194,7 +195,8 @@ export async function patchPropertyRequestDetailResponse(
     status: nextStatus,
   };
 
-  if (nextStatus === "open") {
+  const isPublishingNow = nextStatus === "open" && existing.status !== "open";
+  if (isPublishingNow) {
     const missingFields = resolvePropertyRequestPublishMissingFields(merged);
     if (missingFields.length > 0) {
       return NextResponse.json(
@@ -224,6 +226,7 @@ export async function patchPropertyRequestDetailResponse(
       intent: merged.intent,
       market_code: merged.marketCode,
       currency_code: merged.currencyCode,
+      title: merged.title,
       city: merged.city,
       area: merged.area,
       location_text: merged.locationText,

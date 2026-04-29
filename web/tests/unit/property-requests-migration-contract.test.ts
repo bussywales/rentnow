@@ -9,6 +9,12 @@ const migrationPath = path.join(
   "migrations",
   "20260316012950_property_requests_phase1.sql"
 );
+const titleMigrationPath = path.join(
+  process.cwd(),
+  "supabase",
+  "migrations",
+  "20260429123000_property_request_title_integrity.sql"
+);
 
 void test("property requests migration defines table, lifecycle checks, and RLS policies", () => {
   const source = fs.readFileSync(migrationPath, "utf8");
@@ -31,4 +37,14 @@ void test("property requests migration keeps seeker visibility owner-only by def
   assert.match(source, /owner_user_id = auth\.uid\(\)/);
   assert.doesNotMatch(source, /tenant public browse/i);
   assert.match(source, /p\.role in \('landlord', 'agent'\)/);
+});
+
+void test("property request title migration adds a nullable headline without rewriting location fields", () => {
+  const source = fs.readFileSync(titleMigrationPath, "utf8");
+
+  assert.match(source, /add column if not exists title text null/i);
+  assert.match(source, /property_requests_title_length_check/i);
+  assert.match(source, /char_length\(btrim\(title\)\) between 3 and 120/i);
+  assert.match(source, /City, area, and location_text remain structured location fields/i);
+  assert.doesNotMatch(source, /update public\.property_requests/i);
 });

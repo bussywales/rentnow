@@ -10,6 +10,7 @@ import {
   mapPropertyRequestRecord,
   matchesPropertyRequestDiscoverFilters,
   parsePropertyRequestDiscoverFilters,
+  shouldShowPropertyRequestBedrooms,
   type PropertyRequest,
   type PropertyRequestDiscoverFilters,
   type PropertyRequestRecord,
@@ -115,7 +116,10 @@ export async function listDiscoverablePropertyRequests(input: {
   if (input.filters.propertyType) {
     query = query.eq("property_type", input.filters.propertyType);
   }
-  if (typeof input.filters.bedrooms === "number") {
+  if (
+    typeof input.filters.bedrooms === "number" &&
+    shouldShowPropertyRequestBedrooms(input.filters.propertyType)
+  ) {
     query = query.eq("bedrooms", input.filters.bedrooms);
   }
   if (input.filters.moveTimeline) {

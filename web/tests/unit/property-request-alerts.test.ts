@@ -11,6 +11,7 @@ const request: PropertyRequest = {
   intent: "rent",
   marketCode: "NG",
   currencyCode: "NGN",
+  title: "2 bedroom apartment near Lekki",
   city: "Lagos",
   area: "Lekki",
   locationText: "Lekki Phase 1",
@@ -68,7 +69,8 @@ void test("property request published alerts only send to opted-in matching supp
     getUserEmail: async (_client, userId) => `${userId}@example.com`,
     sendEmail: async ({ to, subject, html }) => {
       sentTo.push(to);
-      assert.equal(subject, "New property request in NG");
+      assert.equal(subject, "New property request: 2 bedroom apartment near Lekki");
+      assert.match(html, /2 bedroom apartment near Lekki/);
       assert.match(html, /Lekki, Lagos/);
       assert.match(html, /Apartment/);
       assert.match(html, /2 bedrooms/);
@@ -112,6 +114,7 @@ void test("property request published alerts skip when no matching supply exists
 void test("property request published email template renders request summary and CTA", () => {
   const email = buildPropertyRequestPublishedAlertEmail({
     requestId: "req-1",
+    titleLabel: "2 bedroom apartment near Lekki",
     intentLabel: "Rent",
     marketLabel: "NG",
     locationLabel: "Lekki, Lagos",
@@ -122,8 +125,9 @@ void test("property request published email template renders request summary and
     requestUrl: "https://www.propatyhub.com/requests/req-1",
   });
 
-  assert.equal(email.subject, "New property request in NG");
+  assert.equal(email.subject, "New property request: 2 bedroom apartment near Lekki");
   assert.match(email.html, /Request req-1/);
+  assert.match(email.html, /2 bedroom apartment near Lekki/);
   assert.match(email.html, /Lekki, Lagos/);
   assert.match(email.html, /NGN 150,000 - NGN 350,000/);
   assert.match(email.html, /View request/);

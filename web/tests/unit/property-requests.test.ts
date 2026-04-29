@@ -9,6 +9,7 @@ import {
   doesListingIntentMatchPropertyRequest,
   getPropertyRequestBoardActionLabel,
   getPropertyRequestBriefStrengthLabel,
+  getPropertyRequestDisplayTitle,
   getPropertyRequestExpirySignalLabel,
   getPropertyRequestFreshnessLabel,
   getPropertyRequestMoveTimelineLabel,
@@ -25,6 +26,8 @@ import {
   resolvePropertyRequestLifecycleDates,
   resolvePropertyRequestListScope,
   resolvePropertyRequestPublishMissingFields,
+  shouldShowPropertyRequestBathrooms,
+  shouldShowPropertyRequestBedrooms,
   type PropertyRequest,
 } from "@/lib/requests/property-requests";
 
@@ -35,6 +38,7 @@ const baseRequest: PropertyRequest = {
   intent: "rent",
   marketCode: "NG",
   currencyCode: "NGN",
+  title: "2 bedroom apartment near Lekki",
   city: "Lagos",
   area: "Lekki",
   locationText: "Lekki Phase 1",
@@ -76,6 +80,7 @@ void test("publish helper returns required missing fields for open requests", ()
     intent: "shortlet",
     marketCode: "NG",
     currencyCode: "NGN",
+    title: null,
     city: null,
     locationText: null,
     budgetMin: null,
@@ -83,7 +88,7 @@ void test("publish helper returns required missing fields for open requests", ()
     shortletDuration: null,
   });
 
-  assert.deepEqual(missing, ["location", "budgetMin", "budgetMax", "shortletDuration"]);
+  assert.deepEqual(missing, ["title", "location", "budgetMin", "budgetMax", "shortletDuration"]);
 });
 
 void test("request discoverability excludes drafts and expired rows for responder roles", () => {
@@ -303,6 +308,34 @@ void test("discover filter matcher keeps search and budget overlap aligned with 
   );
 });
 
+void test("discover filter matcher ignores bedroom filters for non-room request types", () => {
+  assert.equal(
+    matchesPropertyRequestDiscoverFilters(
+      {
+        ...baseRequest,
+        title: "Land in Ibadan",
+        propertyType: "land",
+        bedrooms: null,
+        bathrooms: null,
+        city: "Ibadan",
+        area: "Moniya",
+      },
+      {
+        q: "land",
+        intent: null,
+        marketCode: null,
+        propertyType: "land",
+        bedrooms: 3,
+        moveTimeline: null,
+        budgetMin: null,
+        budgetMax: null,
+        status: null,
+      }
+    ),
+    true
+  );
+});
+
 void test("published status helper keeps draft and removed out of published lifecycle", () => {
   assert.equal(isPropertyRequestPublishedStatus("draft"), false);
   assert.equal(isPropertyRequestPublishedStatus("removed"), false);
@@ -389,6 +422,38 @@ void test("labels and location summaries stay human-readable", () => {
     "Expiring soon"
   );
   assert.equal(getPropertyRequestBriefStrengthLabel(baseRequest), "Detailed brief");
+});
+
+void test("display titles use the request headline before structured location fallback", () => {
+  assert.equal(
+    getPropertyRequestDisplayTitle({
+      ...baseRequest,
+      title: "Family apartment near Lekki Phase 1",
+      city: "Lagos",
+      area: "Lekki",
+    }),
+    "Family apartment near Lekki Phase 1"
+  );
+
+  assert.equal(
+    getPropertyRequestDisplayTitle({
+      ...baseRequest,
+      title: null,
+      propertyType: "land",
+      city: "Ibadan",
+      area: "Moniya",
+    }),
+    "Rent land request in Moniya, Ibadan"
+  );
+});
+
+void test("property request type helpers suppress residential rooms for commercial and land requests", () => {
+  assert.equal(shouldShowPropertyRequestBedrooms("apartment"), true);
+  assert.equal(shouldShowPropertyRequestBathrooms("apartment"), true);
+  assert.equal(shouldShowPropertyRequestBedrooms("office"), false);
+  assert.equal(shouldShowPropertyRequestBathrooms("office"), true);
+  assert.equal(shouldShowPropertyRequestBedrooms("land"), false);
+  assert.equal(shouldShowPropertyRequestBathrooms("land"), false);
 });
 
 void test("request board responder helpers keep prior response state compact and clear", () => {

@@ -3,6 +3,7 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { buildPropertyRequestPublishedAlertEmail } from "@/lib/email/templates/property-request-published-alert";
 import {
   doesListingIntentMatchPropertyRequest,
+  getPropertyRequestDisplayTitle,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
   getPropertyRequestMoveTimelineLabel,
@@ -228,6 +229,7 @@ export async function notifyHostsOfPublishedPropertyRequest(
   const requestUrl = `${siteUrl.replace(/\/$/, "")}/requests/${encodeURIComponent(request.id)}`;
   const email = buildPropertyRequestPublishedAlertEmail({
     requestId: request.id,
+    titleLabel: getPropertyRequestDisplayTitle(request),
     intentLabel: getPropertyRequestIntentLabel(request.intent),
     marketLabel: request.marketCode,
     locationLabel: getPropertyRequestLocationSummary(request),

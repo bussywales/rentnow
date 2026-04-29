@@ -1,5 +1,6 @@
 type PropertyRequestPublishedAlertEmailInput = {
   requestId: string;
+  titleLabel: string;
   intentLabel: string;
   marketLabel: string;
   locationLabel: string | null;
@@ -27,18 +28,19 @@ function renderDetailRow(label: string, value: string | null) {
 export function buildPropertyRequestPublishedAlertEmail(
   input: PropertyRequestPublishedAlertEmailInput
 ) {
-  const subject = `New property request in ${input.marketLabel}`;
+  const subject = `New property request: ${input.titleLabel}`;
   const html = `<!doctype html>
 <html>
   <body style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,sans-serif;color:#0f172a;">
     <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;padding:24px;">
       <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.16em;text-transform:uppercase;color:#64748b;">Property Requests</p>
-      <h1 style="margin:0 0 12px;font-size:24px;line-height:1.3;">New property request in ${escapeHtml(input.marketLabel)}</h1>
+      <h1 style="margin:0 0 12px;font-size:24px;line-height:1.3;">${escapeHtml(input.titleLabel)}</h1>
       <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#475569;">
         A seeker has published a new ${escapeHtml(input.intentLabel.toLowerCase())} request that may match your supply.
       </p>
       <div style="margin:0 0 20px;padding:16px;border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0;">
-        <p style="margin:0;font-size:18px;font-weight:700;color:#0f172a;">Request ${escapeHtml(input.requestId)}</p>
+        <p style="margin:0;font-size:18px;font-weight:700;color:#0f172a;">${escapeHtml(input.titleLabel)}</p>
+        <p style="margin:6px 0 0;font-size:12px;color:#64748b;">Request ${escapeHtml(input.requestId)}</p>
       </div>
       <table role="presentation" style="width:100%;border-collapse:collapse;margin:0 0 24px;">
         ${renderDetailRow("Intent", input.intentLabel)}

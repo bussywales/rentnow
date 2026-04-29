@@ -1,4 +1,5 @@
 type PropertyRequestExpiryReminderEmailInput = {
+  titleLabel: string;
   intentLabel: string;
   marketLabel: string;
   locationLabel: string | null;
@@ -35,9 +36,10 @@ export function buildPropertyRequestExpiryReminderEmail(
       <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.16em;text-transform:uppercase;color:#64748b;">Property Requests</p>
       <h1 style="margin:0 0 12px;font-size:24px;line-height:1.3;">Your property request is about to expire</h1>
       <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#475569;">
-        Your request will expire on ${escapeHtml(input.expiryLabel)}. Extend it by another 30 days if you still want hosts and agents to respond.
+        ${escapeHtml(input.titleLabel)} will expire on ${escapeHtml(input.expiryLabel)}. Extend it by another 30 days if you still want hosts and agents to respond.
       </p>
       <table role="presentation" style="width:100%;border-collapse:collapse;margin:0 0 24px;">
+        ${renderDetailRow("Request", input.titleLabel)}
         ${renderDetailRow("Intent", input.intentLabel)}
         ${renderDetailRow("Market", input.marketLabel)}
         ${renderDetailRow("Location", input.locationLabel)}
