@@ -23,4 +23,12 @@ void test("saved searches page is available to all roles copy-wise", () => {
     contents.includes('userRole === "tenant"'),
     "expected notification settings card to be tenant-only"
   );
+  assert.ok(
+    contents.includes("PropertyRequestAlertSubscriptionsManager"),
+    "expected property request alert manager to be mounted on the shared saved searches surface"
+  );
+  assert.ok(
+    contents.includes("isPropertyRequestAlertEligibleRole"),
+    "expected request alert manager to be limited to eligible supply-side roles"
+  );
 });

@@ -33,6 +33,8 @@ void test("property requests pages expose discovery and owner management routes"
   assert.match(indexPage, /getPropertyRequestFreshnessLabel/);
   assert.match(indexPage, /getPropertyRequestExpirySignalLabel/);
   assert.match(indexPage, /Bathrooms:/);
+  assert.match(indexPage, /Manage request alerts/);
+  assert.match(indexPage, /\/dashboard\/saved-searches#request-alerts/);
   assert.match(requestHelpers, /Review and send matches/);
   assert.match(requestHelpers, /View your sent matches/);
   assert.match(indexPage, /access\.role === "landlord" \|\| access\.role === "agent"/);

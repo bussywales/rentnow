@@ -1,8 +1,14 @@
 import { getSiteUrl } from "@/lib/env";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { buildPropertyRequestPublishedAlertEmail } from "@/lib/email/templates/property-request-published-alert";
+import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
 import {
-  doesListingIntentMatchPropertyRequest,
+  doesPropertyRequestMatchAlertSubscription,
+  mapPropertyRequestAlertSubscriptionRecord,
+  type PropertyRequestAlertSubscription,
+  type PropertyRequestAlertSubscriptionRecord,
+} from "@/lib/requests/property-request-alert-subscriptions";
+import {
   getPropertyRequestDisplayTitle,
   getPropertyRequestIntentLabel,
   getPropertyRequestLocationSummary,
@@ -12,22 +18,14 @@ import {
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
-type HostAlertProfileRow = {
+type ProfileAlertPreferenceRow = {
   id: string;
-  role?: string | null;
-  display_name?: string | null;
-  full_name?: string | null;
+  role: string | null;
   property_request_alerts_enabled?: boolean | null;
 };
 
-type ManagedPropertyRow = {
-  owner_id: string | null;
-  listing_intent: string | null;
-};
-
-type ActiveDelegationRow = {
-  agent_id: string;
-  landlord_id: string;
+type DeliveryRow = {
+  subscription_id: string;
 };
 
 type EmailLookupClient = {
@@ -40,19 +38,22 @@ type EmailLookupClient = {
   };
 };
 
-type QueryResultLike = PromiseLike<{
-  data: unknown[] | null;
+type QueryResultLike<T> = PromiseLike<{
+  data: T[] | null;
   error: { message?: string | null } | null;
 }>;
 
-type QueryBuilderLike = QueryResultLike & {
-  eq: (column: string, value: string | boolean) => QueryBuilderLike;
-  in: (column: string, values: string[]) => QueryBuilderLike;
+type QueryBuilderLike<T> = QueryResultLike<T> & {
+  eq: (column: string, value: string | boolean) => QueryBuilderLike<T>;
+  in: (column: string, values: string[]) => QueryBuilderLike<T>;
 };
 
 type QueryClientLike = {
-  from: (table: string) => {
-    select: (columns: string) => QueryBuilderLike;
+  from: <T = never>(table: string) => {
+    select: (columns: string) => QueryBuilderLike<T>;
+    insert?: (
+      row: Record<string, unknown> | Array<Record<string, unknown>>
+    ) => Promise<{ error: { message?: string | null; code?: string | null } | null }>;
   };
 };
 
@@ -60,60 +61,94 @@ export type PropertyRequestPublishedAlertDeps = {
   hasServiceRoleEnv: typeof hasServiceRoleEnv;
   createServiceRoleClient: typeof createServiceRoleClient;
   getSiteUrl: typeof getSiteUrl;
-  loadOptedInProfiles: (client: QueryClientLike) => Promise<HostAlertProfileRow[]>;
-  loadMatchingSupplyOwnerIds: (
+  loadActiveSubscriptions: (
     client: QueryClientLike,
     request: PropertyRequest
-  ) => Promise<string[]>;
-  loadActiveDelegations: (
+  ) => Promise<PropertyRequestAlertSubscription[]>;
+  loadProfileAlertPreferences: (
     client: QueryClientLike,
-    ownerIds: string[]
-  ) => Promise<ActiveDelegationRow[]>;
+    userIds: string[]
+  ) => Promise<ProfileAlertPreferenceRow[]>;
+  loadExistingDeliveries: (
+    client: QueryClientLike,
+    requestId: string,
+    subscriptionIds: string[]
+  ) => Promise<Set<string>>;
+  recordDelivery: (
+    client: QueryClientLike,
+    input: {
+      subscriptionId: string;
+      requestId: string;
+      userId: string;
+      deliveryStatus: "sent" | "failed";
+    }
+  ) => Promise<void>;
   getUserEmail: (client: EmailLookupClient, userId: string) => Promise<string | null>;
   sendEmail: (input: { to: string; subject: string; html: string }) => Promise<{ ok: boolean; error?: string }>;
+  logSubscriberAlertSent: (input: {
+    userId: string;
+    role: string | null;
+    request: PropertyRequest;
+    subscription: PropertyRequestAlertSubscription;
+  }) => Promise<void>;
 };
 
 const defaultDeps: PropertyRequestPublishedAlertDeps = {
   hasServiceRoleEnv,
   createServiceRoleClient,
   getSiteUrl,
-  async loadOptedInProfiles(client) {
+  async loadActiveSubscriptions(client, request) {
     const { data } = await client
-      .from("profiles")
-      .select("id, role, display_name, full_name, property_request_alerts_enabled")
-      .eq("property_request_alerts_enabled", true)
-      .in("role", ["landlord", "agent"]);
-    return (Array.isArray(data) ? data : []) as HostAlertProfileRow[];
-  },
-  async loadMatchingSupplyOwnerIds(client, request) {
-    const { data } = await client
-      .from("properties")
-      .select("owner_id, listing_intent")
-      .eq("status", "live")
-      .eq("is_active", true)
-      .eq("is_approved", true)
-      .eq("country_code", request.marketCode);
-
-    const rows = (Array.isArray(data) ? data : []) as ManagedPropertyRow[];
-    return Array.from(
-      new Set(
-        rows
-          .filter((row) => typeof row.owner_id === "string" && row.owner_id.length > 0)
-          .filter((row) => doesListingIntentMatchPropertyRequest(row.listing_intent, request.intent))
-          .map((row) => row.owner_id as string)
+      .from<PropertyRequestAlertSubscriptionRecord>("property_request_alert_subscriptions")
+      .select(
+        "id, user_id, role, market_code, intent, property_type, city, bedrooms_min, is_active, created_at, updated_at"
       )
+      .eq("is_active", true)
+      .eq("market_code", request.marketCode);
+
+    return ((Array.isArray(data) ? data : []) as PropertyRequestAlertSubscriptionRecord[])
+      .map(mapPropertyRequestAlertSubscriptionRecord)
+      .filter((subscription) => doesPropertyRequestMatchAlertSubscription(request, subscription));
+  },
+  async loadProfileAlertPreferences(client, userIds) {
+    if (userIds.length === 0) return [];
+    const { data } = await client
+      .from<ProfileAlertPreferenceRow>("profiles")
+      .select("id, role, property_request_alerts_enabled")
+      .in("id", userIds);
+    return (Array.isArray(data) ? data : []) as ProfileAlertPreferenceRow[];
+  },
+  async loadExistingDeliveries(client, requestId, subscriptionIds) {
+    if (subscriptionIds.length === 0) return new Set<string>();
+    const { data } = await client
+      .from<DeliveryRow>("property_request_alert_deliveries")
+      .select("subscription_id")
+      .eq("request_id", requestId)
+      .in("subscription_id", subscriptionIds);
+
+    return new Set(
+      ((Array.isArray(data) ? data : []) as DeliveryRow[])
+        .map((row) => row.subscription_id)
+        .filter((value): value is string => typeof value === "string" && value.length > 0)
     );
   },
-  async loadActiveDelegations(client, ownerIds) {
-    if (ownerIds.length === 0) return [];
-    const { data } = await client
-      .from("agent_delegations")
-      .select("agent_id, landlord_id")
-      .eq("status", "active")
-      .in("landlord_id", ownerIds);
-    return ((Array.isArray(data) ? data : []) as ActiveDelegationRow[]).filter(
-      (row) => typeof row.agent_id === "string" && typeof row.landlord_id === "string"
-    );
+  async recordDelivery(client, input) {
+    const insert = client.from("property_request_alert_deliveries").insert;
+    if (!insert) return;
+    const { error } = await insert({
+      subscription_id: input.subscriptionId,
+      request_id: input.requestId,
+      user_id: input.userId,
+      channel: "email",
+      delivery_status: input.deliveryStatus,
+    });
+    if (error && error.code !== "23505") {
+      console.warn("[property-request-alerts] delivery_log_failed", {
+        requestId: input.requestId,
+        subscriptionId: input.subscriptionId,
+        message: error.message || "insert_failed",
+      });
+    }
   },
   async getUserEmail(client, userId) {
     const response = await client.auth.admin.getUserById(userId);
@@ -142,6 +177,24 @@ const defaultDeps: PropertyRequestPublishedAlertDeps = {
     if (!response) return { ok: false, error: "resend_request_failed" };
     if (!response.ok) return { ok: false, error: `resend_${response.status}` };
     return { ok: true };
+  },
+  async logSubscriberAlertSent(input) {
+    await logProductAnalyticsEvent({
+      eventName: "property_request_subscriber_alert_sent",
+      userId: input.userId,
+      userRole: input.role,
+      properties: {
+        market: input.request.marketCode,
+        role: input.role ?? undefined,
+        intent: input.request.intent,
+        city: input.request.city,
+        propertyType: input.request.propertyType,
+        requestStatus: input.request.status,
+        surface: "property_request_alert_email",
+        action: "sent",
+        category: input.subscription.role,
+      },
+    });
   },
 };
 
@@ -192,41 +245,42 @@ export async function notifyHostsOfPublishedPropertyRequest(
   }
 
   const client = deps.createServiceRoleClient();
-  const profiles = await deps.loadOptedInProfiles(client as unknown as QueryClientLike);
-  if (profiles.length === 0) {
+  const subscriptions = await deps.loadActiveSubscriptions(client as unknown as QueryClientLike, request);
+  if (subscriptions.length === 0) {
     return { ok: true as const, attempted: 0, sent: 0, skipped: 0 };
   }
 
-  const matchingOwnerIds = await deps.loadMatchingSupplyOwnerIds(
+  const subscriptionIds = subscriptions.map((subscription) => subscription.id);
+  const existingDeliveries = await deps.loadExistingDeliveries(
     client as unknown as QueryClientLike,
-    request
+    request.id,
+    subscriptionIds
   );
-  if (matchingOwnerIds.length === 0) {
-    return { ok: true as const, attempted: 0, sent: 0, skipped: profiles.length };
+  const undeliveredSubscriptions = subscriptions.filter(
+    (subscription) => !existingDeliveries.has(subscription.id)
+  );
+  if (undeliveredSubscriptions.length === 0) {
+    return { ok: true as const, attempted: 0, sent: 0, skipped: subscriptions.length };
   }
 
-  const activeDelegations = await deps.loadActiveDelegations(
+  const uniqueUserIds = Array.from(new Set(undeliveredSubscriptions.map((subscription) => subscription.userId)));
+  const profiles = await deps.loadProfileAlertPreferences(
     client as unknown as QueryClientLike,
-    matchingOwnerIds
+    uniqueUserIds
   );
-  const delegatedAgentIds = new Set(activeDelegations.map((row) => row.agent_id));
-  const matchingOwnerIdSet = new Set(matchingOwnerIds);
-
-  const recipients = profiles.filter((profile) => {
-    if (profile.property_request_alerts_enabled !== true) return false;
-    if (profile.role === "landlord") return matchingOwnerIdSet.has(profile.id);
-    if (profile.role === "agent") {
-      return matchingOwnerIdSet.has(profile.id) || delegatedAgentIds.has(profile.id);
-    }
-    return false;
+  const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
+  const recipients = undeliveredSubscriptions.filter((subscription) => {
+    const profile = profileById.get(subscription.userId);
+    return profile?.property_request_alerts_enabled === true && profile.role === subscription.role;
   });
 
   if (recipients.length === 0) {
-    return { ok: true as const, attempted: 0, sent: 0, skipped: profiles.length };
+    return { ok: true as const, attempted: 0, sent: 0, skipped: subscriptions.length };
   }
 
   const siteUrl = await deps.getSiteUrl({ allowFallback: true });
-  const requestUrl = `${siteUrl.replace(/\/$/, "")}/requests/${encodeURIComponent(request.id)}`;
+  const requestUrl = `${siteUrl.replace(/\/$/, "")}/requests/${encodeURIComponent(request.id)}?source=request-alert`;
+  const manageAlertsUrl = `${siteUrl.replace(/\/$/, "")}/dashboard/saved-searches#request-alerts`;
   const email = buildPropertyRequestPublishedAlertEmail({
     requestId: request.id,
     titleLabel: getPropertyRequestDisplayTitle(request),
@@ -238,31 +292,48 @@ export async function notifyHostsOfPublishedPropertyRequest(
     bedroomsLabel: formatBedroomsLabel(request.bedrooms),
     moveTimelineLabel: getPropertyRequestMoveTimelineLabel(request.moveTimeline),
     requestUrl,
+    manageAlertsUrl,
   });
 
   let attempted = 0;
   let sent = 0;
-  let skipped = profiles.length - recipients.length;
+  let skipped = subscriptions.length - recipients.length;
 
-  for (const recipient of recipients) {
-    const recipientEmail = await deps.getUserEmail(client as unknown as EmailLookupClient, recipient.id);
+  for (const subscription of recipients) {
+    const recipientEmail = await deps.getUserEmail(
+      client as unknown as EmailLookupClient,
+      subscription.userId
+    );
     if (!recipientEmail) {
       skipped += 1;
       continue;
     }
+
     attempted += 1;
     const result = await deps.sendEmail({
       to: recipientEmail,
       subject: email.subject,
       html: email.html,
     });
-    if (result.ok) sent += 1;
+
+    await deps.recordDelivery(client as unknown as QueryClientLike, {
+      subscriptionId: subscription.id,
+      requestId: request.id,
+      userId: subscription.userId,
+      deliveryStatus: result.ok ? "sent" : "failed",
+    });
+
+    if (result.ok) {
+      sent += 1;
+      await deps.logSubscriberAlertSent({
+        userId: subscription.userId,
+        role: subscription.role,
+        request,
+        subscription,
+      });
+    }
   }
 
-  return {
-    ok: true as const,
-    attempted,
-    sent,
-    skipped,
-  };
+  return { ok: true as const, attempted, sent, skipped };
 }
+

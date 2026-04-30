@@ -746,7 +746,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Property Requests alerts</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Control whether we email you when new matching demand is published in your market.
+            Control the master email switch for your property request alert subscriptions.
           </p>
           <div className="mt-4">
             <label className="inline-flex items-start gap-3 text-sm text-slate-700">
@@ -759,10 +759,10 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
               />
               <span>
                 <span className="block font-semibold text-slate-900">
-                  Email me when a new property request is published in my market
+                  Email me when a subscribed property request alert matches
                 </span>
                 <span className="mt-1 block text-xs text-slate-500">
-                  Sends a targeted email when a newly published request matches your role and live supply market.
+                  Subscriptions are managed from Saved searches. Turn this off to stop all property request alert emails.
                 </span>
               </span>
             </label>

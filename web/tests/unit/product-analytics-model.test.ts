@@ -22,6 +22,9 @@ test('product analytics event names stay constrained to the approved funnel set'
     'shortlist_shared',
     'property_request_started',
     'property_request_published',
+    'property_request_alert_subscription_created',
+    'property_request_alert_subscription_deleted',
+    'property_request_subscriber_alert_sent',
     'contact_submitted',
     'viewing_request_submitted',
     'billing_page_viewed',
@@ -57,6 +60,9 @@ test('event family mapping stays stable', () => {
   assert.equal(getProductAnalyticsEventFamily('listing_viewed'), 'listing_engagement');
   assert.equal(getProductAnalyticsEventFamily('listing_detail_section_viewed'), 'listing_engagement');
   assert.equal(getProductAnalyticsEventFamily('property_request_published'), 'tenant_intent');
+  assert.equal(getProductAnalyticsEventFamily('property_request_alert_subscription_created'), 'host_activation');
+  assert.equal(getProductAnalyticsEventFamily('property_request_alert_subscription_deleted'), 'host_activation');
+  assert.equal(getProductAnalyticsEventFamily('property_request_subscriber_alert_sent'), 'host_activation');
   assert.equal(getProductAnalyticsEventFamily('listing_limit_recovery_viewed'), 'billing');
   assert.equal(getProductAnalyticsEventFamily('checkout_succeeded'), 'billing');
   assert.equal(getProductAnalyticsEventFamily('listing_published_live'), 'host_activation');

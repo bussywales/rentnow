@@ -9,6 +9,7 @@ type PropertyRequestPublishedAlertEmailInput = {
   bedroomsLabel: string | null;
   moveTimelineLabel: string | null;
   requestUrl: string;
+  manageAlertsUrl: string;
 };
 
 function escapeHtml(value: string) {
@@ -57,7 +58,8 @@ export function buildPropertyRequestPublishedAlertEmail(
         </a>
       </p>
       <p style="margin:20px 0 0;font-size:12px;line-height:1.6;color:#64748b;">
-        You can turn off these emails from your profile settings.
+        You can manage or remove these request alerts from
+        <a href="${escapeHtml(input.manageAlertsUrl)}" style="color:#0f172a;font-weight:600;text-decoration:none;"> your alerts settings</a>.
       </p>
     </div>
   </body>

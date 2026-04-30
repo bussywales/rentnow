@@ -91,7 +91,19 @@ export default async function AdminPropertyRequestsPage({ searchParams }: Props)
       : Promise.resolve({ data: [] as Array<{ id: string; full_name: string | null; role: string | null }> }),
   ]);
 
+  const [subscriptionRowsResult, deliveryRowsResult] = await Promise.all([
+    client
+      .from("property_request_alert_subscriptions")
+      .select("id, user_id, is_active"),
+    client
+      .from("property_request_alert_deliveries")
+      .select("user_id"),
+  ]);
+
   const responseRows = (responseRowsResult.data ?? []) as PropertyRequestAnalyticsResponseRow[];
+  const subscriptionRows =
+    (subscriptionRowsResult.data ?? []) as Array<{ id: string; user_id: string; is_active: boolean | null }>;
+  const deliveryRows = (deliveryRowsResult.data ?? []) as Array<{ user_id: string | null }>;
   const responseSummary = buildPropertyRequestResponseSummaryMap(requests, responseRows);
   const analytics = buildPropertyRequestAdminAnalytics(requests, responseRows);
   const recentOutcome = buildRecentPropertyRequestOutcomeSnapshot(requests, responseRows, {
@@ -100,6 +112,16 @@ export default async function AdminPropertyRequestsPage({ searchParams }: Props)
   const byIntent = buildPropertyRequestBreakdownByIntent(requests, responseRows);
   const byMarket = buildPropertyRequestBreakdownByMarket(requests, responseRows);
   const stallSegments = buildPropertyRequestStallSegments(requests, responseRows).slice(0, 6);
+  const requestAlertStats = {
+    subscriptionsCreated: subscriptionRows.length,
+    activeSubscriptions: subscriptionRows.filter((row) => row.is_active === true).length,
+    matchedAlertsSent: deliveryRows.length,
+    distinctSubscribersReached: new Set(
+      deliveryRows
+        .map((row) => row.user_id)
+        .filter((value): value is string => typeof value === "string" && value.length > 0)
+    ).size,
+  };
   const ownerMap = new Map(
     ((ownerProfilesResult.data ?? []) as Array<{ id: string; full_name: string | null; role: string | null }>).map((row) => [
       row.id,
@@ -147,6 +169,18 @@ export default async function AdminPropertyRequestsPage({ searchParams }: Props)
           <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-700">
             <p className="text-xs uppercase tracking-wide text-slate-500">Median first response</p>
             <p className="mt-2 text-xl font-semibold text-slate-900">{formatHours(analytics.medianFirstResponseHours)}</p>
+          </div>
+        </div>
+        <div
+          className="mt-4 rounded-xl border border-violet-200 bg-violet-50/60 p-4 text-sm text-slate-700"
+          data-testid="admin-requests-alert-activation"
+        >
+          <p className="text-xs uppercase tracking-wide text-slate-500">Subscriber alert activation</p>
+          <div className="mt-2 grid gap-2 md:grid-cols-4">
+            <p>Subscriptions created: <span className="font-semibold text-slate-900">{requestAlertStats.subscriptionsCreated}</span></p>
+            <p>Active subscriptions: <span className="font-semibold text-slate-900">{requestAlertStats.activeSubscriptions}</span></p>
+            <p>Matched alerts sent: <span className="font-semibold text-slate-900">{requestAlertStats.matchedAlertsSent}</span></p>
+            <p>Subscribers reached: <span className="font-semibold text-slate-900">{requestAlertStats.distinctSubscribersReached}</span></p>
           </div>
         </div>
         <div

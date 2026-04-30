@@ -109,6 +109,10 @@ export default async function RequestsIndexPage({ searchParams }: RequestsPagePr
           <Link href="/admin/review">
             <Button variant="secondary">Admin review queue</Button>
           </Link>
+        ) : access.role === "agent" || access.role === "landlord" ? (
+          <Link href="/dashboard/saved-searches#request-alerts">
+            <Button variant="secondary">Manage request alerts</Button>
+          </Link>
         ) : null}
       </header>
 

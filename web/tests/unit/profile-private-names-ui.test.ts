@@ -60,6 +60,6 @@ void test("profile form includes host property request alerts toggle copy", () =
   const filePath = path.join(process.cwd(), "components", "profile", "ProfileFormClient.tsx");
   const source = fs.readFileSync(filePath, "utf8");
 
-  assert.match(source, /Email me when a new property request is published in my market/);
+  assert.match(source, /Email me when a subscribed property request alert matches/);
   assert.match(source, /property-request-alerts-toggle/);
 });

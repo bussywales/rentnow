@@ -6,11 +6,18 @@ import { SavedSearchManager } from "@/components/search/SavedSearchManager";
 import { PushStatusBadge } from "@/components/dashboard/PushStatusBadge";
 import { TenantPushDiagnosticsPanel } from "@/components/dashboard/TenantPushDiagnosticsPanel";
 import { NotificationSettingsCard } from "@/components/tenant/NotificationSettingsCard";
+import { PropertyRequestAlertSubscriptionsManager } from "@/components/requests/PropertyRequestAlertSubscriptionsManager";
 import { shouldShowSavedSearchNav } from "@/lib/role-access";
 import { getPushConfigStatus } from "@/lib/push/config";
 import { fetchUserRole } from "@/lib/auth/role";
 import type { SavedSearch } from "@/lib/types";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
+import {
+  isPropertyRequestAlertEligibleRole,
+  mapPropertyRequestAlertSubscriptionRecord,
+  PROPERTY_REQUEST_ALERT_SUBSCRIPTION_SELECT_COLUMNS,
+  type PropertyRequestAlertSubscriptionRecord,
+} from "@/lib/requests/property-request-alert-subscriptions";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +71,20 @@ export default async function SavedSearchesPage({
   const searches = (data as SavedSearch[]) || [];
   const alertsEnabled = true;
   const userRole = await fetchUserRole(supabase, user.id);
+  const requestAlertRole = isPropertyRequestAlertEligibleRole(userRole) ? userRole : null;
+
+  const { data: requestAlertRows } = requestAlertRole
+    ? await supabase
+        .from("property_request_alert_subscriptions")
+        .select(PROPERTY_REQUEST_ALERT_SUBSCRIPTION_SELECT_COLUMNS)
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+    : { data: [] as PropertyRequestAlertSubscriptionRecord[] };
+
+  const requestAlertSubscriptions = ((requestAlertRows ?? []) as PropertyRequestAlertSubscriptionRecord[]).map(
+    mapPropertyRequestAlertSubscriptionRecord
+  );
 
   const { data: alertRows } = await supabase
     .from("saved_search_alerts")
@@ -123,6 +144,12 @@ export default async function SavedSearchesPage({
         </div>
       </div>
       {userRole === "tenant" ? <NotificationSettingsCard /> : null}
+      {requestAlertRole ? (
+        <PropertyRequestAlertSubscriptionsManager
+          initialSubscriptions={requestAlertSubscriptions}
+          role={requestAlertRole}
+        />
+      ) : null}
       <TenantPushDiagnosticsPanel />
       <SavedSearchManager initialSearches={searches} alertsEnabled={alertsEnabled} />
     </div>
