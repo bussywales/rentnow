@@ -42,6 +42,12 @@ export const PRODUCT_ANALYTICS_EVENT_NAMES = [
   "provider_lead_accepted",
   "provider_lead_declined",
   "provider_response_submitted",
+  "property_prep_supplier_application_started",
+  "property_prep_supplier_application_submitted",
+  "property_prep_supplier_approved",
+  "property_prep_supplier_rejected",
+  "property_prep_request_route_ready",
+  "property_prep_request_manual_routing_required",
 ] as const;
 
 export type ProductAnalyticsEventName = (typeof PRODUCT_ANALYTICS_EVENT_NAMES)[number];
@@ -96,6 +102,12 @@ export const PRODUCT_ANALYTICS_EVENT_FAMILY_BY_NAME: Record<
   provider_lead_accepted: "move_ready_services",
   provider_lead_declined: "move_ready_services",
   provider_response_submitted: "move_ready_services",
+  property_prep_supplier_application_started: "move_ready_services",
+  property_prep_supplier_application_submitted: "move_ready_services",
+  property_prep_supplier_approved: "move_ready_services",
+  property_prep_supplier_rejected: "move_ready_services",
+  property_prep_request_route_ready: "move_ready_services",
+  property_prep_request_manual_routing_required: "move_ready_services",
 };
 
 const eventNameSchema = z.enum(PRODUCT_ANALYTICS_EVENT_NAMES);

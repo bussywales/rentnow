@@ -41,10 +41,6 @@ type RequestRow = {
   id: string;
   requester_user_id: string;
   requester_role: string;
-  requester_name: string | null;
-  requester_email: string | null;
-  requester_phone: string | null;
-  contact_preference: string | null;
   property_id: string | null;
   category: string;
   market_code: string;
@@ -60,7 +56,7 @@ async function loadRequest(client: ServiceClient, requestId: string) {
   const { data } = await client
     .from("move_ready_requests")
     .select(
-      "id,requester_user_id,requester_role,requester_name,requester_email,requester_phone,contact_preference,property_id,category,market_code,city,area,context_notes,preferred_timing_text,matched_provider_count,properties(title)"
+      "id,requester_user_id,requester_role,property_id,category,market_code,city,area,context_notes,preferred_timing_text,matched_provider_count,properties(title)"
     )
     .eq("id", requestId)
     .maybeSingle<RequestRow>();
@@ -154,11 +150,7 @@ export async function postAdminMoveReadyRequestDispatchResponse(
       propertyTitle: requestRow.properties?.title ?? null,
       preferredTimingText: requestRow.preferred_timing_text,
       contextNotes: requestRow.context_notes,
-      requesterName: requestRow.requester_name,
       requesterRole: requestRow.requester_role,
-      requesterEmail: requestRow.requester_email,
-      requesterPhone: requestRow.requester_phone,
-      contactPreference: requestRow.contact_preference,
     },
     responseToken: token,
   });

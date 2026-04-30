@@ -56,6 +56,7 @@ export async function postAdminMoveReadyProviderResponse(
         phone: parsed.data.phone ?? null,
         verification_state: parsed.data.verificationState,
         provider_status: parsed.data.providerStatus,
+        verification_reference: parsed.data.verificationReference ?? null,
         notes: parsed.data.notes ?? null,
         created_at: nowIso,
         updated_at: nowIso,

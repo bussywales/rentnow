@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  assessMoveReadyRoutingReadiness,
   doesProviderAreaMatchRequest,
   filterEligibleMoveReadyProviders,
+  getMoveReadyRoutingReadinessLabel,
   type MoveReadyProviderRecord,
 } from "@/lib/services/move-ready.server";
 
@@ -65,4 +67,61 @@ void test("eligible provider filtering stays narrow to approved active providers
 
   assert.equal(eligible.length, 1);
   assert.equal(eligible[0]?.business_name, "Ready Clean");
+});
+
+void test("routing readiness reports manual routing when no approved supplier matches the requested area", () => {
+  const providers: MoveReadyProviderRecord[] = [
+    {
+      id: "11111111-1111-1111-1111-111111111111",
+      business_name: "Ready Clean",
+      contact_name: "Ada",
+      email: "ada@example.com",
+      phone: null,
+      verification_state: "approved",
+      provider_status: "active",
+      move_ready_provider_categories: [{ category: "end_of_tenancy_cleaning" }],
+      move_ready_provider_areas: [{ market_code: "NG", city: "Lagos", area: "Ikeja" }],
+    },
+  ];
+
+  const readiness = assessMoveReadyRoutingReadiness(providers, {
+    category: "end_of_tenancy_cleaning",
+    marketCode: "NG",
+    city: "Lagos",
+    area: "Lekki",
+  });
+
+  assert.deepEqual(readiness, {
+    eligibleApprovedProviderCount: 0,
+    status: "manual_routing_required",
+    reason: "no_approved_suppliers_in_area",
+  });
+  assert.match(getMoveReadyRoutingReadinessLabel(readiness), /Needs manual routing/);
+});
+
+void test("routing readiness reports route-ready when approved suppliers fit category and geography", () => {
+  const providers: MoveReadyProviderRecord[] = [
+    {
+      id: "11111111-1111-1111-1111-111111111111",
+      business_name: "Ready Clean",
+      contact_name: "Ada",
+      email: "ada@example.com",
+      phone: null,
+      verification_state: "approved",
+      provider_status: "active",
+      move_ready_provider_categories: [{ category: "end_of_tenancy_cleaning" }],
+      move_ready_provider_areas: [{ market_code: "NG", city: "Lagos", area: null }],
+    },
+  ];
+
+  const readiness = assessMoveReadyRoutingReadiness(providers, {
+    category: "end_of_tenancy_cleaning",
+    marketCode: "NG",
+    city: "Lagos",
+    area: "Lekki",
+  });
+
+  assert.equal(readiness.status, "route_ready");
+  assert.equal(readiness.eligibleApprovedProviderCount, 1);
+  assert.match(getMoveReadyRoutingReadinessLabel(readiness), /approved supplier/);
 });

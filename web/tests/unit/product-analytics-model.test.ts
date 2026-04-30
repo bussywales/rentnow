@@ -49,6 +49,12 @@ test('product analytics event names stay constrained to the approved funnel set'
     'provider_lead_accepted',
     'provider_lead_declined',
     'provider_response_submitted',
+    'property_prep_supplier_application_started',
+    'property_prep_supplier_application_submitted',
+    'property_prep_supplier_approved',
+    'property_prep_supplier_rejected',
+    'property_prep_request_route_ready',
+    'property_prep_request_manual_routing_required',
   ]);
 });
 
@@ -69,6 +75,8 @@ test('event family mapping stays stable', () => {
   assert.equal(getProductAnalyticsEventFamily('qr_generated'), 'host_activation');
   assert.equal(getProductAnalyticsEventFamily('qr_redirect_succeeded'), 'listing_engagement');
   assert.equal(getProductAnalyticsEventFamily('service_request_submitted'), 'move_ready_services');
+  assert.equal(getProductAnalyticsEventFamily('property_prep_supplier_application_started'), 'move_ready_services');
+  assert.equal(getProductAnalyticsEventFamily('property_prep_request_manual_routing_required'), 'move_ready_services');
 });
 
 test('normalizeProductAnalyticsProperties drops unknown properties', () => {

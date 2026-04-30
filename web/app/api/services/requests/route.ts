@@ -6,6 +6,7 @@ import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { logFailure } from "@/lib/observability";
 import { logProductAnalyticsEvent } from "@/lib/analytics/product-events.server";
 import {
+  assessMoveReadyRoutingReadiness,
   filterEligibleMoveReadyProviders,
   buildMoveReadyLeadToken,
   sendMoveReadyLeadEmail,
@@ -223,6 +224,12 @@ export async function postMoveReadyServiceRequestResponse(
   }
 
   const providers = await loadApprovedProviders(client);
+  const readiness = assessMoveReadyRoutingReadiness(providers, {
+    category: payload.category as MoveReadyServiceCategory,
+    marketCode,
+    city,
+    area,
+  });
   const matchedProviders = filterEligibleMoveReadyProviders(providers, {
     category: payload.category as MoveReadyServiceCategory,
     marketCode,
@@ -257,11 +264,7 @@ export async function postMoveReadyServiceRequestResponse(
         propertyTitle: property?.title ?? null,
         preferredTimingText: payload.preferredTimingText ?? null,
         contextNotes: payload.contextNotes,
-        requesterName: profile?.full_name ?? null,
         requesterRole: auth.role,
-        requesterEmail: auth.user.email ?? null,
-        requesterPhone: profile?.phone ?? null,
-        contactPreference,
       },
       responseToken: token,
     });
@@ -346,6 +349,29 @@ export async function postMoveReadyServiceRequestResponse(
       category: payload.category,
       entrypointSource: payload.entrypointSource,
       matchedProviderCount: matchedProviders.length,
+    },
+  });
+
+  await deps.logProductAnalyticsEvent({
+    eventName:
+      readiness.status === "route_ready"
+        ? "property_prep_request_route_ready"
+        : "property_prep_request_manual_routing_required",
+    request,
+    supabase: client,
+    userId: auth.user.id,
+    userRole: auth.role,
+    properties: {
+      role: auth.role,
+      market: marketCode,
+      city: city ?? undefined,
+      area: area ?? undefined,
+      propertyId: property?.id ?? undefined,
+      requesterRole: auth.role,
+      category: payload.category,
+      entrypointSource: payload.entrypointSource,
+      matchedProviderCount: readiness.eligibleApprovedProviderCount,
+      requestStatus: requestStatus,
     },
   });
 

@@ -4,7 +4,9 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { ErrorState } from "@/components/ui/ErrorState";
 import {
+  assessMoveReadyRoutingReadiness,
   filterEligibleMoveReadyProviders,
+  getMoveReadyRoutingReadinessLabel,
   type MoveReadyProviderRecord,
 } from "@/lib/services/move-ready.server";
 import {
@@ -115,8 +117,15 @@ export default async function AdminMoveReadyRequestDetailPage({ params }: Props)
   ]);
 
   const leads = (leadRows ?? []) as LeadRow[];
+  const allProviders = (providers ?? []) as MoveReadyProviderRecord[];
+  const routingReadiness = assessMoveReadyRoutingReadiness(allProviders, {
+    category: requestRow.category as MoveReadyServiceCategory,
+    marketCode: requestRow.market_code,
+    city: requestRow.city,
+    area: requestRow.area,
+  });
   const eligibleProviders = filterEligibleMoveReadyProviders(
-    ((providers ?? []) as MoveReadyProviderRecord[]).filter(
+    allProviders.filter(
       (provider) => !leads.some((lead) => lead.provider_id === provider.id)
     ),
     {
@@ -158,6 +167,15 @@ export default async function AdminMoveReadyRequestDetailPage({ params }: Props)
             </span>
             <span className="rounded-full bg-sky-50 px-2.5 py-1 font-semibold text-sky-800">
               Routed {requestRow.matched_provider_count}
+            </span>
+            <span
+              className={`rounded-full px-2.5 py-1 font-semibold ${
+                routingReadiness.status === "route_ready"
+                  ? "bg-emerald-50 text-emerald-800"
+                  : "bg-amber-50 text-amber-800"
+              }`}
+            >
+              {getMoveReadyRoutingReadinessLabel(routingReadiness)}
             </span>
           </div>
         </div>
@@ -223,6 +241,9 @@ export default async function AdminMoveReadyRequestDetailPage({ params }: Props)
           <h2 className="text-lg font-semibold text-slate-900">Manual routing</h2>
           <p className="mt-2 text-sm text-slate-600">
             Only active, approved providers with the right category and area are eligible here.
+          </p>
+          <p className="mt-2 text-sm text-slate-600">
+            Current readiness: {getMoveReadyRoutingReadinessLabel(routingReadiness)}.
           </p>
           <div className="mt-4">
             <AdminMoveReadyDispatchForm requestId={requestRow.id} providers={eligibleProviders} />

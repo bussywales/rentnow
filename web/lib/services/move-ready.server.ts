@@ -4,9 +4,11 @@ import { buildMoveReadyProviderLeadEmail } from "@/lib/email/templates/move-read
 import {
   MOVE_READY_MAX_PROVIDER_MATCHES,
   type MoveReadyLeadStatus,
+  type MoveReadyProviderApplicationStatus,
   type MoveReadyProviderVerificationState,
   type MoveReadyProviderStatus,
   type MoveReadyServiceCategory,
+  resolveMoveReadyProviderApplicationStatus,
 } from "@/lib/services/move-ready";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
@@ -19,6 +21,15 @@ export type MoveReadyProviderRecord = {
   phone: string | null;
   verification_state: MoveReadyProviderVerificationState;
   provider_status: MoveReadyProviderStatus;
+  verification_reference?: string | null;
+  admin_notes?: string | null;
+  notes?: string | null;
+  approved_at?: string | null;
+  approved_by?: string | null;
+  rejected_at?: string | null;
+  rejected_by?: string | null;
+  suspended_at?: string | null;
+  suspended_by?: string | null;
   move_ready_provider_categories?: Array<{ category: MoveReadyServiceCategory | string | null }> | null;
   move_ready_provider_areas?: Array<{ market_code: string; city: string | null; area: string | null }> | null;
 };
@@ -72,6 +83,93 @@ export function filterEligibleMoveReadyProviders(
     .slice(0, MOVE_READY_MAX_PROVIDER_MATCHES);
 }
 
+export type MoveReadyRoutingReadiness = {
+  eligibleApprovedProviderCount: number;
+  status: "route_ready" | "manual_routing_required";
+  reason:
+    | "approved_suppliers_available"
+    | "no_approved_suppliers_for_category"
+    | "no_approved_suppliers_in_market"
+    | "no_approved_suppliers_in_area";
+};
+
+function isApprovedAndActive(provider: MoveReadyProviderRecord) {
+  return provider.provider_status === "active" && provider.verification_state === "approved";
+}
+
+export function assessMoveReadyRoutingReadiness(
+  providers: MoveReadyProviderRecord[],
+  request: MoveReadyRequestMatchInput
+): MoveReadyRoutingReadiness {
+  const approvedProviders = providers.filter(isApprovedAndActive);
+  const categoryProviders = approvedProviders.filter((provider) =>
+    (provider.move_ready_provider_categories ?? []).some(
+      (entry) => normalizeLocationValue(entry.category) === normalizeLocationValue(request.category)
+    )
+  );
+  const marketProviders = categoryProviders.filter((provider) =>
+    (provider.move_ready_provider_areas ?? []).some(
+      (area) => normalizeLocationValue(area.market_code) === normalizeLocationValue(request.marketCode)
+    )
+  );
+  const eligibleProviders = filterEligibleMoveReadyProviders(approvedProviders, request);
+
+  if (eligibleProviders.length > 0) {
+    return {
+      eligibleApprovedProviderCount: eligibleProviders.length,
+      status: "route_ready",
+      reason: "approved_suppliers_available",
+    };
+  }
+
+  if (marketProviders.length > 0) {
+    return {
+      eligibleApprovedProviderCount: 0,
+      status: "manual_routing_required",
+      reason: "no_approved_suppliers_in_area",
+    };
+  }
+
+  if (categoryProviders.length > 0) {
+    return {
+      eligibleApprovedProviderCount: 0,
+      status: "manual_routing_required",
+      reason: "no_approved_suppliers_in_market",
+    };
+  }
+
+  return {
+    eligibleApprovedProviderCount: 0,
+    status: "manual_routing_required",
+    reason: "no_approved_suppliers_for_category",
+  };
+}
+
+export function getMoveReadyRoutingReadinessLabel(readiness: MoveReadyRoutingReadiness) {
+  if (readiness.status === "route_ready") {
+    return `${readiness.eligibleApprovedProviderCount} approved supplier${
+      readiness.eligibleApprovedProviderCount === 1 ? "" : "s"
+    } match`;
+  }
+
+  switch (readiness.reason) {
+    case "no_approved_suppliers_in_area":
+      return "Needs manual routing: no approved suppliers in this area";
+    case "no_approved_suppliers_in_market":
+      return "Needs manual routing: no approved suppliers in this market";
+    case "no_approved_suppliers_for_category":
+    default:
+      return "Needs manual routing: no approved suppliers for this category";
+  }
+}
+
+export function getMoveReadyProviderAdminLifecycle(input: {
+  verificationState: MoveReadyProviderVerificationState | string | null | undefined;
+  providerStatus: MoveReadyProviderStatus | string | null | undefined;
+}): MoveReadyProviderApplicationStatus {
+  return resolveMoveReadyProviderApplicationStatus(input);
+}
+
 export function buildMoveReadyLeadToken() {
   return buildShareToken();
 }
@@ -94,11 +192,7 @@ export async function sendMoveReadyLeadEmail(input: {
     propertyTitle?: string | null;
     preferredTimingText?: string | null;
     contextNotes: string;
-    requesterName?: string | null;
     requesterRole: string;
-    requesterEmail?: string | null;
-    requesterPhone?: string | null;
-    contactPreference?: string | null;
   };
   responseToken: string;
 }) {
@@ -115,11 +209,7 @@ export async function sendMoveReadyLeadEmail(input: {
     propertyTitle: input.request.propertyTitle ?? null,
     preferredTimingText: input.request.preferredTimingText ?? null,
     contextNotes: input.request.contextNotes,
-    requesterName: input.request.requesterName ?? null,
     requesterRole: input.request.requesterRole,
-    requesterEmail: input.request.requesterEmail ?? null,
-    requesterPhone: input.request.requesterPhone ?? null,
-    contactPreference: input.request.contactPreference ?? null,
     responseUrl,
   });
 

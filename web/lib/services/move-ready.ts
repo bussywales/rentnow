@@ -27,6 +27,15 @@ export type MoveReadyProviderVerificationState =
 export const MOVE_READY_PROVIDER_STATUSES = ["active", "paused"] as const;
 export type MoveReadyProviderStatus = (typeof MOVE_READY_PROVIDER_STATUSES)[number];
 
+export const MOVE_READY_PROVIDER_APPLICATION_STATUSES = [
+  "pending",
+  "approved",
+  "rejected",
+  "suspended",
+] as const;
+export type MoveReadyProviderApplicationStatus =
+  (typeof MOVE_READY_PROVIDER_APPLICATION_STATUSES)[number];
+
 export const MOVE_READY_REQUEST_STATUSES = ["submitted", "matched", "unmatched", "closed"] as const;
 export type MoveReadyRequestStatus = (typeof MOVE_READY_REQUEST_STATUSES)[number];
 
@@ -50,6 +59,9 @@ export const MOVE_READY_MAX_PROVIDER_MATCHES = 3;
 export const moveReadyServiceCategorySchema = z.enum(MOVE_READY_SERVICE_CATEGORIES);
 export const moveReadyProviderVerificationStateSchema = z.enum(MOVE_READY_PROVIDER_VERIFICATION_STATES);
 export const moveReadyProviderStatusSchema = z.enum(MOVE_READY_PROVIDER_STATUSES);
+export const moveReadyProviderApplicationStatusSchema = z.enum(
+  MOVE_READY_PROVIDER_APPLICATION_STATUSES
+);
 export const moveReadyRequestStatusSchema = z.enum(MOVE_READY_REQUEST_STATUSES);
 export const moveReadyLeadStatusSchema = z.enum(MOVE_READY_LEAD_STATUSES);
 export const moveReadyContactPreferenceSchema = z.enum(MOVE_READY_CONTACT_PREFERENCES);
@@ -72,10 +84,26 @@ export const moveReadyProviderUpsertSchema = z.object({
   providerStatus: moveReadyProviderStatusSchema.default("active"),
   categories: z.array(moveReadyServiceCategorySchema).min(1).max(MOVE_READY_SERVICE_CATEGORIES.length),
   serviceAreas: z.array(moveReadyProviderAreaSchema).min(1).max(12),
+  verificationReference: z.string().trim().max(240).nullable().optional(),
   notes: z.string().trim().max(2000).nullable().optional(),
 });
 
 export type MoveReadyProviderUpsertInput = z.infer<typeof moveReadyProviderUpsertSchema>;
+
+export const moveReadySupplierApplicationCreateSchema = z.object({
+  businessName: z.string().trim().min(2).max(160),
+  contactName: z.string().trim().min(2).max(160),
+  email: z.string().trim().email().max(240),
+  phone: z.string().trim().min(5).max(40).nullable().optional(),
+  categories: z.array(moveReadyServiceCategorySchema).min(1).max(MOVE_READY_SERVICE_CATEGORIES.length),
+  serviceAreas: z.array(moveReadyProviderAreaSchema).min(1).max(12),
+  verificationReference: z.string().trim().max(240).nullable().optional(),
+  notes: z.string().trim().max(2000).nullable().optional(),
+});
+
+export type MoveReadySupplierApplicationCreateInput = z.infer<
+  typeof moveReadySupplierApplicationCreateSchema
+>;
 
 export const moveReadyRequestCreateSchema = z.object({
   category: moveReadyServiceCategorySchema,
@@ -131,6 +159,32 @@ export function getMoveReadyLeadStatusLabel(status: MoveReadyLeadStatus | string
     case "pending_delivery":
     default:
       return "Pending delivery";
+  }
+}
+
+export function resolveMoveReadyProviderApplicationStatus(input: {
+  verificationState: MoveReadyProviderVerificationState | string | null | undefined;
+  providerStatus: MoveReadyProviderStatus | string | null | undefined;
+}): MoveReadyProviderApplicationStatus {
+  if (input.verificationState === "rejected") return "rejected";
+  if (input.verificationState === "approved" && input.providerStatus === "paused") return "suspended";
+  if (input.verificationState === "approved" && input.providerStatus === "active") return "approved";
+  return "pending";
+}
+
+export function getMoveReadyProviderApplicationStatusLabel(
+  status: MoveReadyProviderApplicationStatus | string | null | undefined
+) {
+  switch (status) {
+    case "approved":
+      return "Approved";
+    case "rejected":
+      return "Rejected";
+    case "suspended":
+      return "Suspended";
+    case "pending":
+    default:
+      return "Pending review";
   }
 }
 

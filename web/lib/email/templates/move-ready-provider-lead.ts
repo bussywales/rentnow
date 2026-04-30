@@ -9,11 +9,7 @@ export function buildMoveReadyProviderLeadEmail(input: {
   propertyTitle?: string | null;
   preferredTimingText?: string | null;
   contextNotes: string;
-  requesterName?: string | null;
   requesterRole: string;
-  requesterEmail?: string | null;
-  requesterPhone?: string | null;
-  contactPreference?: string | null;
   responseUrl: string;
 }) {
   const location = [input.area, input.city, input.marketCode].filter(Boolean).join(", ");
@@ -28,17 +24,14 @@ export function buildMoveReadyProviderLeadEmail(input: {
           ${row("Location", location || input.marketCode)}
           ${row("Property", input.propertyTitle || "Not linked")}
           ${row("Timing", input.preferredTimingText || "Flexible")}
-          ${row("Requester", input.requesterName || input.requesterRole)}
-          ${row("Contact preference", input.contactPreference || "Not specified")}
-          ${row("Requester email", input.requesterEmail || "Not provided")}
-          ${row("Requester phone", input.requesterPhone || "Not provided")}
+          ${row("Customer type", input.requesterRole)}
         </tbody>
       </table>
       <div style="margin: 16px 0; padding: 14px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0;">
         <p style="margin: 0 0 8px; font-weight: 600;">Request context</p>
         <p style="margin: 0; white-space: pre-wrap;">${escapeHtml(input.contextNotes)}</p>
       </div>
-      <p style="margin: 16px 0;">Use the secure response link below to accept or decline and leave a short note for the operator and host.</p>
+      <p style="margin: 16px 0;">Use the secure response link below to accept or decline and leave a short note for the operator. Customer contact details stay protected until PropatyHub routes the next step.</p>
       <p style="margin: 0 0 18px;">
         <a href="${input.responseUrl}" style="display: inline-block; background: #0284c7; color: white; text-decoration: none; padding: 12px 16px; border-radius: 10px; font-weight: 600;">Open lead response</a>
       </p>

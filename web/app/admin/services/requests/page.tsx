@@ -4,8 +4,14 @@ import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import {
+  assessMoveReadyRoutingReadiness,
+  getMoveReadyRoutingReadinessLabel,
+  type MoveReadyProviderRecord,
+} from "@/lib/services/move-ready.server";
+import {
   getMoveReadyCategoryLabel,
   getMoveReadyRequestStatusLabel,
+  type MoveReadyServiceCategory,
 } from "@/lib/services/move-ready";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +28,8 @@ type RequestRow = {
   created_at: string;
   properties?: { title: string | null } | null;
 };
+
+type ProviderRow = MoveReadyProviderRecord;
 
 function formatDate(value: string) {
   const parsed = new Date(value);
@@ -40,12 +48,21 @@ export default async function AdminMoveReadyRequestsPage() {
   if (profile?.role !== "admin") redirect("/forbidden?reason=role");
 
   const client = createServiceRoleClient();
-  const { data } = await client
-    .from("move_ready_requests")
-    .select("id,requester_role,category,market_code,city,area,status,matched_provider_count,created_at,properties(title)")
-    .order("created_at", { ascending: false });
+  const [{ data: requestData }, { data: providerData }] = await Promise.all([
+    client
+      .from("move_ready_requests")
+      .select("id,requester_role,category,market_code,city,area,status,matched_provider_count,created_at,properties(title)")
+      .order("created_at", { ascending: false }),
+    client
+      .from("move_ready_service_providers")
+      .select(
+        "id,business_name,contact_name,email,phone,verification_state,provider_status,move_ready_provider_categories(category),move_ready_provider_areas(market_code,city,area)"
+      )
+      .order("created_at", { ascending: true }),
+  ]);
 
-  const requests = (data ?? []) as RequestRow[];
+  const requests = (requestData ?? []) as RequestRow[];
+  const providers = (providerData ?? []) as ProviderRow[];
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8">
@@ -58,7 +75,14 @@ export default async function AdminMoveReadyRequestsPage() {
       </div>
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="space-y-4">
-          {requests.map((item) => (
+          {requests.map((item) => {
+            const readiness = assessMoveReadyRoutingReadiness(providers, {
+              category: item.category as MoveReadyServiceCategory,
+              marketCode: item.market_code,
+              city: item.city,
+              area: item.area,
+            });
+            return (
             <div key={item.id} className="rounded-2xl border border-slate-200 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -79,6 +103,15 @@ export default async function AdminMoveReadyRequestsPage() {
                   <span className="rounded-full bg-sky-50 px-2.5 py-1 font-semibold text-sky-800">
                     Routed {item.matched_provider_count}
                   </span>
+                  <span
+                    className={`rounded-full px-2.5 py-1 font-semibold ${
+                      readiness.status === "route_ready"
+                        ? "bg-emerald-50 text-emerald-800"
+                        : "bg-amber-50 text-amber-800"
+                    }`}
+                  >
+                    {getMoveReadyRoutingReadinessLabel(readiness)}
+                  </span>
                 </div>
               </div>
               <div className="mt-4">
@@ -87,7 +120,7 @@ export default async function AdminMoveReadyRequestsPage() {
                 </Link>
               </div>
             </div>
-          ))}
+          )})}
           {requests.length === 0 ? (
             <p className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-sm text-slate-500">
               No property-prep requests have been submitted yet.

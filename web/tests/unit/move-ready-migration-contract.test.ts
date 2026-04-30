@@ -23,3 +23,22 @@ void test("move ready services migration creates only the minimum lead-routing t
   assert.doesNotMatch(sql, /payments?/);
   assert.doesNotMatch(sql, /booking/);
 });
+
+void test("move ready supplier application migration stays additive to the curated provider model", () => {
+  const filePath = path.join(
+    process.cwd(),
+    "supabase",
+    "migrations",
+    "20260430170000_move_ready_supplier_applications.sql"
+  );
+  const sql = fs.readFileSync(filePath, "utf8").replace(/\s+/g, " ").toLowerCase();
+
+  assert.match(sql, /alter table public\.move_ready_service_providers/);
+  assert.match(sql, /add column if not exists verification_reference text/);
+  assert.match(sql, /add column if not exists admin_notes text/);
+  assert.match(sql, /add column if not exists approved_at timestamptz/);
+  assert.match(sql, /add column if not exists rejected_at timestamptz/);
+  assert.match(sql, /add column if not exists suspended_at timestamptz/);
+  assert.match(sql, /create index if not exists move_ready_service_providers_email_idx/);
+  assert.doesNotMatch(sql, /public supplier directory/);
+});

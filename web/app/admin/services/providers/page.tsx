@@ -14,7 +14,9 @@ type ProviderRow = {
   phone: string | null;
   verification_state: string;
   provider_status: string;
+  verification_reference: string | null;
   notes: string | null;
+  admin_notes: string | null;
   move_ready_provider_categories?: Array<{ category: string | null }> | null;
   move_ready_provider_areas?: Array<{ market_code: string; city: string | null; area: string | null }> | null;
 };
@@ -33,7 +35,7 @@ export default async function AdminMoveReadyProvidersPage() {
   const { data } = await client
     .from("move_ready_service_providers")
     .select(
-      "id,business_name,contact_name,email,phone,verification_state,provider_status,notes,move_ready_provider_categories(category),move_ready_provider_areas(market_code,city,area)"
+      "id,business_name,contact_name,email,phone,verification_state,provider_status,verification_reference,notes,admin_notes,move_ready_provider_categories(category),move_ready_provider_areas(market_code,city,area)"
     )
     .order("created_at", { ascending: false });
 
@@ -45,7 +47,9 @@ export default async function AdminMoveReadyProvidersPage() {
     phone: row.phone,
     verificationState: row.verification_state,
     providerStatus: row.provider_status,
+    verificationReference: row.verification_reference,
     notes: row.notes,
+    adminNotes: row.admin_notes,
     categories: (row.move_ready_provider_categories ?? [])
       .map((entry) => entry.category || "")
       .filter(Boolean),

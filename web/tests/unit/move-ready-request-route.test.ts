@@ -112,7 +112,11 @@ void test("move ready request route marks request unmatched when no providers fi
   assert.ok(
     updates.some((entry) => entry.payload.status === "unmatched" && entry.payload.matched_provider_count === 0)
   );
-  assert.deepEqual(analyticsEvents, ["service_request_submitted", "service_request_unmatched"]);
+  assert.deepEqual(analyticsEvents, [
+    "service_request_submitted",
+    "service_request_unmatched",
+    "property_prep_request_manual_routing_required",
+  ]);
 });
 
 void test("move ready request route lets delegated agents attach an acting-as property", async () => {
