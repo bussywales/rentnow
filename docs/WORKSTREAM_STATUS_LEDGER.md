@@ -1,0 +1,37 @@
+# PropatyHub Workstream Status Ledger
+
+This ledger is the durable operating view of major workstreams in repo truth.
+
+Status values used here:
+
+- `COMPLETE`
+- `NARROWLY COMPLETE`
+- `PARTIAL`
+- `DEFERRED / NARROW BY DESIGN`
+- `NOT STARTED / MINIMAL`
+
+Use this file to decide what is actually done, what is strategically partial, and what should come next.
+
+| Workstream | Current status | What is already shipped | What remains | Next step type | Risk notes | Likely next batch |
+| --- | --- | --- | --- | --- | --- | --- |
+| Listings authoring, review, and publish quality | `PARTIAL` | Host listing creation/edit flows, admin review surfaces, listing quality scoring/guidance, submit/resubmit workflows, commercial-aware modelling | Continue improving quality guidance, triage visibility, and measurable quality uplift without overblocking | `code + validation` | Publish and review flows are trust-critical; regressions can block host activation | Targeted listing quality iteration using measured host friction |
+| Listing monetisation and entitlement enforcement | `PARTIAL` | Plan enforcement, listing-limit blocks, recovery CTAs, billing/admin ops, provider-aware pricing lanes, canonical billing diagnostics | More time-in-market validation on real publish/renew recovery and live billing edge cases | `validation + ops` | Revenue-critical; easy to regress via auth/billing drift | Revenue-path smoke and entitlement drift hardening |
+| Property requests marketplace | `PARTIAL` | Request creation/edit/detail, publish/open lifecycle, visibility rules, improved title integrity, non-room support, marketplace signal surfaces, subscriber alerts | Measure actual response effectiveness, tune subscriber lead quality, keep privacy/readability stable | `code + validation` | Sensitive to privacy leaks and responder/requester access drift | Property request outcome-learning and lead-quality tuning |
+| Property request subscriber alerts | `NARROWLY COMPLETE` | Criteria-based alert subscriptions, opt-in self-service management, matched alert sends, delivery dedupe, admin usage readout | Observe adoption, tune matching quality, possibly expand readouts later | `validation + ops` | Alert spam/privacy drift if widened carelessly | Subscriber usage review and signal tuning |
+| Property Prep / Move & Ready curated supplier routing | `PARTIAL` | Request capture, curated provider model, auto/manual routing, provider response flow, supplier application intake, explicit review states, route-readiness visibility, privacy-safe supplier lead summaries | Downstream quote-routing, award flow, and operator routing follow-through are still not built | `code + ops` | Can become dead admin furniture if routing readiness does not translate into response operations | Quote-routing / operator follow-through batch |
+| Shortlets bookings, payments, and ops | `PARTIAL` | Booking flows, payment lanes, ops surfaces, payout/admin pages, reminders, check-in/rules/settings, e2e smoke coverage | Still historically fragile; payout economics and some operator lanes remain more complex than core listings | `validation + hardening` | High operational surface area and historically brittle routes | Shortlets reliability and payment/ops smoke hardening |
+| Monitoring, Sentry, deep health, schema readiness | `PARTIAL` | Structured logging, Sentry wiring, deep health, config status, schema-readiness checks, alert surfaces, safer user-facing errors | Needs continued production validation, noise tuning, and operator adoption | `ops + validation` | False positives or weak operator interpretation can hide real issues | Monitoring noise tuning and operator-readability pass |
+| Admin ops surfaces | `PARTIAL` | Admin hubs for listings, support, billing, analytics, services, shortlets ops, config/health views | Continue compact usability improvements without hub sprawl | `code + ops` | Easy to fragment IA and duplicate logic across admin pages | Admin ops consistency pass on highest-friction lanes |
+| Explore/discovery/search | `PARTIAL` | Explore, Explore V2, collections, saved/saved-search flows, analytics hooks, commercial discovery truth pass | Continue truth/clarity improvements while experiments remain stable | `code + validation` | Experiment/report semantics can drift from route contracts | Explore/discovery measurement-driven refinement |
+| Commercial property modelling and discovery | `NARROWLY COMPLETE` | Commercial layout type, enclosed rooms, commercial-aware authoring/display, commercial truth in discovery summaries | More advanced commercial search/filter intelligence remains intentionally deferred | `validation + strategy` | Risk of widening into taxonomy sprawl without demand proof | Commercial discovery usage review before any wider taxonomy work |
+| Bootcamp / growth surface | `NARROWLY COMPLETE` | Dedicated `/bootcamp` launchable marketing page, route-scoped chrome behavior, analytics, launch-readiness and post-launch QA passes | Live conversion path quality and content performance still need real-world validation | `ops + validation` | Growth surfaces can drift from truth if copy/CTA handling becomes casual | Bootcamp conversion/readout review |
+| Analytics and outcome learning | `PARTIAL` | Product analytics rails, Explore/admin reporting, property request and service events, admin readouts, outcome-learning additions on some surfaces | More selective outcome instrumentation is still needed on newly hardened surfaces | `code + strategy` | Easy to create analytics sprawl with weak decision value | Decision-grade instrumentation for one high-value surface at a time |
+| Trust / verification / profile state | `PARTIAL` | Verification surfaces, private name handling, trust/public signals, account/role hardening, role-transition constraints | Ongoing validation of role/account-state edge cases and trust cues | `validation + ops` | Role or verification drift can damage trust and admin workflows | Trust-state validation and operator correction playbook refresh |
+| Referrals and cashouts | `PARTIAL` | Referral campaigns, leaderboard, milestones, jurisdiction policies, cashout admin surfaces and routes | Needs continued operational verification and policy discipline rather than broad expansion | `ops + validation` | Financial and policy-sensitive; risky if expanded casually | Referral/cashout ops verification pass |
+| Release and migration discipline | `PARTIAL` | Migration status script, Supabase migration runbook, release checklist, schema-readiness checks, repeated batch-level validation norms | Rules are still scattered; engineers can still miss remote migration apply unless the operating docs are followed | `ops/process` | Production mismatch risk remains high if release discipline slips | Adopt the new operating manual and enforce migration-closeout discipline |
+
+## Notes on interpretation
+
+- `NARROWLY COMPLETE` means the current layer is coherent, but not a signal to widen immediately.
+- `PARTIAL` means the repo already contains meaningful shipped work and the next batch should build on that truth rather than restart it.
+- Workstreams should be updated after any batch that materially changes status, fragility, or next-step type.
