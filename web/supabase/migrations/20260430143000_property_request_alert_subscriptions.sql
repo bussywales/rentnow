@@ -111,7 +111,7 @@ drop policy if exists "property request alert subscriptions admin select" on pub
 create policy "property request alert subscriptions admin select"
   on public.property_request_alert_subscriptions
   for select
-  using (public.is_admin(auth.uid()));
+  using (public.is_admin());
 
 drop policy if exists "property request alert subscriptions service write" on public.property_request_alert_subscriptions;
 create policy "property request alert subscriptions service write"
@@ -129,11 +129,10 @@ drop policy if exists "property request alert deliveries admin select" on public
 create policy "property request alert deliveries admin select"
   on public.property_request_alert_deliveries
   for select
-  using (public.is_admin(auth.uid()));
+  using (public.is_admin());
 
 drop policy if exists "property request alert deliveries service write" on public.property_request_alert_deliveries;
 create policy "property request alert deliveries service write"
   on public.property_request_alert_deliveries
   using (auth.role() = 'service_role')
   with check (auth.role() = 'service_role');
-
