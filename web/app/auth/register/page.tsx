@@ -111,7 +111,7 @@ export default function RegisterPage({ searchParams }: PageProps) {
       );
     } else {
       setSuccess(
-        "Check your email to confirm your account. After confirming, log in and you'll be taken to choose your role."
+        "Check your email to confirm your account. After confirming, log in and you'll be taken to finish account setup."
       );
     }
     if (cooldownKey) {
@@ -139,7 +139,7 @@ export default function RegisterPage({ searchParams }: PageProps) {
             >
               log in
             </Link>{" "}
-            and you&apos;ll be redirected to choose your role.
+            and you&apos;ll be redirected to finish account setup.
           </p>
           <div className="flex flex-wrap gap-2">
             <Link href={`/auth/confirm?redirect=${encodeURIComponent(redirectTo)}`}>

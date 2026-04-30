@@ -7,6 +7,8 @@ import {
   isReplayEligibleStripeEvent,
 } from "../../lib/billing/admin-billing-diagnostics";
 
+const ACTIVE_PERIOD_END = "2099-04-30T13:38:51.000Z";
+
 void test("billing diagnostics surfaces manual override masking provider truth and ignored events", () => {
   const snapshot = buildBillingSnapshot({
     profileId: "11111111-1111-1111-1111-111111111111",
@@ -83,7 +85,7 @@ void test("billing diagnostics reports healthy state when app and provider truth
       stripe_customer_id: "cus_live_123",
       stripe_price_id: "price_live_123",
       stripe_status: "active",
-      valid_until: "2026-04-30T13:38:51.000Z",
+      valid_until: ACTIVE_PERIOD_END,
     },
     notes: null,
   });
@@ -97,7 +99,7 @@ void test("billing diagnostics reports healthy state when app and provider truth
       stripe_customer_id: "cus_live_123",
       stripe_price_id: "price_live_123",
       stripe_status: "active",
-      valid_until: "2026-04-30T13:38:51.000Z",
+      valid_until: ACTIVE_PERIOD_END,
     },
     subscriptionRows: [
       {
@@ -105,7 +107,7 @@ void test("billing diagnostics reports healthy state when app and provider truth
         provider_subscription_id: "sub_live_123",
         status: "active",
         plan_tier: "tenant_pro",
-        current_period_end: "2026-04-30T13:38:51.000Z",
+        current_period_end: ACTIVE_PERIOD_END,
       },
     ],
     events: [

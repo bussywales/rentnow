@@ -54,7 +54,7 @@ function ConfirmContent() {
 
     if (session?.user) {
       setStatus("success");
-      setMessage("Session found. Taking you to choose your role...");
+      setMessage("Session found. Taking you to finish account setup...");
       goToNextStep();
       return;
     }
@@ -120,7 +120,7 @@ function ConfirmContent() {
         <p className="text-sm text-slate-600">
           {status === "needs-login"
             ? "Your email has been confirmed successfully. For security reasons, please log in to continue setting up your account."
-            : "If you just clicked the verification link, we will log you in and take you to role selection."}
+            : "If you just clicked the verification link, we will log you in and take you to account setup."}
         </p>
       </div>
 
