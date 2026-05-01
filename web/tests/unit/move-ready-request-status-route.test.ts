@@ -41,18 +41,24 @@ void test("admin request status route awards a positively responded provider", a
       if (table === "move_ready_request_leads") {
         return {
           select: () => ({
-            eq: (_key: string, _requestId: string) => ({
-              eq: (_providerKey: string, _providerId: string) => ({
-                maybeSingle: async () => ({
-                  data: {
-                    id: "lead-1",
-                    provider_id: "22222222-2222-4222-8222-222222222222",
-                    routing_status: "accepted",
-                  },
-                  error: null,
-                }),
-              }),
-            }),
+            eq: (...args: unknown[]) => {
+              void args;
+              return {
+                eq: (...providerArgs: unknown[]) => {
+                  void providerArgs;
+                  return {
+                    maybeSingle: async () => ({
+                      data: {
+                        id: "lead-1",
+                        provider_id: "22222222-2222-4222-8222-222222222222",
+                        routing_status: "accepted",
+                      },
+                      error: null,
+                    }),
+                  };
+                },
+              };
+            },
           }),
           update: (payload: Record<string, unknown>) => {
             leadUpdates.push(payload);

@@ -291,7 +291,9 @@ export function deriveMoveReadyRequestProgress(
   }
 
   const leads = input.leads ?? [];
-  const normalizedLeadStatuses = leads.map((lead) => normalizeLeadStatus(lead.routing_status)).filter(Boolean);
+  const normalizedLeadStatuses = leads
+    .map((lead) => normalizeLeadStatus(lead.routing_status))
+    .filter((status): status is MoveReadyLeadStatus => status !== null);
   const dispatchedCount = Math.max(input.matchedProviderCount ?? leads.length ?? 0, leads.length);
   const eligibleApprovedProviderCount = Math.max(input.eligibleApprovedProviderCount ?? 0, 0);
 
