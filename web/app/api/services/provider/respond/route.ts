@@ -27,6 +27,7 @@ type LeadRow = {
   provider_id: string;
   routing_status: string;
   response_note: string | null;
+  quote_summary: string | null;
   move_ready_requests?: {
     requester_role: string | null;
     market_code: string | null;
@@ -41,7 +42,7 @@ async function loadLeadByToken(client: ServiceClient, token: string) {
   const { data } = await client
     .from("move_ready_request_leads")
     .select(
-      "id,request_id,provider_id,routing_status,response_note,move_ready_requests(requester_role,market_code,area,property_id,category,matched_provider_count)"
+      "id,request_id,provider_id,routing_status,response_note,quote_summary,move_ready_requests(requester_role,market_code,area,property_id,category,matched_provider_count)"
     )
     .eq("response_token", token)
     .maybeSingle<LeadRow>();
@@ -71,13 +72,19 @@ export async function postMoveReadyProviderLeadResponse(
     return NextResponse.json({ error: "Lead not found." }, { status: 404 });
   }
 
-  if (lead.routing_status === "accepted" || lead.routing_status === "declined") {
+  if (["accepted", "declined", "needs_more_information", "awarded"].includes(lead.routing_status)) {
     return NextResponse.json({ error: "This lead already has a final response." }, { status: 409 });
   }
 
   const nowIso = deps.now().toISOString();
-  const nextStatus = parsed.data.action === "accept" ? "accepted" : "declined";
+  const nextStatus =
+    parsed.data.action === "accept"
+      ? "accepted"
+      : parsed.data.action === "need_more_information"
+      ? "needs_more_information"
+      : "declined";
   const responseNote = parsed.data.responseNote ?? null;
+  const quoteSummary = parsed.data.quoteSummary ?? null;
 
   const { error } = await client
     .from("move_ready_request_leads")
@@ -85,6 +92,7 @@ export async function postMoveReadyProviderLeadResponse(
       {
         routing_status: nextStatus,
         response_note: responseNote,
+        quote_summary: quoteSummary,
         responded_at: nowIso,
         opened_at: nowIso,
         updated_at: nowIso,
@@ -97,26 +105,10 @@ export async function postMoveReadyProviderLeadResponse(
   }
 
   const requestMeta = lead.move_ready_requests ?? null;
-  await deps.logProductAnalyticsEvent({
-    eventName: nextStatus === "accepted" ? "provider_lead_accepted" : "provider_lead_declined",
-    supabase: client,
-    userId: null,
-    userRole: "provider",
-    properties: {
-      role: "provider",
-      market: requestMeta?.market_code ?? undefined,
-      area: requestMeta?.area ?? undefined,
-      propertyId: requestMeta?.property_id ?? undefined,
-      requesterRole: requestMeta?.requester_role ?? undefined,
-      category: requestMeta?.category ?? undefined,
-      matchedProviderCount: requestMeta?.matched_provider_count ?? undefined,
-      providerId: lead.provider_id,
-    },
-  });
 
-  if (responseNote) {
+  if (nextStatus === "accepted") {
     await deps.logProductAnalyticsEvent({
-      eventName: "provider_response_submitted",
+      eventName: "provider_lead_accepted",
       supabase: client,
       userId: null,
       userRole: "provider",
@@ -129,6 +121,87 @@ export async function postMoveReadyProviderLeadResponse(
         category: requestMeta?.category ?? undefined,
         matchedProviderCount: requestMeta?.matched_provider_count ?? undefined,
         providerId: lead.provider_id,
+        action: "accepted",
+      },
+    });
+  }
+
+  if (nextStatus === "declined") {
+    await deps.logProductAnalyticsEvent({
+      eventName: "provider_lead_declined",
+      supabase: client,
+      userId: null,
+      userRole: "provider",
+      properties: {
+        role: "provider",
+        market: requestMeta?.market_code ?? undefined,
+        area: requestMeta?.area ?? undefined,
+        propertyId: requestMeta?.property_id ?? undefined,
+        requesterRole: requestMeta?.requester_role ?? undefined,
+        category: requestMeta?.category ?? undefined,
+        matchedProviderCount: requestMeta?.matched_provider_count ?? undefined,
+        providerId: lead.provider_id,
+        action: "declined",
+      },
+    });
+  }
+
+  await deps.logProductAnalyticsEvent({
+    eventName: "provider_response_submitted",
+    supabase: client,
+    userId: null,
+    userRole: "provider",
+    properties: {
+      role: "provider",
+      market: requestMeta?.market_code ?? undefined,
+      area: requestMeta?.area ?? undefined,
+      propertyId: requestMeta?.property_id ?? undefined,
+      requesterRole: requestMeta?.requester_role ?? undefined,
+      category: requestMeta?.category ?? undefined,
+      matchedProviderCount: requestMeta?.matched_provider_count ?? undefined,
+      providerId: lead.provider_id,
+      action: nextStatus,
+    },
+  });
+
+  await deps.logProductAnalyticsEvent({
+    eventName: "property_prep_provider_response_received",
+    supabase: client,
+    userId: null,
+    userRole: "provider",
+    properties: {
+      role: "provider",
+      market: requestMeta?.market_code ?? undefined,
+      area: requestMeta?.area ?? undefined,
+      propertyId: requestMeta?.property_id ?? undefined,
+      requesterRole: requestMeta?.requester_role ?? undefined,
+      category: requestMeta?.category ?? undefined,
+      matchedProviderCount: requestMeta?.matched_provider_count ?? undefined,
+      providerId: lead.provider_id,
+      action: nextStatus,
+      requestStatus:
+        nextStatus === "accepted" || nextStatus === "needs_more_information"
+          ? "awaiting_operator_decision"
+          : "supplier_responses_received",
+    },
+  });
+
+  if (nextStatus === "accepted" || nextStatus === "needs_more_information") {
+    await deps.logProductAnalyticsEvent({
+      eventName: "property_prep_request_awaiting_operator_action",
+      supabase: client,
+      userId: null,
+      userRole: "provider",
+      properties: {
+        role: "provider",
+        market: requestMeta?.market_code ?? undefined,
+        area: requestMeta?.area ?? undefined,
+        propertyId: requestMeta?.property_id ?? undefined,
+        requesterRole: requestMeta?.requester_role ?? undefined,
+        category: requestMeta?.category ?? undefined,
+        matchedProviderCount: requestMeta?.matched_provider_count ?? undefined,
+        providerId: lead.provider_id,
+        requestStatus: "awaiting_operator_decision",
       },
     });
   }

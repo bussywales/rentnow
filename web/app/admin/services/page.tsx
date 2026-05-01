@@ -7,9 +7,23 @@ import {
   assessMoveReadyRoutingReadiness,
   type MoveReadyProviderRecord,
 } from "@/lib/services/move-ready.server";
-import type { MoveReadyServiceCategory } from "@/lib/services/move-ready";
+import {
+  deriveMoveReadyRequestProgress,
+  type MoveReadyServiceCategory,
+} from "@/lib/services/move-ready";
 
 export const dynamic = "force-dynamic";
+
+type RequestRow = {
+  id: string;
+  status: string;
+  category: string;
+  market_code: string;
+  city: string | null;
+  area: string | null;
+  matched_provider_count: number;
+  move_ready_request_leads?: Array<{ routing_status: string | null }> | null;
+};
 
 export default async function AdminMoveReadyServicesPage() {
   if (!hasServerSupabaseEnv() || !hasServiceRoleEnv()) {
@@ -30,17 +44,18 @@ export default async function AdminMoveReadyServicesPage() {
       ),
     client
       .from("move_ready_requests")
-      .select("id,category,market_code,city,area"),
+      .select("id,status,category,market_code,city,area,matched_provider_count,move_ready_request_leads(routing_status)"),
   ]);
 
   const providers = (providersData ?? []) as MoveReadyProviderRecord[];
-  const requests = ((requestsData ?? []) as Array<{
-    id: string;
-    category: string;
-    market_code: string;
-    city: string | null;
-    area: string | null;
-  }>).map((request) =>
+  const requests = (requestsData ?? []) as RequestRow[];
+
+  const supplierApplicationsSubmitted = providers.length;
+  const suppliersApproved = providers.filter(
+    (provider) => provider.verification_state === "approved" && provider.provider_status === "active"
+  ).length;
+
+  const readinessStates = requests.map((request) =>
     assessMoveReadyRoutingReadiness(providers, {
       category: request.category as MoveReadyServiceCategory,
       marketCode: request.market_code,
@@ -48,15 +63,31 @@ export default async function AdminMoveReadyServicesPage() {
       area: request.area,
     })
   );
-
-  const supplierApplicationsSubmitted = providers.length;
-  const suppliersApproved = providers.filter(
-    (provider) => provider.verification_state === "approved" && provider.provider_status === "active"
-  ).length;
-  const requestsRouteReady = requests.filter((request) => request.status === "route_ready").length;
-  const requestsManualRouting = requests.filter(
+  const requestsRouteReady = readinessStates.filter((request) => request.status === "route_ready").length;
+  const requestsManualRouting = readinessStates.filter(
     (request) => request.status === "manual_routing_required"
   ).length;
+
+  const workflowProgress = requests.map((request, index) =>
+    deriveMoveReadyRequestProgress({
+      requestStatus: request.status,
+      matchedProviderCount: request.matched_provider_count,
+      eligibleApprovedProviderCount: readinessStates[index]?.eligibleApprovedProviderCount,
+      leads: request.move_ready_request_leads,
+    })
+  );
+
+  const requestsDispatched = workflowProgress.filter((status) =>
+    ["dispatched", "supplier_responses_received", "awaiting_operator_decision", "awarded"].includes(status)
+  ).length;
+  const requestsWithResponses = workflowProgress.filter((status) =>
+    ["supplier_responses_received", "awaiting_operator_decision", "awarded"].includes(status)
+  ).length;
+  const requestsAwaitingOperatorDecision = workflowProgress.filter(
+    (status) => status === "awaiting_operator_decision"
+  ).length;
+  const awardedRequests = requests.filter((request) => request.status === "awarded").length;
+  const noMatchClosures = requests.filter((request) => request.status === "closed_no_match").length;
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8">
@@ -100,6 +131,16 @@ export default async function AdminMoveReadyServicesPage() {
           <p className="mt-1 text-sm text-slate-600">Requests needing manual routing follow-up</p>
         </div>
       </div>
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p className="text-sm font-semibold text-slate-900">Operational movement</p>
+        <div className="mt-3 grid gap-3 md:grid-cols-5 text-sm text-slate-600">
+          <div>Dispatched: <span className="font-semibold text-slate-900">{requestsDispatched}</span></div>
+          <div>Responses: <span className="font-semibold text-slate-900">{requestsWithResponses}</span></div>
+          <div>Awaiting operator decision: <span className="font-semibold text-slate-900">{requestsAwaitingOperatorDecision}</span></div>
+          <div>Awarded: <span className="font-semibold text-slate-900">{awardedRequests}</span></div>
+          <div>No-match closures: <span className="font-semibold text-slate-900">{noMatchClosures}</span></div>
+        </div>
+      </div>
       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
         Keep the wedge narrow until the pilot scorecard passes. Do not expand to tenant requests,
         removals, scheduling, payments, or public provider discovery from this surface.
@@ -125,7 +166,7 @@ export default async function AdminMoveReadyServicesPage() {
         <Link href="/admin/services/requests" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-lg font-semibold text-slate-900">Requests</p>
           <p className="mt-2 text-sm text-slate-600">
-            Review matched and unmatched property-prep requests and route manually where needed.
+            Review dispatch progress, supplier responses, and operator outcomes from one queue.
           </p>
         </Link>
       </div>

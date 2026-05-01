@@ -49,6 +49,11 @@ test('product analytics event names stay constrained to the approved funnel set'
     'provider_lead_accepted',
     'provider_lead_declined',
     'provider_response_submitted',
+    'property_prep_provider_dispatched',
+    'property_prep_provider_response_received',
+    'property_prep_request_awarded',
+    'property_prep_request_closed_no_match',
+    'property_prep_request_awaiting_operator_action',
     'property_prep_supplier_application_started',
     'property_prep_supplier_application_submitted',
     'property_prep_supplier_approved',
@@ -75,6 +80,11 @@ test('event family mapping stays stable', () => {
   assert.equal(getProductAnalyticsEventFamily('qr_generated'), 'host_activation');
   assert.equal(getProductAnalyticsEventFamily('qr_redirect_succeeded'), 'listing_engagement');
   assert.equal(getProductAnalyticsEventFamily('service_request_submitted'), 'move_ready_services');
+  assert.equal(getProductAnalyticsEventFamily('property_prep_provider_dispatched'), 'move_ready_services');
+  assert.equal(getProductAnalyticsEventFamily('property_prep_provider_response_received'), 'move_ready_services');
+  assert.equal(getProductAnalyticsEventFamily('property_prep_request_awarded'), 'move_ready_services');
+  assert.equal(getProductAnalyticsEventFamily('property_prep_request_closed_no_match'), 'move_ready_services');
+  assert.equal(getProductAnalyticsEventFamily('property_prep_request_awaiting_operator_action'), 'move_ready_services');
   assert.equal(getProductAnalyticsEventFamily('property_prep_supplier_application_started'), 'move_ready_services');
   assert.equal(getProductAnalyticsEventFamily('property_prep_request_manual_routing_required'), 'move_ready_services');
 });

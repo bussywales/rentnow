@@ -10,13 +10,16 @@ import {
   type MoveReadyProviderRecord,
 } from "@/lib/services/move-ready.server";
 import {
+  deriveMoveReadyRequestProgress,
   formatMoveReadyAreaLine,
   getMoveReadyCategoryLabel,
   getMoveReadyLeadStatusLabel,
+  getMoveReadyRequestProgressLabel,
   getMoveReadyRequestStatusLabel,
   type MoveReadyServiceCategory,
 } from "@/lib/services/move-ready";
 import { AdminMoveReadyDispatchForm } from "@/components/services/AdminMoveReadyDispatchForm";
+import { AdminMoveReadyOutcomeForm } from "@/components/services/AdminMoveReadyOutcomeForm";
 
 export const dynamic = "force-dynamic";
 
@@ -37,9 +40,12 @@ type RequestRow = {
   area: string | null;
   status: string;
   matched_provider_count: number;
+  awarded_provider_id: string | null;
   context_notes: string;
   preferred_timing_text: string | null;
   created_at: string;
+  awarded_at: string | null;
+  closed_at: string | null;
   properties?: { title: string | null } | null;
 };
 
@@ -47,6 +53,7 @@ type LeadRow = {
   id: string;
   provider_id: string;
   routing_status: string;
+  quote_summary: string | null;
   response_note: string | null;
   last_error: string | null;
   responded_at: string | null;
@@ -84,7 +91,7 @@ export default async function AdminMoveReadyRequestDetailPage({ params }: Props)
   const { data: requestRow } = await client
     .from("move_ready_requests")
     .select(
-      "id,requester_role,requester_name,requester_email,requester_phone,contact_preference,category,market_code,city,area,status,matched_provider_count,context_notes,preferred_timing_text,created_at,properties(title)"
+      "id,requester_role,requester_name,requester_email,requester_phone,contact_preference,category,market_code,city,area,status,matched_provider_count,awarded_provider_id,context_notes,preferred_timing_text,created_at,awarded_at,closed_at,properties(title)"
     )
     .eq("id", id)
     .maybeSingle<RequestRow>();
@@ -104,7 +111,7 @@ export default async function AdminMoveReadyRequestDetailPage({ params }: Props)
     client
       .from("move_ready_request_leads")
       .select(
-        "id,provider_id,routing_status,response_note,last_error,responded_at,move_ready_service_providers(business_name,email,phone)"
+        "id,provider_id,routing_status,quote_summary,response_note,last_error,responded_at,move_ready_service_providers(business_name,email,phone)"
       )
       .eq("request_id", requestRow.id)
       .order("created_at", { ascending: true }),
@@ -124,10 +131,14 @@ export default async function AdminMoveReadyRequestDetailPage({ params }: Props)
     city: requestRow.city,
     area: requestRow.area,
   });
+  const workflowProgress = deriveMoveReadyRequestProgress({
+    requestStatus: requestRow.status,
+    matchedProviderCount: requestRow.matched_provider_count,
+    eligibleApprovedProviderCount: routingReadiness.eligibleApprovedProviderCount,
+    leads,
+  });
   const eligibleProviders = filterEligibleMoveReadyProviders(
-    allProviders.filter(
-      (provider) => !leads.some((lead) => lead.provider_id === provider.id)
-    ),
+    allProviders.filter((provider) => !leads.some((lead) => lead.provider_id === provider.id)),
     {
       category: requestRow.category as MoveReadyServiceCategory,
       marketCode: requestRow.market_code,
@@ -138,12 +149,28 @@ export default async function AdminMoveReadyRequestDetailPage({ params }: Props)
     id: provider.id,
     businessName: provider.business_name,
     coverageSummary:
-      provider.move_ready_provider_areas?.map((area) => formatMoveReadyAreaLine({
-        marketCode: area.market_code,
-        city: area.city,
-        area: area.area,
-      })).join(" · ") || provider.email,
+      provider.move_ready_provider_areas
+        ?.map((area) =>
+          formatMoveReadyAreaLine({
+            marketCode: area.market_code,
+            city: area.city,
+            area: area.area,
+          })
+        )
+        .join(" · ") || provider.email,
   }));
+  const awardCandidates = leads
+    .filter((lead) => ["accepted", "needs_more_information"].includes(lead.routing_status))
+    .map((lead) => ({
+      providerId: lead.provider_id,
+      businessName: lead.move_ready_service_providers?.business_name?.trim() || "Vetted provider",
+      responseStatus: getMoveReadyLeadStatusLabel(lead.routing_status),
+      quoteSummary: lead.quote_summary,
+      responseNote: lead.response_note,
+    }));
+  const awardedLead = requestRow.awarded_provider_id
+    ? leads.find((lead) => lead.provider_id === requestRow.awarded_provider_id)
+    : null;
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8">
@@ -165,6 +192,9 @@ export default async function AdminMoveReadyRequestDetailPage({ params }: Props)
             <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">
               {getMoveReadyRequestStatusLabel(requestRow.status)}
             </span>
+            <span className="rounded-full bg-indigo-50 px-2.5 py-1 font-semibold text-indigo-800">
+              {getMoveReadyRequestProgressLabel(workflowProgress)}
+            </span>
             <span className="rounded-full bg-sky-50 px-2.5 py-1 font-semibold text-sky-800">
               Routed {requestRow.matched_provider_count}
             </span>
@@ -179,6 +209,19 @@ export default async function AdminMoveReadyRequestDetailPage({ params }: Props)
             </span>
           </div>
         </div>
+        {requestRow.status === "awarded" ? (
+          <p className="mt-4 text-sm text-emerald-700">
+            Awarded {requestRow.awarded_at ? formatDateTime(requestRow.awarded_at) : "recently"}
+            {awardedLead?.move_ready_service_providers?.business_name
+              ? ` to ${awardedLead.move_ready_service_providers.business_name}.`
+              : "."}
+          </p>
+        ) : null}
+        {requestRow.status === "closed_no_match" ? (
+          <p className="mt-4 text-sm text-amber-700">
+            Closed as no match {requestRow.closed_at ? formatDateTime(requestRow.closed_at) : "recently"}.
+          </p>
+        ) : null}
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -199,7 +242,7 @@ export default async function AdminMoveReadyRequestDetailPage({ params }: Props)
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Lead status</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Dispatch and provider responses</h2>
             <div className="mt-4 space-y-4">
               {leads.map((lead) => (
                 <div key={lead.id} className="rounded-2xl border border-slate-200 p-4">
@@ -209,16 +252,21 @@ export default async function AdminMoveReadyRequestDetailPage({ params }: Props)
                         {lead.move_ready_service_providers?.business_name?.trim() || "Vetted provider"}
                       </p>
                       <p className="text-sm text-slate-600">
-                        {lead.move_ready_service_providers?.email || "No email"}{" "}
-                        {lead.move_ready_service_providers?.phone ? `· ${lead.move_ready_service_providers.phone}` : ""}
+                        {lead.move_ready_service_providers?.email || "No email"}
+                        {lead.move_ready_service_providers?.phone
+                          ? ` · ${lead.move_ready_service_providers.phone}`
+                          : ""}
                       </p>
                     </div>
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
                       {getMoveReadyLeadStatusLabel(lead.routing_status)}
                     </span>
                   </div>
+                  {lead.quote_summary ? (
+                    <p className="mt-3 text-sm text-slate-700">Indicative quote: {lead.quote_summary}</p>
+                  ) : null}
                   {lead.response_note ? (
-                    <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{lead.response_note}</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{lead.response_note}</p>
                   ) : null}
                   {lead.last_error ? (
                     <p className="mt-3 text-xs text-rose-700">Delivery issue: {lead.last_error}</p>
@@ -230,25 +278,41 @@ export default async function AdminMoveReadyRequestDetailPage({ params }: Props)
               ))}
               {leads.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-sm text-slate-500">
-                  No leads have been sent yet.
+                  No dispatch records yet. Route-ready requests need operator action before supplier follow-through can begin.
                 </p>
               ) : null}
             </div>
           </section>
         </div>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Manual routing</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Only active, approved providers with the right category and area are eligible here.
-          </p>
-          <p className="mt-2 text-sm text-slate-600">
-            Current readiness: {getMoveReadyRoutingReadinessLabel(routingReadiness)}.
-          </p>
-          <div className="mt-4">
-            <AdminMoveReadyDispatchForm requestId={requestRow.id} providers={eligibleProviders} />
-          </div>
-        </section>
+        <div className="space-y-6">
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Dispatch providers</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Only active, approved providers with the right category and area are eligible here.
+            </p>
+            <p className="mt-2 text-sm text-slate-600">
+              Current readiness: {getMoveReadyRoutingReadinessLabel(routingReadiness)}.
+            </p>
+            <div className="mt-4">
+              <AdminMoveReadyDispatchForm requestId={requestRow.id} providers={eligibleProviders} />
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Operator outcome</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Record the supplier award or close this request as no match. Keep PropatyHub as the intermediary.
+            </p>
+            <div className="mt-4">
+              <AdminMoveReadyOutcomeForm
+                requestId={requestRow.id}
+                currentStatus={requestRow.status}
+                awardCandidates={awardCandidates}
+              />
+            </div>
+          </section>
+        </div>
       </section>
     </div>
   );

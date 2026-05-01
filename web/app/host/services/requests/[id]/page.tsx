@@ -3,8 +3,10 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import {
+  deriveMoveReadyRequestProgress,
   getMoveReadyCategoryLabel,
   getMoveReadyLeadStatusLabel,
+  getMoveReadyRequestProgressLabel,
   getMoveReadyRequestStatusLabel,
 } from "@/lib/services/move-ready";
 import { getProfile } from "@/lib/auth";
@@ -29,19 +31,22 @@ type RequestRow = {
   context_notes: string;
   preferred_timing_text: string | null;
   created_at: string;
+  awarded_provider_id: string | null;
+  awarded_at: string | null;
+  closed_at: string | null;
   properties?: { title: string | null } | null;
 };
 
 type LeadRow = {
   id: string;
+  provider_id: string;
   routing_status: string;
+  quote_summary: string | null;
   response_note: string | null;
   responded_at: string | null;
   move_ready_service_providers?: {
     business_name: string | null;
     contact_name: string | null;
-    email: string | null;
-    phone: string | null;
   } | null;
 };
 
@@ -91,7 +96,7 @@ export default async function HostMoveReadyRequestDetailPage({ params, searchPar
   const { data: requestRow } = await client
     .from("move_ready_requests")
     .select(
-      "id,category,market_code,city,area,status,matched_provider_count,context_notes,preferred_timing_text,created_at,properties(title)"
+      "id,category,market_code,city,area,status,matched_provider_count,context_notes,preferred_timing_text,created_at,awarded_provider_id,awarded_at,closed_at,properties(title)"
     )
     .eq("id", id)
     .eq("requester_user_id", profile.id)
@@ -111,12 +116,20 @@ export default async function HostMoveReadyRequestDetailPage({ params, searchPar
   const { data: leadRows } = await client
     .from("move_ready_request_leads")
     .select(
-      "id,routing_status,response_note,responded_at,move_ready_service_providers(business_name,contact_name,email,phone)"
+      "id,provider_id,routing_status,quote_summary,response_note,responded_at,move_ready_service_providers(business_name,contact_name)"
     )
     .eq("request_id", requestRow.id)
     .order("created_at", { ascending: true });
 
   const leads = (leadRows ?? []) as LeadRow[];
+  const workflowProgress = deriveMoveReadyRequestProgress({
+    requestStatus: requestRow.status,
+    matchedProviderCount: requestRow.matched_provider_count,
+    leads,
+  });
+  const awardedLead = requestRow.awarded_provider_id
+    ? leads.find((lead) => lead.provider_id === requestRow.awarded_provider_id)
+    : null;
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6">
@@ -128,7 +141,7 @@ export default async function HostMoveReadyRequestDetailPage({ params, searchPar
           }
           description={
             requestRow.status === "matched"
-              ? "Vetted providers have been routed. Watch this page for responses."
+              ? "Vetted providers have been routed. Watch this page for operator follow-through and supplier responses."
               : "No provider matched the area and category immediately, so the request is sitting in the unmatched operator queue."
           }
         />
@@ -154,11 +167,25 @@ export default async function HostMoveReadyRequestDetailPage({ params, searchPar
             <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">
               {getMoveReadyRequestStatusLabel(requestRow.status)}
             </span>
+            <span className="rounded-full bg-indigo-50 px-2.5 py-1 font-semibold text-indigo-800">
+              {getMoveReadyRequestProgressLabel(workflowProgress)}
+            </span>
             <span className="rounded-full bg-sky-50 px-2.5 py-1 font-semibold text-sky-800">
               Routed {requestRow.matched_provider_count}
             </span>
           </div>
         </div>
+        {requestRow.status === "awarded" ? (
+          <p className="mt-4 text-sm text-emerald-700">
+            PropatyHub selected {awardedLead?.move_ready_service_providers?.business_name || "a vetted provider"}
+            {requestRow.awarded_at ? ` on ${formatDateTime(requestRow.awarded_at)}` : ""}. The next step stays inside operator follow-through.
+          </p>
+        ) : null}
+        {requestRow.status === "closed_no_match" ? (
+          <p className="mt-4 text-sm text-amber-700">
+            This request was closed with no safe supplier match{requestRow.closed_at ? ` on ${formatDateTime(requestRow.closed_at)}` : ""}.
+          </p>
+        ) : null}
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -174,7 +201,7 @@ export default async function HostMoveReadyRequestDetailPage({ params, searchPar
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Provider responses</h2>
             <p className="text-sm text-slate-600">
-              Only routed providers show here. Unmatched requests remain manual until an operator routes them.
+              Only routed providers show here. PropatyHub remains the intermediary while the operator decides the next step.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -204,24 +231,20 @@ export default async function HostMoveReadyRequestDetailPage({ params, searchPar
                   {getMoveReadyLeadStatusLabel(lead.routing_status)}
                 </span>
               </div>
+              {lead.quote_summary ? (
+                <p className="mt-3 text-sm text-slate-700">Indicative quote: {lead.quote_summary}</p>
+              ) : null}
               {lead.response_note ? (
                 <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{lead.response_note}</p>
               ) : null}
-              {(lead.routing_status === "accepted" || lead.response_note) && (
-                <div className="mt-3 text-sm text-slate-600">
-                  <p>{lead.move_ready_service_providers?.email || "No email shared yet"}</p>
-                  {lead.move_ready_service_providers?.phone ? <p>{lead.move_ready_service_providers.phone}</p> : null}
-                  <p className="mt-1 text-xs text-slate-500">
-                    Responded {formatDateTime(lead.responded_at)}
-                  </p>
-                </div>
-              )}
+              <p className="mt-3 text-xs text-slate-500">
+                {lead.responded_at ? `Responded ${formatDateTime(lead.responded_at)}.` : "Awaiting provider response."} PropatyHub will coordinate follow-through rather than exposing direct supplier contact here.
+              </p>
             </div>
           ))}
           {leads.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-sm text-slate-500">
-              No provider responses yet. If this request is unmatched, the operator queue is the next
-              real step.
+              No provider responses yet. If this request is unmatched, the operator queue is the next real step.
             </div>
           ) : null}
         </div>

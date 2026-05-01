@@ -301,6 +301,25 @@ export async function postMoveReadyServiceRequestResponse(
           providerId: provider.id,
         },
       });
+      await deps.logProductAnalyticsEvent({
+        eventName: "property_prep_provider_dispatched",
+        request,
+        supabase: client,
+        userId: auth.user.id,
+        userRole: auth.role,
+        properties: {
+          role: auth.role,
+          market: marketCode,
+          area: area ?? undefined,
+          propertyId: property?.id ?? undefined,
+          requesterRole: auth.role,
+          category: payload.category,
+          entrypointSource: payload.entrypointSource,
+          matchedProviderCount: matchedProviders.length,
+          providerId: provider.id,
+          requestStatus: "dispatched",
+        },
+      });
     }
   }
 

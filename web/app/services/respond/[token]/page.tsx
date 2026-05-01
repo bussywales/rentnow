@@ -14,6 +14,7 @@ type LeadRow = {
   id: string;
   routing_status: string;
   response_note: string | null;
+  quote_summary: string | null;
   opened_at: string | null;
   provider_id: string;
   move_ready_service_providers?: {
@@ -46,7 +47,7 @@ export default async function MoveReadyProviderResponsePage({ params }: Props) {
   const { data } = await client
     .from("move_ready_request_leads")
     .select(
-      "id,provider_id,routing_status,response_note,opened_at,move_ready_service_providers(business_name),move_ready_requests(category,market_code,city,area,preferred_timing_text,context_notes)"
+      "id,provider_id,routing_status,response_note,quote_summary,opened_at,move_ready_service_providers(business_name),move_ready_requests(category,market_code,city,area,preferred_timing_text,context_notes)"
     )
     .eq("response_token", token)
     .maybeSingle<LeadRow>();
@@ -113,6 +114,7 @@ export default async function MoveReadyProviderResponsePage({ params }: Props) {
           token={token}
           currentStatus={data.routing_status}
           existingResponseNote={data.response_note}
+          existingQuoteSummary={data.quote_summary}
         />
       </section>
     </div>

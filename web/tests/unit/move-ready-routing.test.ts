@@ -7,6 +7,10 @@ import {
   getMoveReadyRoutingReadinessLabel,
   type MoveReadyProviderRecord,
 } from "@/lib/services/move-ready.server";
+import {
+  deriveMoveReadyRequestProgress,
+  getMoveReadyRequestProgressLabel,
+} from "@/lib/services/move-ready";
 
 void test("provider area matching requires exact market and respects optional city and area coverage", () => {
   assert.equal(
@@ -124,4 +128,41 @@ void test("routing readiness reports route-ready when approved suppliers fit cat
   assert.equal(readiness.status, "route_ready");
   assert.equal(readiness.eligibleApprovedProviderCount, 1);
   assert.match(getMoveReadyRoutingReadinessLabel(readiness), /approved supplier/);
+});
+
+void test("request progress resolves awaiting operator decision when a provider responds positively", () => {
+  const progress = deriveMoveReadyRequestProgress({
+    requestStatus: "matched",
+    matchedProviderCount: 2,
+    eligibleApprovedProviderCount: 2,
+    leads: [
+      { routing_status: "accepted" },
+      { routing_status: "sent" },
+    ],
+  });
+
+  assert.equal(progress, "awaiting_operator_decision");
+  assert.equal(getMoveReadyRequestProgressLabel(progress), "Awaiting operator decision");
+});
+
+void test("request progress resolves partially dispatched when not all eligible suppliers were routed yet", () => {
+  const progress = deriveMoveReadyRequestProgress({
+    requestStatus: "matched",
+    matchedProviderCount: 1,
+    eligibleApprovedProviderCount: 3,
+    leads: [{ routing_status: "sent" }],
+  });
+
+  assert.equal(progress, "partially_dispatched");
+});
+
+void test("request progress resolves awarded and closed no match from final request statuses", () => {
+  assert.equal(
+    deriveMoveReadyRequestProgress({ requestStatus: "awarded", matchedProviderCount: 1, leads: [] }),
+    "awarded"
+  );
+  assert.equal(
+    deriveMoveReadyRequestProgress({ requestStatus: "closed_no_match", matchedProviderCount: 0, leads: [] }),
+    "closed_no_match"
+  );
 });

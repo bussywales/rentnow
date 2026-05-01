@@ -36,7 +36,14 @@ export const MOVE_READY_PROVIDER_APPLICATION_STATUSES = [
 export type MoveReadyProviderApplicationStatus =
   (typeof MOVE_READY_PROVIDER_APPLICATION_STATUSES)[number];
 
-export const MOVE_READY_REQUEST_STATUSES = ["submitted", "matched", "unmatched", "closed"] as const;
+export const MOVE_READY_REQUEST_STATUSES = [
+  "submitted",
+  "matched",
+  "unmatched",
+  "awarded",
+  "closed_no_match",
+  "closed",
+] as const;
 export type MoveReadyRequestStatus = (typeof MOVE_READY_REQUEST_STATUSES)[number];
 
 export const MOVE_READY_LEAD_STATUSES = [
@@ -45,8 +52,21 @@ export const MOVE_READY_LEAD_STATUSES = [
   "delivery_failed",
   "accepted",
   "declined",
+  "needs_more_information",
+  "awarded",
 ] as const;
 export type MoveReadyLeadStatus = (typeof MOVE_READY_LEAD_STATUSES)[number];
+
+export const MOVE_READY_REQUEST_PROGRESS_STATUSES = [
+  "not_dispatched",
+  "partially_dispatched",
+  "dispatched",
+  "supplier_responses_received",
+  "awaiting_operator_decision",
+  "awarded",
+  "closed_no_match",
+] as const;
+export type MoveReadyRequestProgressStatus = (typeof MOVE_READY_REQUEST_PROGRESS_STATUSES)[number];
 
 export const MOVE_READY_CONTACT_PREFERENCES = ["phone", "email"] as const;
 export type MoveReadyContactPreference = (typeof MOVE_READY_CONTACT_PREFERENCES)[number];
@@ -64,6 +84,7 @@ export const moveReadyProviderApplicationStatusSchema = z.enum(
 );
 export const moveReadyRequestStatusSchema = z.enum(MOVE_READY_REQUEST_STATUSES);
 export const moveReadyLeadStatusSchema = z.enum(MOVE_READY_LEAD_STATUSES);
+export const moveReadyRequestProgressStatusSchema = z.enum(MOVE_READY_REQUEST_PROGRESS_STATUSES);
 export const moveReadyContactPreferenceSchema = z.enum(MOVE_READY_CONTACT_PREFERENCES);
 export const moveReadyEntrypointSourceSchema = z.enum(MOVE_READY_ENTRYPOINT_SOURCES);
 
@@ -121,11 +142,24 @@ export type MoveReadyRequestCreateInput = z.infer<typeof moveReadyRequestCreateS
 
 export const moveReadyProviderLeadResponseSchema = z.object({
   token: z.string().trim().min(20).max(255),
-  action: z.enum(["accept", "decline"]),
+  action: z.enum(["accept", "decline", "need_more_information"]),
+  quoteSummary: z.string().trim().max(240).nullable().optional(),
   responseNote: z.string().trim().max(2000).nullable().optional(),
 });
 
 export type MoveReadyProviderLeadResponseInput = z.infer<typeof moveReadyProviderLeadResponseSchema>;
+
+export const moveReadyAdminRequestOutcomeSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("award"),
+    providerId: z.string().uuid(),
+  }),
+  z.object({
+    action: z.literal("close_no_match"),
+  }),
+]);
+
+export type MoveReadyAdminRequestOutcomeInput = z.infer<typeof moveReadyAdminRequestOutcomeSchema>;
 
 export function getMoveReadyCategoryLabel(category: MoveReadyServiceCategory | string | null | undefined) {
   if (!category) return "Unknown category";
@@ -135,9 +169,13 @@ export function getMoveReadyCategoryLabel(category: MoveReadyServiceCategory | s
 export function getMoveReadyRequestStatusLabel(status: MoveReadyRequestStatus | string | null | undefined) {
   switch (status) {
     case "matched":
-      return "Matched to providers";
+      return "Dispatched to providers";
     case "unmatched":
       return "Needs manual routing";
+    case "awarded":
+      return "Awarded";
+    case "closed_no_match":
+      return "Closed - no match";
     case "closed":
       return "Closed";
     case "submitted":
@@ -149,11 +187,15 @@ export function getMoveReadyRequestStatusLabel(status: MoveReadyRequestStatus | 
 export function getMoveReadyLeadStatusLabel(status: MoveReadyLeadStatus | string | null | undefined) {
   switch (status) {
     case "accepted":
-      return "Accepted";
+      return "Interested";
     case "declined":
       return "Declined";
+    case "needs_more_information":
+      return "Needs more information";
     case "delivery_failed":
       return "Delivery failed";
+    case "awarded":
+      return "Awarded";
     case "sent":
       return "Sent";
     case "pending_delivery":
@@ -213,4 +255,92 @@ export function formatMoveReadyAreaLine(area: {
     (value) => value && String(value).trim().length > 0
   );
   return parts.join(" • ");
+}
+
+export type MoveReadyRequestProgressInput = {
+  requestStatus: MoveReadyRequestStatus | string | null | undefined;
+  matchedProviderCount?: number | null;
+  eligibleApprovedProviderCount?: number | null;
+  leads?: Array<{ routing_status: MoveReadyLeadStatus | string | null | undefined }> | null;
+};
+
+const MOVE_READY_POSITIVE_RESPONSE_STATUSES = new Set<MoveReadyLeadStatus>([
+  "accepted",
+  "needs_more_information",
+  "awarded",
+]);
+const MOVE_READY_RESPONSE_STATUSES = new Set<MoveReadyLeadStatus>([
+  "accepted",
+  "declined",
+  "needs_more_information",
+  "awarded",
+]);
+
+function normalizeLeadStatus(status: MoveReadyLeadStatus | string | null | undefined): MoveReadyLeadStatus | null {
+  return MOVE_READY_LEAD_STATUSES.includes(status as MoveReadyLeadStatus)
+    ? (status as MoveReadyLeadStatus)
+    : null;
+}
+
+export function deriveMoveReadyRequestProgress(
+  input: MoveReadyRequestProgressInput
+): MoveReadyRequestProgressStatus {
+  if (input.requestStatus === "awarded") return "awarded";
+  if (input.requestStatus === "closed_no_match" || input.requestStatus === "closed") {
+    return "closed_no_match";
+  }
+
+  const leads = input.leads ?? [];
+  const normalizedLeadStatuses = leads.map((lead) => normalizeLeadStatus(lead.routing_status)).filter(Boolean);
+  const dispatchedCount = Math.max(input.matchedProviderCount ?? leads.length ?? 0, leads.length);
+  const eligibleApprovedProviderCount = Math.max(input.eligibleApprovedProviderCount ?? 0, 0);
+
+  if (dispatchedCount === 0) {
+    return "not_dispatched";
+  }
+
+  if (
+    eligibleApprovedProviderCount > 0 &&
+    dispatchedCount < Math.min(eligibleApprovedProviderCount, MOVE_READY_MAX_PROVIDER_MATCHES)
+  ) {
+    return "partially_dispatched";
+  }
+
+  const positiveResponseCount = normalizedLeadStatuses.filter((status) =>
+    MOVE_READY_POSITIVE_RESPONSE_STATUSES.has(status)
+  ).length;
+  if (positiveResponseCount > 0) {
+    return "awaiting_operator_decision";
+  }
+
+  const responseCount = normalizedLeadStatuses.filter((status) =>
+    MOVE_READY_RESPONSE_STATUSES.has(status)
+  ).length;
+  if (responseCount > 0) {
+    return "supplier_responses_received";
+  }
+
+  return "dispatched";
+}
+
+export function getMoveReadyRequestProgressLabel(
+  status: MoveReadyRequestProgressStatus | string | null | undefined
+) {
+  switch (status) {
+    case "partially_dispatched":
+      return "Partially dispatched";
+    case "dispatched":
+      return "Dispatched";
+    case "supplier_responses_received":
+      return "Responses received";
+    case "awaiting_operator_decision":
+      return "Awaiting operator decision";
+    case "awarded":
+      return "Awarded";
+    case "closed_no_match":
+      return "Closed - no match";
+    case "not_dispatched":
+    default:
+      return "Not dispatched";
+  }
 }

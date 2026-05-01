@@ -42,3 +42,25 @@ void test("move ready supplier application migration stays additive to the curat
   assert.match(sql, /create index if not exists move_ready_service_providers_email_idx/);
   assert.doesNotMatch(sql, /public supplier directory/);
 });
+
+
+void test("move ready dispatch follow-through migration stays additive to the routed lead model", () => {
+  const filePath = path.join(
+    process.cwd(),
+    "supabase",
+    "migrations",
+    "20260501173000_move_ready_dispatch_follow_through.sql"
+  );
+  const sql = fs.readFileSync(filePath, "utf8").replace(/\s+/g, " ").toLowerCase();
+
+  assert.match(sql, /alter table public\.move_ready_requests/);
+  assert.match(sql, /add column if not exists awarded_provider_id uuid/);
+  assert.match(sql, /add column if not exists awarded_at timestamptz/);
+  assert.match(sql, /add column if not exists closed_at timestamptz/);
+  assert.match(sql, /status in \('submitted', 'matched', 'unmatched', 'awarded', 'closed_no_match', 'closed'\)/);
+  assert.match(sql, /alter table public\.move_ready_request_leads/);
+  assert.match(sql, /add column if not exists quote_summary text/);
+  assert.match(sql, /routing_status in \('pending_delivery', 'sent', 'delivery_failed', 'accepted', 'declined', 'needs_more_information', 'awarded'\)/);
+  assert.doesNotMatch(sql, /payments?/);
+  assert.doesNotMatch(sql, /commission/);
+});

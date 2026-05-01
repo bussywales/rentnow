@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 
@@ -16,6 +17,7 @@ type Props = {
 };
 
 export function AdminMoveReadyDispatchForm({ requestId, providers }: Props) {
+  const router = useRouter();
   const [selectedProviderId, setSelectedProviderId] = useState(providers[0]?.id ?? "");
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -39,7 +41,8 @@ export function AdminMoveReadyDispatchForm({ requestId, providers }: Props) {
       return;
     }
 
-    setMessage("Lead dispatched. Refresh to confirm provider status.");
+    setMessage("Lead dispatched. Operator progress has been updated.");
+    router.refresh();
   }
 
   if (providers.length === 0) {
@@ -70,7 +73,7 @@ export function AdminMoveReadyDispatchForm({ requestId, providers }: Props) {
         </select>
       </label>
       <Button type="submit" disabled={submitting}>
-        {submitting ? "Routing..." : "Send lead"}
+        {submitting ? "Routing..." : "Dispatch provider"}
       </Button>
     </form>
   );

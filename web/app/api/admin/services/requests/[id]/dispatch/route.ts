@@ -49,6 +49,7 @@ type RequestRow = {
   context_notes: string;
   preferred_timing_text: string | null;
   matched_provider_count: number | null;
+  status: string;
   properties?: { title: string | null } | null;
 };
 
@@ -56,7 +57,7 @@ async function loadRequest(client: ServiceClient, requestId: string) {
   const { data } = await client
     .from("move_ready_requests")
     .select(
-      "id,requester_user_id,requester_role,property_id,category,market_code,city,area,context_notes,preferred_timing_text,matched_provider_count,properties(title)"
+      "id,requester_user_id,requester_role,property_id,category,market_code,city,area,context_notes,preferred_timing_text,matched_provider_count,status,properties(title)"
     )
     .eq("id", requestId)
     .maybeSingle<RequestRow>();
@@ -105,6 +106,10 @@ export async function postAdminMoveReadyRequestDispatchResponse(
     return NextResponse.json({ error: "Service request not found." }, { status: 404 });
   }
 
+  if (["awarded", "closed_no_match", "closed"].includes(requestRow.status)) {
+    return NextResponse.json({ error: "This request already has a final outcome." }, { status: 409 });
+  }
+
   const provider = await loadProvider(client, parsed.data.providerId);
   if (!provider) {
     return NextResponse.json({ error: "Provider not found." }, { status: 404 });
@@ -134,7 +139,10 @@ export async function postAdminMoveReadyRequestDispatchResponse(
   );
 
   if (leadError) {
-    return NextResponse.json({ error: "Lead already exists for this provider or could not be created." }, { status: 409 });
+    return NextResponse.json(
+      { error: "Lead already exists for this provider or could not be created." },
+      { status: 409 }
+    );
   }
 
   const delivery = await deps.sendMoveReadyLeadEmail({
@@ -195,6 +203,25 @@ export async function postAdminMoveReadyRequestDispatchResponse(
         category: requestRow.category,
         matchedProviderCount: nextMatchedCount,
         providerId: provider.id,
+      },
+    });
+
+    await deps.logProductAnalyticsEvent({
+      eventName: "property_prep_provider_dispatched",
+      request,
+      supabase: client,
+      userId: requestRow.requester_user_id,
+      userRole: requestRow.requester_role,
+      properties: {
+        role: requestRow.requester_role,
+        market: requestRow.market_code,
+        area: requestRow.area ?? undefined,
+        propertyId: requestRow.property_id ?? undefined,
+        requesterRole: requestRow.requester_role,
+        category: requestRow.category,
+        matchedProviderCount: nextMatchedCount,
+        providerId: provider.id,
+        requestStatus: "dispatched",
       },
     });
   }
