@@ -58,7 +58,7 @@ export function resolveSubscriptionLifecycleState(input: Input): SubscriptionLif
   const now = input.now ?? Date.now();
   const billingSource = input.billingSource ?? "manual";
   const effectivePlanTier = normalizePlanTier(
-    input.effectivePlanTier ?? resolveEffectivePlanTier(input.planTier ?? "free", input.validUntil ?? null)
+    input.effectivePlanTier ?? resolveEffectivePlanTier(input.planTier ?? "free", input.validUntil ?? null, now)
   );
   const providerStatus = resolveStatus(input);
   const accessUntil = resolveAccessUntil(input);
