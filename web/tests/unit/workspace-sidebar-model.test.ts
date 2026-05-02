@@ -76,6 +76,7 @@ void test("admin sidebar exposes tutorial authoring in the internal admin sectio
     sections[0]?.items.map((item) => ({ label: item.label, href: item.href })),
     [
       { label: "Admin", href: "/admin" },
+      { label: "Delivery monitor", href: "/admin/delivery-monitor" },
       { label: "Support requests", href: "/admin/support" },
       { label: "Listing transfers", href: "/admin/listing-transfers" },
       { label: "Stay reviews", href: "/admin/reviews" },

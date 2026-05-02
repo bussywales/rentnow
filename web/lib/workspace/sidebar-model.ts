@@ -49,6 +49,7 @@ export function getWorkspaceSidebarSections(
         label: "Admin",
         items: [
           { key: "admin", label: "Admin", href: "/admin" },
+          { key: "delivery-monitor", label: "Delivery monitor", href: "/admin/delivery-monitor" },
           { key: "support-requests", label: "Support requests", href: "/admin/support" },
           { key: "listing-transfers", label: "Listing transfers", href: "/admin/listing-transfers" },
           { key: "stay-reviews", label: "Stay reviews", href: "/admin/reviews" },
