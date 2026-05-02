@@ -187,7 +187,7 @@ Run these before any live cutover.
 
 ### Global checks
 
-1. Open `/api/debug/env`
+1. Open `/admin/system` and `/api/admin/config-status`
 2. Confirm provider modes match the intended cutover state
 3. Confirm no provider is silently falling back from live to test
 4. Confirm `NEXT_PUBLIC_SITE_URL` is the production domain
