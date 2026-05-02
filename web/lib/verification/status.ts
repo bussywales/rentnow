@@ -1,5 +1,10 @@
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  DEFAULT_VERIFICATION_REQUIREMENTS,
+  normalizeVerificationRequirements,
+  type VerificationRequirements,
+} from "@/lib/trust-markers";
 
 export type VerificationStatus = {
   email: { verified: boolean; verifiedAt?: string | null };
@@ -20,11 +25,19 @@ export function computeVerificationStatus(input: {
   phoneE164: string | null;
   bankVerifiedAt: string | null;
   bankProvider: string | null;
+  requirements?: Partial<VerificationRequirements> | null;
 }): VerificationStatusResult {
   const emailVerified = !!input.emailVerifiedAt;
   const phoneVerified = !!input.phoneVerifiedAt;
   const bankVerified = !!input.bankVerifiedAt;
-  const overall = emailVerified && phoneVerified ? "verified" : "pending";
+  const overall = deriveOverallStatus(
+    {
+      email: { verified: emailVerified },
+      phone: { verified: phoneVerified },
+      bank: { verified: bankVerified },
+    },
+    input.requirements
+  );
 
   return {
     userId: input.userId,
@@ -127,6 +140,17 @@ export async function getVerificationStatus(input: {
   return { ...result, updated };
 }
 
-export function deriveOverallStatus(status: Pick<VerificationStatus, "email" | "phone">): "verified" | "pending" {
-  return status.email.verified && status.phone.verified ? "verified" : "pending";
+export function deriveOverallStatus(
+  status: Pick<VerificationStatus, "email" | "phone" | "bank">,
+  requirements: Partial<VerificationRequirements> | null = DEFAULT_VERIFICATION_REQUIREMENTS
+): "verified" | "pending" {
+  const normalized = normalizeVerificationRequirements(requirements);
+  const requiredChecks = [
+    normalized.requireEmail ? status.email.verified === true : null,
+    normalized.requirePhone ? status.phone.verified === true : null,
+    normalized.requireBank ? status.bank.verified === true : null,
+  ].filter((value): value is boolean => value !== null);
+
+  if (!requiredChecks.length) return "pending";
+  return requiredChecks.every(Boolean) ? "verified" : "pending";
 }

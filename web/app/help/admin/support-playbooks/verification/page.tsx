@@ -23,7 +23,7 @@ export default function VerificationPlaybook() {
         <ul className="list-disc space-y-2 pl-5 text-sm text-slate-600">
           <li>OTP start/confirm failures.</li>
           <li>Bank verification questions or admin override.</li>
-          <li>Identity pill expectations (email + phone).</li>
+          <li>Identity pill expectations versus the currently enabled verification requirements.</li>
           <li>&quot;Verified pending&quot; confusion.</li>
         </ul>
       </section>
@@ -40,9 +40,10 @@ export default function VerificationPlaybook() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-slate-900">Quick checks</h2>
         <ul className="list-disc space-y-2 pl-5 text-sm text-slate-600">
-          <li>Confirm email and phone verification flags.</li>
+          <li>Confirm the enabled verification requirements for this environment.</li>
+          <li>Confirm email, phone, and bank verification flags against those requirements.</li>
           <li>Check for recent OTP attempts and rate limits.</li>
-          <li>Verify bank status if requested.</li>
+          <li>Verify bank status if it is currently required or the user asked about it.</li>
         </ul>
       </section>
 
@@ -75,9 +76,9 @@ export default function VerificationPlaybook() {
           />
           <HelpIssueCard
             issue="Identity pill not showing verified"
-            cause="Email or phone not confirmed."
-            check="Verify both email and phone flags."
-            fix="Guide user through remaining verification steps."
+            cause="One or more currently required verification steps are still incomplete."
+            check="Compare the current requirement settings with the user verification flags."
+            fix="Guide the user through the remaining required verification steps."
           />
         </div>
       </section>

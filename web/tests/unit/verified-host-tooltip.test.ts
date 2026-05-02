@@ -15,8 +15,8 @@ const shortletsCardPath = path.join(
 const trustPillPath = path.join(process.cwd(), "components", "trust", "TrustIdentityPill.tsx");
 
 void test("verified host tooltip copy explains current verification scope", () => {
-  assert.ok(VERIFIED_HOST_COPY.includes("at least one verification step"));
-  assert.ok(VERIFIED_HOST_COPY.includes("email, phone, or bank"));
+  assert.ok(VERIFIED_HOST_COPY.includes("identity checks we currently require"));
+  assert.ok(VERIFIED_HOST_COPY.includes("email, phone, or bank verification"));
 });
 
 void test("verified host tooltip trigger is keyboard accessible", () => {

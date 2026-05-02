@@ -11,19 +11,43 @@ const routeLabel = "/api/admin/users/role";
 const payloadSchema = z.object({
   profileId: z.string().uuid(),
   role: z.enum(ROLE_VALUES),
-  reason: z.string().min(3),
+  reason: z.string().trim().min(3),
 });
 
-export async function POST(request: Request) {
+type ExistingProfile = {
+  role: string | null;
+  onboarding_completed: boolean | null;
+};
+
+type AdminUserRoleDeps = {
+  hasServiceRoleEnv?: () => boolean;
+  requireRole?: typeof requireRole;
+  createServiceRoleClient?: typeof createServiceRoleClient;
+  logFailure?: typeof logFailure;
+  logAdminRoleChanged?: typeof logAdminRoleChanged;
+};
+
+export async function postAdminUserRoleResponse(
+  request: Request,
+  deps: AdminUserRoleDeps = {}
+) {
   const startTime = Date.now();
-  if (!hasServiceRoleEnv()) {
+  const {
+    hasServiceRoleEnv: hasServiceRoleEnvImpl = hasServiceRoleEnv,
+    requireRole: requireRoleImpl = requireRole,
+    createServiceRoleClient: createServiceRoleClientImpl = createServiceRoleClient,
+    logFailure: logFailureImpl = logFailure,
+    logAdminRoleChanged: logAdminRoleChangedImpl = logAdminRoleChanged,
+  } = deps;
+
+  if (!hasServiceRoleEnvImpl()) {
     return NextResponse.json(
       { error: "Service role key missing; role updates unavailable." },
       { status: 503 }
     );
   }
 
-  const auth = await requireRole({
+  const auth = await requireRoleImpl({
     request,
     route: routeLabel,
     startTime,
@@ -38,17 +62,17 @@ export async function POST(request: Request) {
   }
 
   const { profileId, role, reason } = parsed.data;
-  const adminClient = createServiceRoleClient();
+  const adminClient = createServiceRoleClientImpl();
   const adminDb = adminClient as unknown as UntypedAdminClient;
 
   const { data: existingProfile, error: fetchError } = await adminDb
-    .from<{ role: string | null; onboarding_completed: boolean | null }>("profiles")
+    .from<ExistingProfile>("profiles")
     .select("role, onboarding_completed")
     .eq("id", profileId)
     .maybeSingle();
 
   if (fetchError) {
-    logFailure({
+    logFailureImpl({
       request,
       route: routeLabel,
       status: 500,
@@ -79,7 +103,7 @@ export async function POST(request: Request) {
     .eq("id", profileId);
 
   if (updateError) {
-    logFailure({
+    logFailureImpl({
       request,
       route: routeLabel,
       status: 500,
@@ -94,11 +118,11 @@ export async function POST(request: Request) {
     actor_profile_id: auth.user.id,
     old_role: oldRole,
     new_role: role,
-    reason: reason.trim(),
+    reason,
   });
 
   if (auditError) {
-    logFailure({
+    logFailureImpl({
       request,
       route: routeLabel,
       status: 500,
@@ -111,7 +135,7 @@ export async function POST(request: Request) {
     );
   }
 
-  logAdminRoleChanged({
+  logAdminRoleChangedImpl({
     request,
     route: routeLabel,
     actorId: auth.user.id,
@@ -122,4 +146,8 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json({ ok: true });
+}
+
+export async function POST(request: Request) {
+  return postAdminUserRoleResponse(request);
 }

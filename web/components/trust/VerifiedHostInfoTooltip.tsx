@@ -8,7 +8,7 @@ type Props = {
 };
 
 const VERIFIED_HOST_COPY =
-  "Verified means the host has completed at least one verification step (email, phone, or bank). More verification levels are coming.";
+  "Verified means the host has completed the identity checks we currently require for this surface. Depending on the workflow, that can include email, phone, or bank verification.";
 
 export function VerifiedHostInfoTooltip({ className }: Props) {
   const tooltipId = useId();
