@@ -53,6 +53,18 @@ export type StripeEventProcessResult = {
   applied: boolean;
 };
 
+export type StripeEventProcessorDeps = {
+  upsertSubscriptionRecord: typeof upsertSubscriptionRecord;
+  issueSubscriptionCreditsIfNeeded: typeof issueSubscriptionCreditsIfNeeded;
+  logProductAnalyticsEvent: typeof logProductAnalyticsEvent;
+};
+
+const defaultDeps: StripeEventProcessorDeps = {
+  upsertSubscriptionRecord,
+  issueSubscriptionCreditsIfNeeded,
+  logProductAnalyticsEvent,
+};
+
 function shouldLogCheckoutSucceededAnalytics(context: StripeEventProcessContext) {
   return context.route !== "/api/admin/billing/stripe/replay";
 }
@@ -268,7 +280,8 @@ async function applyPlanUpdate(
 
 export async function processStripeEvent(
   context: StripeEventProcessContext,
-  event: Stripe.Event
+  event: Stripe.Event,
+  deps: StripeEventProcessorDeps = defaultDeps
 ): Promise<StripeEventProcessResult> {
   let outcomeStatus: StripeEventProcessResult["status"] = "processed";
   let outcomeReason: string | null = null;
@@ -382,7 +395,7 @@ export async function processStripeEvent(
           }
         }
 
-        const subscriptionRow = await upsertSubscriptionRecord({
+        const subscriptionRow = await deps.upsertSubscriptionRecord({
           adminClient: context.adminClient,
           userId: profileId,
           provider: "stripe",
@@ -395,7 +408,7 @@ export async function processStripeEvent(
         });
 
         if (subscriptionRow?.id && ["active", "trialing", "past_due", "unpaid"].includes(subscription.status)) {
-          await issueSubscriptionCreditsIfNeeded({
+          await deps.issueSubscriptionCreditsIfNeeded({
             adminClient: context.adminClient,
             subscriptionId: subscriptionRow.id,
             userId: profileId,
@@ -406,7 +419,7 @@ export async function processStripeEvent(
         }
 
         if (shouldLogCheckoutSucceededAnalytics(context)) {
-          await logProductAnalyticsEvent({
+          await deps.logProductAnalyticsEvent({
             eventName: "checkout_succeeded",
             supabase: context.adminClient,
             userId: profileId,
@@ -518,7 +531,7 @@ export async function processStripeEvent(
           }
         }
 
-        const subscriptionRow = await upsertSubscriptionRecord({
+        const subscriptionRow = await deps.upsertSubscriptionRecord({
           adminClient: context.adminClient,
           userId: profileId,
           provider: "stripe",
@@ -531,7 +544,7 @@ export async function processStripeEvent(
         });
 
         if (subscriptionRow?.id && ["active", "trialing", "past_due", "unpaid"].includes(subscription.status)) {
-          await issueSubscriptionCreditsIfNeeded({
+          await deps.issueSubscriptionCreditsIfNeeded({
             adminClient: context.adminClient,
             subscriptionId: subscriptionRow.id,
             userId: profileId,
@@ -642,7 +655,7 @@ export async function processStripeEvent(
           });
         }
 
-        const subscriptionRow = await upsertSubscriptionRecord({
+        const subscriptionRow = await deps.upsertSubscriptionRecord({
           adminClient: context.adminClient,
           userId: profileId,
           provider: "stripe",
@@ -655,7 +668,7 @@ export async function processStripeEvent(
         });
 
         if (subscriptionRow?.id && ["active", "trialing", "past_due", "unpaid"].includes(subscription.status)) {
-          await issueSubscriptionCreditsIfNeeded({
+          await deps.issueSubscriptionCreditsIfNeeded({
             adminClient: context.adminClient,
             subscriptionId: subscriptionRow.id,
             userId: profileId,

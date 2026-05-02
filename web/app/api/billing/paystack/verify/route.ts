@@ -17,9 +17,36 @@ const payloadSchema = z.object({
   reference: z.string().min(8),
 });
 
-export async function POST(request: Request) {
+export type PaystackVerifyRouteDeps = {
+  requireRole: typeof requireRole;
+  hasServiceRoleEnv: typeof hasServiceRoleEnv;
+  createServiceRoleClient: typeof createServiceRoleClient;
+  getPaystackSubscriptionEventByReference: typeof getPaystackSubscriptionEventByReference;
+  finalizePaystackSubscriptionEvent: typeof finalizePaystackSubscriptionEvent;
+  resolveTierForRole: typeof resolveTierForRole;
+  logProviderPlanUpdated: typeof logProviderPlanUpdated;
+  logProviderVerifyOutcome: typeof logProviderVerifyOutcome;
+  logFailure: typeof logFailure;
+};
+
+const defaultDeps: PaystackVerifyRouteDeps = {
+  requireRole,
+  hasServiceRoleEnv,
+  createServiceRoleClient,
+  getPaystackSubscriptionEventByReference,
+  finalizePaystackSubscriptionEvent,
+  resolveTierForRole,
+  logProviderPlanUpdated,
+  logProviderVerifyOutcome,
+  logFailure,
+};
+
+export async function postPaystackVerifyResponse(
+  request: Request,
+  deps: PaystackVerifyRouteDeps = defaultDeps
+) {
   const startTime = Date.now();
-  const auth = await requireRole({
+  const auth = await deps.requireRole({
     request,
     route: routeLabel,
     startTime,
@@ -27,7 +54,7 @@ export async function POST(request: Request) {
   });
   if (!auth.ok) return auth.response;
 
-  if (!hasServiceRoleEnv()) {
+  if (!deps.hasServiceRoleEnv()) {
     return NextResponse.json(
       { error: "Service role key missing; Paystack verification unavailable." },
       { status: 503 }
@@ -41,10 +68,10 @@ export async function POST(request: Request) {
   }
 
   const reference = parsed.data.reference;
-  const adminClient = createServiceRoleClient();
+  const adminClient = deps.createServiceRoleClient();
   const adminDb = adminClient as unknown as UntypedAdminClient;
 
-  const event = await getPaystackSubscriptionEventByReference({
+  const event = await deps.getPaystackSubscriptionEventByReference({
     adminClient: adminDb,
     reference,
   });
@@ -59,7 +86,7 @@ export async function POST(request: Request) {
 
   if (event.plan_tier) {
     const normalizedTier = event.plan_tier as PlanTier;
-    if (auth.role !== "admin" && !resolveTierForRole(auth.role, normalizedTier)) {
+    if (auth.role !== "admin" && !deps.resolveTierForRole(auth.role, normalizedTier)) {
       await adminDb
         .from("provider_payment_events")
         .update({ status: "failed", reason: "role_mismatch" })
@@ -69,7 +96,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await finalizePaystackSubscriptionEvent({
+    const result = await deps.finalizePaystackSubscriptionEvent({
       adminClient: adminDb,
       reference,
       event,
@@ -77,7 +104,7 @@ export async function POST(request: Request) {
     });
 
     if (result.status === "verified") {
-      logProviderPlanUpdated({
+      deps.logProviderPlanUpdated({
         request,
         route: routeLabel,
         provider: "paystack",
@@ -88,7 +115,7 @@ export async function POST(request: Request) {
       });
     }
 
-    logProviderVerifyOutcome({
+    deps.logProviderVerifyOutcome({
       request,
       route: routeLabel,
       provider: "paystack",
@@ -124,7 +151,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, status: "verified", valid_until: result.validUntil });
   } catch (error) {
-    logFailure({
+    deps.logFailure({
       request,
       route: routeLabel,
       status: 500,
@@ -133,4 +160,8 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ error: "Paystack verification failed." }, { status: 502 });
   }
+}
+
+export async function POST(request: Request) {
+  return postPaystackVerifyResponse(request);
 }

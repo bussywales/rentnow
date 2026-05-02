@@ -38,14 +38,47 @@ type PaymentRow = {
 
 const routeLabel = "/api/billing/webhook";
 
-export async function POST(request: Request) {
+export type BillingWebhookRouteDeps = {
+  hasServiceRoleEnv: typeof hasServiceRoleEnv;
+  getProviderModes: typeof getProviderModes;
+  getPaystackServerConfig: typeof getPaystackServerConfig;
+  createServiceRoleClient: typeof createServiceRoleClient;
+  getPaystackSubscriptionEventByReference: typeof getPaystackSubscriptionEventByReference;
+  finalizePaystackSubscriptionEvent: typeof finalizePaystackSubscriptionEvent;
+  consumeListingCredit: typeof consumeListingCredit;
+  consumeFeaturedCredit: typeof consumeFeaturedCredit;
+  getFeaturedConfig: typeof getFeaturedConfig;
+  logFailure: typeof logFailure;
+  logPropertyEvent: typeof logPropertyEvent;
+  issueReferralRewardsForEvent: typeof issueReferralRewardsForEvent;
+};
+
+const defaultDeps: BillingWebhookRouteDeps = {
+  hasServiceRoleEnv,
+  getProviderModes,
+  getPaystackServerConfig,
+  createServiceRoleClient,
+  getPaystackSubscriptionEventByReference,
+  finalizePaystackSubscriptionEvent,
+  consumeListingCredit,
+  consumeFeaturedCredit,
+  getFeaturedConfig,
+  logFailure,
+  logPropertyEvent,
+  issueReferralRewardsForEvent,
+};
+
+export async function postBillingWebhookResponse(
+  request: Request,
+  deps: BillingWebhookRouteDeps = defaultDeps
+) {
   const startTime = Date.now();
-  if (!hasServiceRoleEnv()) {
+  if (!deps.hasServiceRoleEnv()) {
     return NextResponse.json({ error: "Service role not configured" }, { status: 503 });
   }
 
-  const { paystackMode } = await getProviderModes();
-  const config = await getPaystackServerConfig(paystackMode);
+  const { paystackMode } = await deps.getProviderModes();
+  const config = await deps.getPaystackServerConfig(paystackMode);
   if (!config.keyPresent) {
     return NextResponse.json({ error: "Paystack not configured" }, { status: 503 });
   }
@@ -83,7 +116,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  const adminClient = createServiceRoleClient() as unknown as UntypedAdminClient;
+  const adminClient = deps.createServiceRoleClient() as unknown as UntypedAdminClient;
   const { data: payment, error: paymentError } = await adminClient
     .from("listing_payments")
     .select("id, user_id, listing_id, status, amount, currency, idempotency_key")
@@ -108,13 +141,13 @@ export async function POST(request: Request) {
   }
 
   if (paymentError || (!typedPayment && !typedFeaturePurchase)) {
-    const subscriptionEvent = await getPaystackSubscriptionEventByReference({
+    const subscriptionEvent = await deps.getPaystackSubscriptionEventByReference({
       adminClient,
       reference,
     });
 
     if (subscriptionEvent) {
-      const result = await finalizePaystackSubscriptionEvent({
+      const result = await deps.finalizePaystackSubscriptionEvent({
         adminClient,
         reference,
         event: subscriptionEvent,
@@ -131,7 +164,7 @@ export async function POST(request: Request) {
       }
 
       if (result.retryable) {
-        logFailure({
+        deps.logFailure({
           request,
           route: routeLabel,
           status: result.httpStatus,
@@ -152,7 +185,7 @@ export async function POST(request: Request) {
       });
     }
 
-    logFailure({
+    deps.logFailure({
       request,
       route: routeLabel,
       status: 404,
@@ -165,7 +198,7 @@ export async function POST(request: Request) {
 
   if (!isFeaturedPurchase && typedPayment?.status === "paid") {
     try {
-      await issueReferralRewardsForEvent({
+      await deps.issueReferralRewardsForEvent({
         client: adminClient as unknown as SupabaseClient,
         referredUserId: typedPayment.user_id,
         eventType: "payg_listing_fee_paid",
@@ -179,7 +212,7 @@ export async function POST(request: Request) {
 
   if (isFeaturedPurchase && typedFeaturePurchase?.status === "paid") {
     try {
-      await issueReferralRewardsForEvent({
+      await deps.issueReferralRewardsForEvent({
         client: adminClient as unknown as SupabaseClient,
         referredUserId: typedFeaturePurchase.user_id,
         eventType: "featured_purchase_paid",
@@ -198,7 +231,7 @@ export async function POST(request: Request) {
     .eq("id", isFeaturedPurchase ? typedFeaturePurchase!.id : typedPayment!.id);
 
   if (updateError) {
-    logFailure({
+    deps.logFailure({
       request,
       route: routeLabel,
       status: 500,
@@ -223,7 +256,7 @@ export async function POST(request: Request) {
 
   if (!existingConsumption) {
     if (!idempotencyKey) {
-      logFailure({
+      deps.logFailure({
         request,
         route: routeLabel,
         status: 400,
@@ -235,7 +268,7 @@ export async function POST(request: Request) {
     }
 
     if (isFeaturedPurchase && typedFeaturePurchase) {
-      const featuredConfig = await getFeaturedConfig();
+      const featuredConfig = await deps.getFeaturedConfig();
       await adminClient.from("featured_credits").insert({
         user_id: typedFeaturePurchase.user_id,
         source: "payg",
@@ -245,7 +278,7 @@ export async function POST(request: Request) {
         updated_at: now,
       });
 
-      const consumed = await consumeFeaturedCredit({
+      const consumed = await deps.consumeFeaturedCredit({
         client: adminClient as unknown as SupabaseClient,
         userId: typedFeaturePurchase.user_id,
         listingId: typedFeaturePurchase.listing_id,
@@ -273,7 +306,7 @@ export async function POST(request: Request) {
         updated_at: now,
       });
 
-      const consumed = await consumeListingCredit({
+      const consumed = await deps.consumeListingCredit({
         client: adminClient as unknown as SupabaseClient,
         userId: typedPayment.user_id,
         listingId: typedPayment.listing_id,
@@ -282,7 +315,7 @@ export async function POST(request: Request) {
 
       if (consumed.ok) {
         if (consumed.consumed) {
-          await logPropertyEvent({
+          await deps.logPropertyEvent({
             supabase: adminClient as unknown as SupabaseClient,
             propertyId: typedPayment.listing_id,
             eventType: "listing_credit_consumed",
@@ -315,7 +348,7 @@ export async function POST(request: Request) {
   const eventAmount = isFeaturedPurchase ? typedFeaturePurchase!.amount : typedPayment!.amount;
   const eventCurrency = isFeaturedPurchase ? typedFeaturePurchase!.currency : typedPayment!.currency;
 
-  await logPropertyEvent({
+  await deps.logPropertyEvent({
     supabase: adminClient as unknown as SupabaseClient,
     propertyId: eventListingId,
     eventType: "listing_payment_succeeded",
@@ -327,7 +360,7 @@ export async function POST(request: Request) {
 
   try {
     if (!isFeaturedPurchase && typedPayment) {
-      await issueReferralRewardsForEvent({
+      await deps.issueReferralRewardsForEvent({
         client: adminClient as unknown as SupabaseClient,
         referredUserId: typedPayment.user_id,
         eventType: "payg_listing_fee_paid",
@@ -335,7 +368,7 @@ export async function POST(request: Request) {
       });
     }
     if (isFeaturedPurchase && typedFeaturePurchase) {
-      await issueReferralRewardsForEvent({
+      await deps.issueReferralRewardsForEvent({
         client: adminClient as unknown as SupabaseClient,
         referredUserId: typedFeaturePurchase.user_id,
         eventType: "featured_purchase_paid",
@@ -347,4 +380,8 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+export async function POST(request: Request) {
+  return postBillingWebhookResponse(request);
 }

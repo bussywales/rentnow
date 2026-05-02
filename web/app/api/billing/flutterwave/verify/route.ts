@@ -34,9 +34,50 @@ type ProviderPaymentEventRow = {
   transaction_id: string | null;
 };
 
-export async function POST(request: Request) {
+export type FlutterwaveVerifyRouteDeps = {
+  requireRole: typeof requireRole;
+  hasServiceRoleEnv: typeof hasServiceRoleEnv;
+  createServiceRoleClient: typeof createServiceRoleClient;
+  getFlutterwaveConfig: typeof getFlutterwaveConfig;
+  fetchImpl: typeof fetch;
+  logFailure: typeof logFailure;
+  logProviderPlanUpdated: typeof logProviderPlanUpdated;
+  logProviderVerifyOutcome: typeof logProviderVerifyOutcome;
+  issueSubscriptionCreditsIfNeeded: typeof issueSubscriptionCreditsIfNeeded;
+  upsertSubscriptionRecord: typeof upsertSubscriptionRecord;
+  issueReferralRewardsForEvent: typeof issueReferralRewardsForEvent;
+  computeValidUntil: typeof computeValidUntil;
+  computeProviderPlanUpdate: typeof computeProviderPlanUpdate;
+  isProviderEventProcessed: typeof isProviderEventProcessed;
+  normalizeCadence: typeof normalizeCadence;
+  resolveTierForRole: typeof resolveTierForRole;
+};
+
+const defaultDeps: FlutterwaveVerifyRouteDeps = {
+  requireRole,
+  hasServiceRoleEnv,
+  createServiceRoleClient,
+  getFlutterwaveConfig,
+  fetchImpl: fetch,
+  logFailure,
+  logProviderPlanUpdated,
+  logProviderVerifyOutcome,
+  issueSubscriptionCreditsIfNeeded,
+  upsertSubscriptionRecord,
+  issueReferralRewardsForEvent,
+  computeValidUntil,
+  computeProviderPlanUpdate,
+  isProviderEventProcessed,
+  normalizeCadence,
+  resolveTierForRole,
+};
+
+export async function postFlutterwaveVerifyResponse(
+  request: Request,
+  deps: FlutterwaveVerifyRouteDeps = defaultDeps
+) {
   const startTime = Date.now();
-  const auth = await requireRole({
+  const auth = await deps.requireRole({
     request,
     route: routeLabel,
     startTime,
@@ -44,7 +85,7 @@ export async function POST(request: Request) {
   });
   if (!auth.ok) return auth.response;
 
-  if (!hasServiceRoleEnv()) {
+  if (!deps.hasServiceRoleEnv()) {
     return NextResponse.json(
       { error: "Service role key missing; Flutterwave verification unavailable." },
       { status: 503 }
@@ -64,7 +105,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing tx_ref." }, { status: 400 });
   }
 
-  const adminClient = createServiceRoleClient();
+  const adminClient = deps.createServiceRoleClient();
   const adminDb = adminClient as unknown as UntypedAdminClient;
   const { data: event } = await adminDb
     .from<ProviderPaymentEventRow>("provider_payment_events")
@@ -81,10 +122,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  if (isProviderEventProcessed({ status: event.status, processed_at: event.processed_at })) {
+  if (deps.isProviderEventProcessed({ status: event.status, processed_at: event.processed_at })) {
     if (event.status === "verified") {
       try {
-        await issueReferralRewardsForEvent({
+        await deps.issueReferralRewardsForEvent({
           client: adminDb as unknown as SupabaseClient,
           referredUserId: event.profile_id,
           eventType: "subscription_paid",
@@ -94,7 +135,7 @@ export async function POST(request: Request) {
         // Referral rewards should never block subscription verification responses.
       }
     }
-    logProviderVerifyOutcome({
+    deps.logProviderVerifyOutcome({
       request,
       route: routeLabel,
       provider: "flutterwave",
@@ -133,7 +174,7 @@ export async function POST(request: Request) {
   }
 
   const normalizedTier = event.plan_tier as PlanTier;
-  if (auth.role !== "admin" && !resolveTierForRole(auth.role, normalizedTier)) {
+  if (auth.role !== "admin" && !deps.resolveTierForRole(auth.role, normalizedTier)) {
     await adminDb
       .from("provider_payment_events")
       .update({ status: "failed", reason: "role_mismatch" })
@@ -142,7 +183,7 @@ export async function POST(request: Request) {
   }
 
   const eventMode = event.mode === "live" ? "live" : "test";
-  const config = await getFlutterwaveConfig(eventMode);
+  const config = await deps.getFlutterwaveConfig(eventMode);
   if (!config.keyPresent) {
     return NextResponse.json(
       { error: "Flutterwave is not configured. Add keys in Admin → Billing settings." },
@@ -164,7 +205,7 @@ export async function POST(request: Request) {
       verifyUrl = `https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(reference)}`;
     }
 
-    const verifyRes = await fetch(verifyUrl, {
+    const verifyRes = await deps.fetchImpl(verifyUrl, {
       headers: {
         authorization: `Bearer ${config.secretKey}`,
       },
@@ -175,7 +216,7 @@ export async function POST(request: Request) {
         .from("provider_payment_events")
         .update({ status: "failed", reason: "verify_failed" })
         .eq("id", event.id);
-      logProviderVerifyOutcome({
+      deps.logProviderVerifyOutcome({
         request,
         route: routeLabel,
         provider: "flutterwave",
@@ -202,7 +243,7 @@ export async function POST(request: Request) {
           transaction_id: resolvedTransactionId,
         })
         .eq("id", event.id);
-      logProviderVerifyOutcome({
+      deps.logProviderVerifyOutcome({
         request,
         route: routeLabel,
         provider: "flutterwave",
@@ -221,8 +262,8 @@ export async function POST(request: Request) {
       .eq("profile_id", event.profile_id)
       .maybeSingle();
 
-    const validUntil = computeValidUntil(normalizeCadence(event.cadence));
-    const decision = computeProviderPlanUpdate(normalizedTier, validUntil, existingPlan as {
+    const validUntil = deps.computeValidUntil(deps.normalizeCadence(event.cadence));
+    const decision = deps.computeProviderPlanUpdate(normalizedTier, validUntil, existingPlan as {
       billing_source?: string | null;
       plan_tier?: string | null;
       valid_until?: string | null;
@@ -239,7 +280,7 @@ export async function POST(request: Request) {
         })
         .eq("id", event.id);
 
-      logProviderVerifyOutcome({
+      deps.logProviderVerifyOutcome({
         request,
         route: routeLabel,
         provider: "flutterwave",
@@ -275,7 +316,7 @@ export async function POST(request: Request) {
         .from("provider_payment_events")
         .update({ status: "failed", reason: "plan_update_failed", transaction_id: resolvedTransactionId })
         .eq("id", event.id);
-      logFailure({
+      deps.logFailure({
         request,
         route: routeLabel,
         status: 500,
@@ -285,7 +326,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unable to apply plan update." }, { status: 500 });
     }
 
-    const subscriptionRow = await upsertSubscriptionRecord({
+    const subscriptionRow = await deps.upsertSubscriptionRecord({
       adminClient: adminDb as unknown as SupabaseClient,
       userId: event.profile_id,
       provider: "flutterwave",
@@ -298,7 +339,7 @@ export async function POST(request: Request) {
     });
 
     if (subscriptionRow?.id) {
-      await issueSubscriptionCreditsIfNeeded({
+      await deps.issueSubscriptionCreditsIfNeeded({
         adminClient: adminDb as unknown as SupabaseClient,
         subscriptionId: subscriptionRow.id,
         userId: event.profile_id,
@@ -318,7 +359,7 @@ export async function POST(request: Request) {
       })
       .eq("id", event.id);
 
-    logProviderPlanUpdated({
+    deps.logProviderPlanUpdated({
       request,
       route: routeLabel,
       provider: "flutterwave",
@@ -328,7 +369,7 @@ export async function POST(request: Request) {
       validUntil: decision.validUntil,
     });
 
-    logProviderVerifyOutcome({
+    deps.logProviderVerifyOutcome({
       request,
       route: routeLabel,
       provider: "flutterwave",
@@ -339,7 +380,7 @@ export async function POST(request: Request) {
     });
 
     try {
-      await issueReferralRewardsForEvent({
+      await deps.issueReferralRewardsForEvent({
         client: adminDb as unknown as SupabaseClient,
         referredUserId: event.profile_id,
         eventType: "subscription_paid",
@@ -351,7 +392,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, status: "verified", valid_until: decision.validUntil });
   } catch (error) {
-    logFailure({
+    deps.logFailure({
       request,
       route: routeLabel,
       status: 500,
@@ -360,4 +401,8 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ error: "Flutterwave verification failed." }, { status: 502 });
   }
+}
+
+export async function POST(request: Request) {
+  return postFlutterwaveVerifyResponse(request);
 }
