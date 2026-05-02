@@ -36,6 +36,8 @@ void test("delivery monitor client exposes list rows, drawer detail, and testing
   assert.match(source, /data-testid="delivery-monitor-status-select"/);
   assert.match(source, /data-testid="delivery-monitor-testing-status-select"/);
   assert.match(source, /data-testid="delivery-monitor-note-input"/);
+  assert.doesNotMatch(source, /toLocaleString\(/);
+  assert.match(source, /toISOString\(\)/);
 });
 
 void test("delivery monitor seed includes the core stakeholder closure items", () => {

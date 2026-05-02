@@ -17,13 +17,8 @@ import {
 function formatDateTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("en-GB", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const iso = date.toISOString();
+  return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
 }
 
 function StatusBadge({ status }: { status: DeliveryMonitorStatus }) {
