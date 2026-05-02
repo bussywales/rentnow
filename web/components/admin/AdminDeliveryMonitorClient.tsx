@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { BottomSheet } from "@/components/ui/BottomSheet";
+import { cn } from "@/components/ui/cn";
 import {
   getDeliveryMonitorStatusLabel,
   getDeliveryMonitorStatusTone,
@@ -488,19 +489,20 @@ export function AdminDeliveryMonitorClient({
 
       <div className="hidden md:block">
         <div
-          className={`fixed inset-0 z-40 ${drawerOpen ? "pointer-events-auto" : "pointer-events-none"}`}
+          className={cn("fixed inset-0 z-40", drawerOpen ? "pointer-events-auto" : "pointer-events-none")}
           aria-hidden={!drawerOpen}
         >
           <button
             type="button"
-            className={`absolute inset-0 bg-slate-900/30 transition-opacity ${drawerOpen ? "opacity-100" : "opacity-0"}`}
+            className={cn("absolute inset-0 bg-slate-900/30 transition-opacity", drawerOpen ? "opacity-100" : "opacity-0")}
             onClick={() => setSelectedItemKey(null)}
             aria-label="Close delivery monitor drawer"
           />
           <aside
-            className={`absolute right-0 top-0 h-full w-full max-w-2xl translate-x-full border-l border-slate-200 bg-white shadow-2xl transition-transform ${
-              drawerOpen ? "translate-x-0" : ""
-            }`}
+            className={cn(
+              "absolute right-0 top-0 h-full w-full max-w-2xl border-l border-slate-200 bg-white shadow-2xl transition-transform",
+              drawerOpen ? "translate-x-0" : "translate-x-full"
+            )}
             data-testid="delivery-monitor-drawer"
           >
             {selectedItem ? (
