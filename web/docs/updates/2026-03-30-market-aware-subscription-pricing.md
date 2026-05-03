@@ -20,9 +20,9 @@ summary: Replaced hardcoded GBP subscription pricing in billing with a market-aw
 - Stripe subscriptions support currency-suffixed price env keys such as `STRIPE_PRICE_TENANT_MONTHLY_NGN_LIVE` while keeping legacy role/cadence keys as fallback.
 - Billing UI and checkout now share the same pricing resolver, so users are not shown one currency and charged another.
 - If the active market changes while the billing page is open, checkout is paused until pricing is refreshed.
-- `/api/debug/env` now exposes market-aware Stripe subscription price readiness for GBP, NGN, and CAD.
+- Historical note: this batch originally exposed market-aware Stripe subscription price readiness through `/api/debug/env` for GBP, NGN, and CAD.
 
-Historical note: `/api/debug/env` has since been deprecated and current diagnostics live behind admin-only routes.
+`/api/debug/env` has since been deprecated and current diagnostics live behind admin-only routes.
 
 Rollback:
 
