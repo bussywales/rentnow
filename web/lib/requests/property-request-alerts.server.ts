@@ -57,6 +57,8 @@ type QueryClientLike = {
   };
 };
 
+type DeliveryStatus = "sent" | "failed";
+
 export type PropertyRequestPublishedAlertDeps = {
   hasServiceRoleEnv: typeof hasServiceRoleEnv;
   createServiceRoleClient: typeof createServiceRoleClient;
@@ -80,7 +82,7 @@ export type PropertyRequestPublishedAlertDeps = {
       subscriptionId: string;
       requestId: string;
       userId: string;
-      deliveryStatus: "sent" | "failed";
+      deliveryStatus: DeliveryStatus;
     }
   ) => Promise<void>;
   getUserEmail: (client: EmailLookupClient, userId: string) => Promise<string | null>;
@@ -92,6 +94,34 @@ export type PropertyRequestPublishedAlertDeps = {
     subscription: PropertyRequestAlertSubscription;
   }) => Promise<void>;
 };
+
+export async function recordPropertyRequestAlertDelivery(
+  client: QueryClientLike,
+  input: {
+    subscriptionId: string;
+    requestId: string;
+    userId: string;
+    deliveryStatus: DeliveryStatus;
+  }
+) {
+  const deliveryTable = client.from("property_request_alert_deliveries");
+  const insert = deliveryTable.insert;
+  if (!insert) return;
+  const { error } = await insert.call(deliveryTable, {
+    subscription_id: input.subscriptionId,
+    request_id: input.requestId,
+    user_id: input.userId,
+    channel: "email",
+    delivery_status: input.deliveryStatus,
+  });
+  if (error && error.code !== "23505") {
+    console.warn("[property-request-alerts] delivery_log_failed", {
+      requestId: input.requestId,
+      subscriptionId: input.subscriptionId,
+      message: error.message || "insert_failed",
+    });
+  }
+}
 
 const defaultDeps: PropertyRequestPublishedAlertDeps = {
   hasServiceRoleEnv,
@@ -132,24 +162,7 @@ const defaultDeps: PropertyRequestPublishedAlertDeps = {
         .filter((value): value is string => typeof value === "string" && value.length > 0)
     );
   },
-  async recordDelivery(client, input) {
-    const insert = client.from("property_request_alert_deliveries").insert;
-    if (!insert) return;
-    const { error } = await insert({
-      subscription_id: input.subscriptionId,
-      request_id: input.requestId,
-      user_id: input.userId,
-      channel: "email",
-      delivery_status: input.deliveryStatus,
-    });
-    if (error && error.code !== "23505") {
-      console.warn("[property-request-alerts] delivery_log_failed", {
-        requestId: input.requestId,
-        subscriptionId: input.subscriptionId,
-        message: error.message || "insert_failed",
-      });
-    }
-  },
+  recordDelivery: recordPropertyRequestAlertDelivery,
   async getUserEmail(client, userId) {
     const response = await client.auth.admin.getUserById(userId);
     const email = response.data?.user?.email ?? null;
@@ -300,40 +313,92 @@ export async function notifyHostsOfPublishedPropertyRequest(
   let skipped = subscriptions.length - recipients.length;
 
   for (const subscription of recipients) {
-    const recipientEmail = await deps.getUserEmail(
-      client as unknown as EmailLookupClient,
-      subscription.userId
-    );
-    if (!recipientEmail) {
-      skipped += 1;
-      continue;
-    }
+    let attemptedSend = false;
+    let deliveryRecorded = false;
 
-    attempted += 1;
-    const result = await deps.sendEmail({
-      to: recipientEmail,
-      subject: email.subject,
-      html: email.html,
-    });
+    try {
+      const recipientEmail = await deps.getUserEmail(
+        client as unknown as EmailLookupClient,
+        subscription.userId
+      );
+      if (!recipientEmail) {
+        skipped += 1;
+        console.warn("[property-request-alerts] recipient_email_missing", {
+          requestId: request.id,
+          subscriptionId: subscription.id,
+          userId: subscription.userId,
+        });
+        continue;
+      }
 
-    await deps.recordDelivery(client as unknown as QueryClientLike, {
-      subscriptionId: subscription.id,
-      requestId: request.id,
-      userId: subscription.userId,
-      deliveryStatus: result.ok ? "sent" : "failed",
-    });
+      attempted += 1;
+      attemptedSend = true;
 
-    if (result.ok) {
-      sent += 1;
-      await deps.logSubscriberAlertSent({
-        userId: subscription.userId,
-        role: subscription.role,
-        request,
-        subscription,
+      const result = await deps.sendEmail({
+        to: recipientEmail,
+        subject: email.subject,
+        html: email.html,
       });
+
+      await deps.recordDelivery(client as unknown as QueryClientLike, {
+        subscriptionId: subscription.id,
+        requestId: request.id,
+        userId: subscription.userId,
+        deliveryStatus: result.ok ? "sent" : "failed",
+      });
+      deliveryRecorded = true;
+
+      if (result.ok) {
+        sent += 1;
+        try {
+          await deps.logSubscriberAlertSent({
+            userId: subscription.userId,
+            role: subscription.role,
+            request,
+            subscription,
+          });
+        } catch (error) {
+          console.warn("[property-request-alerts] analytics_log_failed", {
+            requestId: request.id,
+            subscriptionId: subscription.id,
+            userId: subscription.userId,
+            message: error instanceof Error ? error.message : "unknown_error",
+          });
+        }
+      } else {
+        console.warn("[property-request-alerts] send_failed", {
+          requestId: request.id,
+          subscriptionId: subscription.id,
+          userId: subscription.userId,
+          message: result.error || "send_failed",
+        });
+      }
+    } catch (error) {
+      console.error("[property-request-alerts] notify_recipient_failed", {
+        requestId: request.id,
+        subscriptionId: subscription.id,
+        userId: subscription.userId,
+        message: error instanceof Error ? error.message : "unknown_error",
+      });
+      if (attemptedSend && !deliveryRecorded) {
+        try {
+          await deps.recordDelivery(client as unknown as QueryClientLike, {
+            subscriptionId: subscription.id,
+            requestId: request.id,
+            userId: subscription.userId,
+            deliveryStatus: "failed",
+          });
+        } catch (recordError) {
+          console.error("[property-request-alerts] notify_recipient_failed_delivery_unlogged", {
+            requestId: request.id,
+            subscriptionId: subscription.id,
+            userId: subscription.userId,
+            message: recordError instanceof Error ? recordError.message : "unknown_error",
+          });
+        }
+      }
     }
   }
 
   return { ok: true as const, attempted, sent, skipped };
 }
-

@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildPropertyRequestPublishedAlertEmail } from "@/lib/email/templates/property-request-published-alert";
-import { notifyHostsOfPublishedPropertyRequest } from "@/lib/requests/property-request-alerts.server";
+import {
+  notifyHostsOfPublishedPropertyRequest,
+  recordPropertyRequestAlertDelivery,
+} from "@/lib/requests/property-request-alerts.server";
 import type { PropertyRequest } from "@/lib/requests/property-requests";
 import type { PropertyRequestAlertSubscription } from "@/lib/requests/property-request-alert-subscriptions";
 
@@ -232,6 +235,91 @@ void test("property request subscriber alerts skip subscriptions when profile ro
     sent: 0,
     skipped: 2,
   });
+});
+
+void test("property request subscriber alerts keep processing when analytics logging fails after a successful send", async () => {
+  const sentTo: string[] = [];
+  const deliveryLog: Array<{ subscriptionId: string; deliveryStatus: "sent" | "failed" }> = [];
+
+  const result = await notifyHostsOfPublishedPropertyRequest(request, {
+    hasServiceRoleEnv: () => true,
+    createServiceRoleClient: () => ({}) as never,
+    getSiteUrl: async () => "https://www.propatyhub.com",
+    loadActiveSubscriptions: async () => [
+      createSubscription({ id: "sub-1", userId: "agent-1", role: "agent", intent: "rent" }),
+      createSubscription({ id: "sub-2", userId: "landlord-1", role: "landlord", intent: "rent" }),
+    ],
+    loadProfileAlertPreferences: async () => [
+      { id: "agent-1", role: "agent", property_request_alerts_enabled: true },
+      { id: "landlord-1", role: "landlord", property_request_alerts_enabled: true },
+    ],
+    loadExistingDeliveries: async () => new Set<string>(),
+    recordDelivery: async (_client, input) => {
+      deliveryLog.push({
+        subscriptionId: input.subscriptionId,
+        deliveryStatus: input.deliveryStatus,
+      });
+    },
+    getUserEmail: async (_client, userId) => `${userId}@example.com`,
+    sendEmail: async ({ to }) => {
+      sentTo.push(to);
+      return { ok: true };
+    },
+    logSubscriberAlertSent: async ({ userId }) => {
+      if (userId === "agent-1") {
+        throw new Error("analytics temporarily unavailable");
+      }
+    },
+  });
+
+  assert.deepEqual(sentTo.sort(), ["agent-1@example.com", "landlord-1@example.com"]);
+  assert.deepEqual(
+    deliveryLog.sort((left, right) => left.subscriptionId.localeCompare(right.subscriptionId)),
+    [
+      { subscriptionId: "sub-1", deliveryStatus: "sent" },
+      { subscriptionId: "sub-2", deliveryStatus: "sent" },
+    ]
+  );
+  assert.deepEqual(result, {
+    ok: true,
+    attempted: 2,
+    sent: 2,
+    skipped: 0,
+  });
+});
+
+void test("property request alert delivery recorder keeps the insert builder bound", async () => {
+  const insertedRows: Array<Record<string, unknown>> = [];
+
+  const client = {
+    from(table: string) {
+      return {
+        table,
+        async insert(row: Record<string, unknown>) {
+          assert.equal(this.table, "property_request_alert_deliveries");
+          insertedRows.push(row);
+          return { error: null };
+        },
+      };
+    },
+  };
+
+  await recordPropertyRequestAlertDelivery(client, {
+    subscriptionId: "sub-1",
+    requestId: "req-1",
+    userId: "agent-1",
+    deliveryStatus: "sent",
+  });
+
+  assert.deepEqual(insertedRows, [
+    {
+      subscription_id: "sub-1",
+      request_id: "req-1",
+      user_id: "agent-1",
+      channel: "email",
+      delivery_status: "sent",
+    },
+  ]);
 });
 
 void test("property request published email template renders request summary CTA and manage link", () => {
