@@ -234,30 +234,32 @@ export const DELIVERY_MONITOR_SEED_ITEMS: DeliveryMonitorSeedItem[] = [
   },
   {
     key: "canada_market_segmentation",
-    title: "Canada market segmentation",
-    workstream: "Commercial + international market rollout",
-    status: "amber",
-    owner: "Markets + billing",
-    nextAction: "Validate CA pricing and market rollout with live operational checks before broadening claims.",
+    title: "Canada market segmentation policy + implementation",
+    workstream: "Canada market segmentation policy + implementation",
+    status: "red",
+    owner: "Markets + billing policy",
+    nextAction:
+      "Define the Canada policy decision pack before coding; see docs/product/canada-market-segmentation-policy.md.",
     description:
-      "Keep Canada as an explicitly modelled market lane in routing, pricing, and discovery without overstating rollout readiness.",
+      "Canada remains policy-gated. Shared multi-market plumbing exists, but pricing, tax, provider-routing, entitlement, moderation, and launch-scope decisions are not defined yet.",
     whyItMatters:
-      "International market support is easy to overclaim. Canada needs truthful segmentation rather than silent fallback behavior.",
+      "International market support is easy to overclaim. Canada must not be treated as rollout-ready until stakeholders define the commercial, tax, and compliance policy.",
     delivered: [
-      "Repo truth includes CA market and CAD-aware pricing logic.",
-      "Stripe is the canonical provider for Canada / non-NGN international lanes in product decision docs.",
-      "Tests cover Canada market selection and canonical subscription pricing behavior.",
+      "Shared multi-market plumbing already includes CA and CAD support.",
+      "Discovery and location handling already recognize Canada as a market.",
+      "Partial subscription-pricing infrastructure and tests already anticipate Canada scenarios.",
     ],
     outstanding: [
-      "Live rollout validation is still needed before treating Canada as fully closed operationally.",
-      "Avoid implying wider Canada self-serve readiness than repo truth supports today.",
+      "Stakeholders still need to define Canada pricing in CAD across subscriptions, PAYG listings, and featured lanes.",
+      "Stakeholders still need to define tax handling (GST/HST/PST), receipts posture, provider routing, entitlements, moderation, and launch scope.",
+      "No implementation should proceed until the Canada policy document is resolved.",
     ],
     testingGuide: [
-      "Confirm CA market selection, labels, and market-aware defaults.",
-      "Verify CAD pricing resolves through canonical rows rather than fallback behavior.",
-      "Check billing and publish recovery surfaces for truthful Canada copy and routing.",
+      "Treat existing Canada pricing tests as plumbing proof only, not as approval of real CAD pricing.",
+      "Verify no admin or delivery copy implies Canada is rollout-ready before the policy decisions are made.",
+      "Use the policy document to check that any future coding batch stays within the approved Canada launch scope.",
     ],
-    repoUpdatedAt: "2026-05-02T00:00:00.000Z",
+    repoUpdatedAt: "2026-05-03T00:00:00.000Z",
   },
   {
     key: "bootcamp_launch_system",
