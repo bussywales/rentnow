@@ -69,17 +69,6 @@ function ConfirmContent() {
       return;
     }
     const run = async () => {
-      // If we already have a session (e.g., user logged in manually), skip exchange.
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session?.user) {
-        setStatus("success");
-        setMessage("Session found. Redirecting to onboarding...");
-        goToNextStep();
-        return;
-      }
-
       if (code) {
         setStatus("exchanging");
         setMessage("Processing your verification link...");
@@ -103,6 +92,17 @@ function ConfirmContent() {
         goToNextStep();
         return;
       }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user) {
+        setStatus("success");
+        setMessage("Session found. Redirecting to onboarding...");
+        goToNextStep();
+        return;
+      }
+
       await checkSession();
     };
 
