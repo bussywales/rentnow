@@ -12,7 +12,7 @@ updated_at: "2026-03-21"
 - `/admin/requests/[id]` is the admin inspection and moderation view.
 - Analytics currently include created, published, open, matched, closed, expired, removed, with-response, zero-response, total responses, response rate, first-response timing, and segment breakdowns.
 - Moderation actions are explicit: close, expire, or remove.
-- Newly published open requests can trigger targeted responder email alerts for landlords and agents with matching live supply in the same market.
+- Newly published open requests can trigger targeted responder email alerts for landlords and agents with active saved alert criteria in the same market.
 
 ## Analytics operations
 

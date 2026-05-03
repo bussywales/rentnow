@@ -162,6 +162,78 @@ void test("property request subscriber alerts suppress duplicate delivery per su
   });
 });
 
+void test("property request subscriber alerts record failed sends without leaking analytics success", async () => {
+  const deliveryLog: Array<{ subscriptionId: string; deliveryStatus: "sent" | "failed" }> = [];
+  const analyticsRecipients: string[] = [];
+
+  const result = await notifyHostsOfPublishedPropertyRequest(request, {
+    hasServiceRoleEnv: () => true,
+    createServiceRoleClient: () => ({}) as never,
+    getSiteUrl: async () => "https://www.propatyhub.com",
+    loadActiveSubscriptions: async () => [
+      createSubscription({ id: "sub-1", userId: "agent-1", role: "agent", intent: "rent" }),
+    ],
+    loadProfileAlertPreferences: async () => [
+      { id: "agent-1", role: "agent", property_request_alerts_enabled: true },
+    ],
+    loadExistingDeliveries: async () => new Set<string>(),
+    recordDelivery: async (_client, input) => {
+      deliveryLog.push({
+        subscriptionId: input.subscriptionId,
+        deliveryStatus: input.deliveryStatus,
+      });
+    },
+    getUserEmail: async () => "agent-1@example.com",
+    sendEmail: async () => ({ ok: false, error: "resend_500" }),
+    logSubscriberAlertSent: async ({ userId }) => {
+      analyticsRecipients.push(userId);
+    },
+  });
+
+  assert.deepEqual(deliveryLog, [{ subscriptionId: "sub-1", deliveryStatus: "failed" }]);
+  assert.deepEqual(analyticsRecipients, []);
+  assert.deepEqual(result, {
+    ok: true,
+    attempted: 1,
+    sent: 0,
+    skipped: 0,
+  });
+});
+
+void test("property request subscriber alerts skip subscriptions when profile role drifts or alerts are disabled", async () => {
+  let sent = false;
+
+  const result = await notifyHostsOfPublishedPropertyRequest(request, {
+    hasServiceRoleEnv: () => true,
+    createServiceRoleClient: () => ({}) as never,
+    getSiteUrl: async () => "https://www.propatyhub.com",
+    loadActiveSubscriptions: async () => [
+      createSubscription({ id: "sub-1", userId: "agent-1", role: "agent", intent: "rent" }),
+      createSubscription({ id: "sub-2", userId: "landlord-1", role: "landlord", intent: "rent" }),
+    ],
+    loadProfileAlertPreferences: async () => [
+      { id: "agent-1", role: "tenant", property_request_alerts_enabled: true },
+      { id: "landlord-1", role: "landlord", property_request_alerts_enabled: false },
+    ],
+    loadExistingDeliveries: async () => new Set<string>(),
+    recordDelivery: async () => undefined,
+    getUserEmail: async () => "ignored@example.com",
+    sendEmail: async () => {
+      sent = true;
+      return { ok: true };
+    },
+    logSubscriberAlertSent: async () => undefined,
+  });
+
+  assert.equal(sent, false);
+  assert.deepEqual(result, {
+    ok: true,
+    attempted: 0,
+    sent: 0,
+    skipped: 2,
+  });
+});
+
 void test("property request published email template renders request summary CTA and manage link", () => {
   const email = buildPropertyRequestPublishedAlertEmail({
     requestId: "req-1",

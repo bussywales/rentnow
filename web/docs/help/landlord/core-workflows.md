@@ -48,9 +48,9 @@ These are guidance cues, not hard publish blocks.
 
 ## Property request alerts
 
-- New published requests can trigger email alerts to responder-side users with matching live supply in the same market.
+- New published requests can trigger email alerts to responder-side users with saved request-alert criteria in the same market.
 - Use `/profile` to manage `Email me when a new property request is published in my market`.
-- The alert is relevance-filtered; it is not sent for every request on the platform.
+- The alert is criteria-based and opt-in; it is not sent for every request on the platform.
 
 ## Host featured strip workflow
 

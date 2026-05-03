@@ -59,10 +59,10 @@ Do not treat a demo listing as real, bookable, or promotable inventory.
 
 ## Property request alerts
 
-- Agents can receive email alerts when a newly published request matches live supply in the same market.
+- Agents can receive email alerts when a newly published request matches their saved request-alert criteria in the same market.
 - Manage the toggle from `/profile`:
   - `Email me when a new property request is published in my market`
-- Alerts are targeted by relevance. They are not a blast to every agent account.
+- Alerts are criteria-based and opt-in. They are not a blast to every agent account.
 
 ## Host featured strip workflow
 

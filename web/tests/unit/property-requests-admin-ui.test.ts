@@ -25,7 +25,8 @@ void test("admin property requests pages expose analytics and moderation contrac
   assert.match(indexPage, /Zero-response/);
   assert.match(indexPage, /Responses sent/);
   assert.match(indexPage, /Subscriber alert activation/);
-  assert.match(indexPage, /Matched alerts sent/);
+  assert.match(indexPage, /Alert deliveries sent/);
+  assert.match(indexPage, /Failed deliveries/);
   assert.match(indexPage, /Subscribers reached/);
   assert.match(indexPage, /Recent 14-day outcome/);
   assert.match(indexPage, /By intent/);

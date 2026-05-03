@@ -69,7 +69,7 @@ Current responder rules:
 
 - Newly published requests can trigger an email alert when:
   - the request is in the same market
-  - you have matching live supply
+  - the request matches the saved alert criteria you created
 - Manage the preference at `/profile`:
   - `Email me when a new property request is published in my market`
 - Turning the toggle off stops future request alert emails but does not affect your ability to browse `/requests`.

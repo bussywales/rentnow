@@ -97,13 +97,16 @@ export default async function AdminPropertyRequestsPage({ searchParams }: Props)
       .select("id, user_id, is_active"),
     client
       .from("property_request_alert_deliveries")
-      .select("user_id"),
+      .select("user_id, delivery_status"),
   ]);
 
   const responseRows = (responseRowsResult.data ?? []) as PropertyRequestAnalyticsResponseRow[];
   const subscriptionRows =
     (subscriptionRowsResult.data ?? []) as Array<{ id: string; user_id: string; is_active: boolean | null }>;
-  const deliveryRows = (deliveryRowsResult.data ?? []) as Array<{ user_id: string | null }>;
+  const deliveryRows = (deliveryRowsResult.data ?? []) as Array<{
+    user_id: string | null;
+    delivery_status: "sent" | "failed" | null;
+  }>;
   const responseSummary = buildPropertyRequestResponseSummaryMap(requests, responseRows);
   const analytics = buildPropertyRequestAdminAnalytics(requests, responseRows);
   const recentOutcome = buildRecentPropertyRequestOutcomeSnapshot(requests, responseRows, {
@@ -115,9 +118,11 @@ export default async function AdminPropertyRequestsPage({ searchParams }: Props)
   const requestAlertStats = {
     subscriptionsCreated: subscriptionRows.length,
     activeSubscriptions: subscriptionRows.filter((row) => row.is_active === true).length,
-    matchedAlertsSent: deliveryRows.length,
+    successfulDeliveries: deliveryRows.filter((row) => row.delivery_status === "sent").length,
+    failedDeliveries: deliveryRows.filter((row) => row.delivery_status === "failed").length,
     distinctSubscribersReached: new Set(
       deliveryRows
+        .filter((row) => row.delivery_status === "sent")
         .map((row) => row.user_id)
         .filter((value): value is string => typeof value === "string" && value.length > 0)
     ).size,
@@ -179,9 +184,12 @@ export default async function AdminPropertyRequestsPage({ searchParams }: Props)
           <div className="mt-2 grid gap-2 md:grid-cols-4">
             <p>Subscriptions created: <span className="font-semibold text-slate-900">{requestAlertStats.subscriptionsCreated}</span></p>
             <p>Active subscriptions: <span className="font-semibold text-slate-900">{requestAlertStats.activeSubscriptions}</span></p>
-            <p>Matched alerts sent: <span className="font-semibold text-slate-900">{requestAlertStats.matchedAlertsSent}</span></p>
+            <p>Alert deliveries sent: <span className="font-semibold text-slate-900">{requestAlertStats.successfulDeliveries}</span></p>
             <p>Subscribers reached: <span className="font-semibold text-slate-900">{requestAlertStats.distinctSubscribersReached}</span></p>
           </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Failed deliveries: <span className="font-semibold text-slate-900">{requestAlertStats.failedDeliveries}</span>
+          </p>
         </div>
         <div
           className="mt-4 rounded-xl border border-sky-200 bg-sky-50/60 p-4 text-sm text-slate-700"

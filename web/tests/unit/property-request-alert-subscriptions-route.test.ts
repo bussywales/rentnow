@@ -190,3 +190,71 @@ void test("request alert subscriptions delete deactivates owned subscription", a
   assert.equal(response.status, 200);
   assert.equal(json.id, "sub-1");
 });
+
+void test("request alert subscriptions create reactivates an inactive duplicate subscription", async () => {
+  const updated: Array<Record<string, unknown>> = [];
+  const response = await postPropertyRequestAlertSubscriptionsResponse(
+    new NextRequest("http://localhost/api/requests/alert-subscriptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        marketCode: "NG",
+        intent: "rent",
+        propertyType: "apartment",
+        city: "Lagos",
+        bedroomsMin: 2,
+      }),
+    }),
+    {
+      hasServerSupabaseEnv: () => true,
+      createServerSupabaseClient: async () =>
+        ({
+          from(table: string) {
+            assert.equal(table, "property_request_alert_subscriptions");
+            return {
+              select() {
+                return {
+                  eq() {
+                    return this;
+                  },
+                  order() {
+                    return Promise.resolve({
+                      data: [{ ...baseRow, is_active: false }],
+                      error: null,
+                    });
+                  },
+                };
+              },
+              update(row: Record<string, unknown>) {
+                updated.push(row);
+                return {
+                  eq() {
+                    return this;
+                  },
+                  select() {
+                    return {
+                      single() {
+                        return Promise.resolve({
+                          data: { ...baseRow, is_active: true },
+                          error: null,
+                        });
+                      },
+                    };
+                  },
+                };
+              },
+            };
+          },
+        }) as never,
+      requireUser: async () => createAuthOk(),
+      getUserRole: async () => "agent",
+      logProductAnalyticsEvent: async () => ({ ok: true }),
+    }
+  );
+  const json = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(updated[0]?.is_active, true);
+  assert.equal(json.subscription.isActive, true);
+  assert.equal(json.created, true);
+});

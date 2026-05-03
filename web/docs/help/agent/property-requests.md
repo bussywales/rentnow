@@ -68,7 +68,7 @@ Responder constraints:
 
 - Newly published requests can trigger an email alert when:
   - the request is in the same market
-  - you control matching live supply directly or through active delegation
+  - the request matches the saved alert criteria you created
 - Manage the preference at `/profile`:
   - `Email me when a new property request is published in my market`
 - Turning the toggle off stops future request alert emails but does not affect access to `/requests`.
