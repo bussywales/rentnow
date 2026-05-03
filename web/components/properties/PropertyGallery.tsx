@@ -10,6 +10,7 @@ import { cn } from "@/components/ui/cn";
 import { resolvePropertyImageUrl } from "@/lib/properties/image-url";
 import { shouldBypassNextImageOptimizer } from "@/lib/images/optimizer-bypass";
 import { shouldDisableImageOptimizationForUsage } from "@/lib/media/image-optimization-mode";
+import { orderImagesWithCover } from "@/lib/properties/images";
 import {
   PropertyImageCarousel,
   type PropertyImageCarouselController,
@@ -19,20 +20,36 @@ type Props = {
   images: PropertyImage[];
   title: string;
   isDemo?: boolean;
+  coverImageUrl?: string | null;
 };
 
 const fallbackImage = "/og-propatyhub.png";
 const blurDataURL =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
 
-export function PropertyGallery({ images, title, isDemo = false }: Props) {
+export function resolvePropertyGalleryImages(
+  images: PropertyImage[],
+  coverImageUrl?: string | null
+): PropertyImage[] {
+  return orderImagesWithCover(coverImageUrl, images);
+}
+
+export function PropertyGallery({
+  images,
+  title,
+  isDemo = false,
+  coverImageUrl = null,
+}: Props) {
   const optimizationMode = useImageOptimizationMode();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [carouselController, setCarouselController] =
     useState<PropertyImageCarouselController | null>(null);
   const [broken, setBroken] = useState<Set<string>>(new Set());
   const thumbRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const safeImages = useMemo(() => (images.length ? images : []), [images]);
+  const safeImages = useMemo(
+    () => resolvePropertyGalleryImages(images.length ? images : [], coverImageUrl),
+    [coverImageUrl, images]
+  );
   const normalizedGalleryImages = useMemo(
     () =>
       safeImages.map((img) => ({

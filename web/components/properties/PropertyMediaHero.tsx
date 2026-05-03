@@ -177,11 +177,25 @@ export function PropertyMediaHero({
   }, [presentation.prefersVideoHero, startPlayback, videoUrl]);
 
   if (!presentation.showVideoTourChip) {
-    return <PropertyGallery images={images} title={title} isDemo={isDemo} />;
+    return (
+      <PropertyGallery
+        images={images}
+        title={title}
+        isDemo={isDemo}
+        coverImageUrl={coverImageUrl}
+      />
+    );
   }
 
   if (presentation.prefersVideoHero && mediaMode === "fallback") {
-    return <PropertyGallery images={images} title={title} isDemo={isDemo} />;
+    return (
+      <PropertyGallery
+        images={images}
+        title={title}
+        isDemo={isDemo}
+        coverImageUrl={coverImageUrl}
+      />
+    );
   }
 
   const showVideoTourChip =
@@ -263,7 +277,12 @@ export function PropertyMediaHero({
           </button>
         ) : null}
       </div>
-      <PropertyGallery images={images} title={title} isDemo={isDemo} />
+      <PropertyGallery
+        images={images}
+        title={title}
+        isDemo={isDemo}
+        coverImageUrl={coverImageUrl}
+      />
       {presentation.showInlineVideoSection ? (
         <div
           id="property-video-tour"

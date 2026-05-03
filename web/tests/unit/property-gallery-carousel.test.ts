@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  resolvePropertyGalleryImages,
   resolveThumbnailTargetIndex,
   shouldRenderGalleryControls,
   shouldRenderGalleryThumbnails,
@@ -17,6 +18,34 @@ void test("thumbnail click target resolves to the active slide index", () => {
   assert.equal(resolveThumbnailTargetIndex(-4, 5), 0);
 });
 
+void test("detail gallery uses one canonical ordered image array for carousel and thumbnails", () => {
+  const ordered = resolvePropertyGalleryImages(
+    [
+      {
+        id: "cover",
+        image_url: "https://cdn.example.com/cover.jpg",
+        position: 12,
+      },
+      {
+        id: "first",
+        image_url: "https://cdn.example.com/first.jpg",
+        position: 0,
+      },
+      {
+        id: "second",
+        image_url: "https://cdn.example.com/second.jpg",
+        position: 1,
+      },
+    ],
+    "https://cdn.example.com/cover.jpg"
+  );
+
+  assert.deepEqual(
+    ordered.map((image) => image.id),
+    ["cover", "first", "second"]
+  );
+});
+
 void test("detail gallery controls only render for multi-image listings", () => {
   assert.equal(shouldRenderGalleryControls(0), false);
   assert.equal(shouldRenderGalleryControls(1), false);
@@ -29,6 +58,7 @@ void test("detail gallery controls only render for multi-image listings", () => 
 void test("detail gallery keeps thumbnail and swipe selection in sync via shared controller hooks", () => {
   const contents = fs.readFileSync(propertyGalleryPath, "utf8");
 
+  assert.ok(contents.includes("resolvePropertyGalleryImages(images.length ? images : [], coverImageUrl)"));
   assert.ok(contents.includes('rootTestId="property-detail-gallery-carousel"'));
   assert.ok(contents.includes("enableActiveSlideMotion"));
   assert.ok(contents.includes('if (e.key === "ArrowLeft")'));
@@ -50,6 +80,7 @@ void test("detail gallery normalizes thumbnail/image sources and uses local fall
   const contents = fs.readFileSync(propertyGalleryPath, "utf8");
 
   assert.ok(contents.includes('const fallbackImage = "/og-propatyhub.png"'));
+  assert.ok(contents.includes("coverImageUrl?: string | null;"));
   assert.ok(contents.includes('resolvePropertyImageUrl(img, "thumb")'));
   assert.ok(contents.includes('resolvePropertyImageUrl(img, "hero")'));
   assert.ok(contents.includes('const optimizationMode = useImageOptimizationMode()'));
