@@ -35,6 +35,20 @@ function ConfirmContent() {
     }
   };
 
+  const parseHashTokens = () => {
+    if (typeof window === "undefined") return null;
+    const hash = window.location.hash?.replace(/^#/, "");
+    if (!hash) return null;
+    const params = new URLSearchParams(hash);
+    const access_token = params.get("access_token");
+    const refresh_token = params.get("refresh_token");
+    const type = params.get("type");
+    if (access_token && refresh_token) {
+      return { access_token, refresh_token, type };
+    }
+    return null;
+  };
+
   const goToNextStep = () => {
     router.replace(redirectTarget);
   };
@@ -69,6 +83,17 @@ function ConfirmContent() {
       return;
     }
     const run = async () => {
+      const hashTokens = parseHashTokens();
+      if (hashTokens?.access_token && hashTokens.refresh_token) {
+        await supabase.auth.setSession({
+          access_token: hashTokens.access_token,
+          refresh_token: hashTokens.refresh_token,
+        });
+        if (typeof window !== "undefined") {
+          window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        }
+      }
+
       if (code) {
         setStatus("exchanging");
         setMessage("Processing your verification link...");
