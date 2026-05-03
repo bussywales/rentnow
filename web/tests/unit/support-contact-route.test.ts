@@ -100,3 +100,57 @@ void test("support contact route returns 429 when rate limit is exceeded", async
   assert.equal(response.status, 429);
   assert.equal(body.retryAfterSeconds, 25);
 });
+
+void test("support contact route accepts standard email formats when provided", async () => {
+  let inserted: Record<string, unknown> | null = null;
+  const dbClient = {
+    from(table: string) {
+      assert.equal(table, "support_requests");
+      return {
+        insert(payload: Record<string, unknown>) {
+          inserted = payload;
+          return {
+            select() {
+              return {
+                async maybeSingle() {
+                  return { data: { id: "support-2" }, error: null };
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  const deps: SupportContactDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => true,
+    createServiceRoleClient: () => dbClient as never,
+    createServerSupabaseClient: async () => dbClient as never,
+    getServerAuthUser: async () => ({ user: null }) as never,
+    enforceSupportRateLimit: async () => ({
+      allowed: true,
+      retryAfterSeconds: 0,
+      remaining: 19,
+      limit: 20,
+      scopeKey: "anon:test",
+      source: "memory",
+    }),
+    notifyAdminsOfSupportTicket: async () => ({ ok: true, attempted: 1, sent: 1, skipped: 0 }) as const,
+  };
+
+  const response = await postSupportContactResponse(
+    makeRequest({
+      category: "general",
+      email: "test.user+bootcamp@example.co.uk",
+      message: "Bootcamp live closure test. Please ignore as a real lead.",
+    }),
+    deps
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(inserted?.email, "test.user+bootcamp@example.co.uk");
+});

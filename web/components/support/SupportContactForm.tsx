@@ -10,6 +10,12 @@ import {
   type SupportCategory,
 } from "@/lib/support/support-content";
 
+export function isValidOptionalSupportEmail(value: string) {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedValue);
+}
+
 type Props = {
   prefillName?: string | null;
   prefillEmail?: string | null;
@@ -84,7 +90,7 @@ export default function SupportContactForm({
     if (trimmedMessage.length < 10) {
       nextErrors.message = "Please add a few more details (10+ characters).";
     }
-    if (trimmedEmail && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(trimmedEmail)) {
+    if (!isValidOptionalSupportEmail(trimmedEmail)) {
       nextErrors.email = "Enter a valid email address.";
     }
     if (Object.keys(nextErrors).length > 0) {
