@@ -17,7 +17,9 @@ void test("explore feed requests lightweight video signal for card badges", () =
     /\.select\(options\.includeVideoSignal \? selectWithVideoSignal : selectWithoutVideoSignal,\s*\{/
   );
   assert.match(exploreFeedSource, /includeVideoSignal:\s*true/);
-  assert.match(exploreFeedSource, /const hasVideo =[\s\S]*row\.property_videos/);
+  assert.match(exploreFeedSource, /resolvePropertyHasVideoSignal\(/);
+  assert.match(exploreFeedSource, /propertyVideos:\s*row\.property_videos/);
+  assert.match(exploreFeedSource, /featuredMedia:\s*row\.featured_media/);
   assert.match(exploreFeedSource, /const rest: ExplorePropertyRow = \{ \.\.\.row \};/);
   assert.match(exploreFeedSource, /delete rest\.property_videos;/);
   assert.match(exploreFeedSource, /has_video:\s*hasVideo/);

@@ -76,6 +76,11 @@ import { BRAND_OG_SHARE_IMAGE } from "@/lib/brand";
 import { getPropertyRequestQuickStartEntry } from "@/lib/requests/property-request-entry";
 import { ProductEventTracker } from "@/components/analytics/ProductEventTracker";
 import { ProductEventSectionTracker } from "@/components/analytics/ProductEventSectionTracker";
+import {
+  normalizePropertyVideoRecords,
+  probePropertyHasVideo,
+  resolvePropertyHasVideoSignal,
+} from "@/lib/properties/video-signal.server";
 
 type Params = { id?: string };
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -179,29 +184,50 @@ async function getProperty(
   }
   let apiError: string | null = null;
 
-  const mapPropertyPayload = (
+  const mapPropertyPayload = async (
     data: Property & {
       property_images?: Array<{ id: string; image_url: string }>;
     }
-  ) => ({
-    ...data,
-    images: orderImagesWithCover(
-      data.cover_image_url,
-      data.property_images?.map((img) => ({
-        id: img.id || img.image_url,
-        image_url: img.image_url,
-        position: (img as { position?: number }).position,
-        created_at: (img as { created_at?: string | null }).created_at ?? undefined,
-        width: (img as { width?: number | null }).width ?? null,
-        height: (img as { height?: number | null }).height ?? null,
-        bytes: (img as { bytes?: number | null }).bytes ?? null,
-        format: (img as { format?: string | null }).format ?? null,
-        exif_has_gps: (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? null,
-        exif_captured_at:
-          (img as { exif_captured_at?: string | null }).exif_captured_at ?? null,
-      }))
-    ),
-  });
+  ) => {
+    const propertyVideos = normalizePropertyVideoRecords(
+      (data as { property_videos?: unknown }).property_videos
+    );
+    const probedHasVideo =
+      typeof data.has_video === "boolean" || propertyVideos?.length
+        ? null
+        : await probePropertyHasVideo(data.id);
+    const hasVideo =
+      typeof probedHasVideo === "boolean"
+        ? probedHasVideo
+        : resolvePropertyHasVideoSignal({
+            hasVideo: data.has_video ?? null,
+            propertyVideos,
+            featuredMedia: data.featured_media ?? null,
+            allowFeaturedMediaFallback: true,
+          });
+
+    return {
+      ...data,
+      has_video: hasVideo,
+      property_videos: propertyVideos,
+      images: orderImagesWithCover(
+        data.cover_image_url,
+        data.property_images?.map((img) => ({
+          id: img.id || img.image_url,
+          image_url: img.image_url,
+          position: (img as { position?: number }).position,
+          created_at: (img as { created_at?: string | null }).created_at ?? undefined,
+          width: (img as { width?: number | null }).width ?? null,
+          height: (img as { height?: number | null }).height ?? null,
+          bytes: (img as { bytes?: number | null }).bytes ?? null,
+          format: (img as { format?: string | null }).format ?? null,
+          exif_has_gps: (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? null,
+          exif_captured_at:
+            (img as { exif_captured_at?: string | null }).exif_captured_at ?? null,
+        }))
+      ),
+    };
+  };
 
   const result = await resolvePropertyDetailWithFallback({
     primary: async () => {
@@ -246,7 +272,7 @@ async function getProperty(
           apiUrl: requestUrl.toString(),
         });
         return {
-          property: mapPropertyPayload(data),
+          property: await mapPropertyPayload(data),
           error: null,
           apiUrl: requestUrl.toString(),
         };
@@ -278,7 +304,7 @@ async function getProperty(
 
       const { data, error } = await query.maybeSingle();
       if (error || !data) return null;
-      return mapPropertyPayload(
+      return await mapPropertyPayload(
         data as Property & { property_images?: Array<{ id: string; image_url: string }> }
       );
     },
@@ -824,8 +850,12 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
     createdAt: property.created_at,
   });
   const showTrustSignals = !!hostTrust || hostTrustCues.length > 0;
-  const propertyHasVideo =
-    property.has_video === true || ((property.property_videos?.length ?? 0) > 0);
+  const propertyHasVideo = resolvePropertyHasVideoSignal({
+    hasVideo: property.has_video ?? null,
+    propertyVideos: property.property_videos,
+    featuredMedia: property.featured_media ?? null,
+    allowFeaturedMediaFallback: true,
+  });
   const displayTitle = normalizeListingTitleForDisplay(property.title, {
     fallback: "Untitled listing",
   });

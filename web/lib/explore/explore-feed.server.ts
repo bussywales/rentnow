@@ -4,6 +4,7 @@ import { partitionExploreListingsByImageQuality } from "@/lib/explore/listing-qu
 import { mockProperties } from "@/lib/mock";
 import { searchProperties } from "@/lib/search";
 import { parseFiltersFromSearchParams } from "@/lib/search-filters";
+import { resolvePropertyHasVideoSignal } from "@/lib/properties/video-signal.server";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 
@@ -73,10 +74,12 @@ function resolveExploreListingMarket(property: Property): string | null {
 }
 
 function normalizeExplorePropertyRow(row: ExplorePropertyRow): Property {
-  const hasVideo =
-    typeof row.has_video === "boolean"
-      ? row.has_video
-      : Array.isArray(row.property_videos) && row.property_videos.length > 0;
+  const hasVideo = resolvePropertyHasVideoSignal({
+    hasVideo: row.has_video ?? null,
+    propertyVideos: row.property_videos,
+    featuredMedia: row.featured_media ?? null,
+    allowFeaturedMediaFallback: true,
+  });
   const rest: ExplorePropertyRow = { ...row };
   delete rest.property_videos;
   const images = resolveExplorePropertyImageRecords(row);

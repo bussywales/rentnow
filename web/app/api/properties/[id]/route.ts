@@ -52,6 +52,11 @@ import { cleanNullableString } from "@/lib/strings";
 import { includeDemoListingsForViewerFromSettings } from "@/lib/settings/demo";
 import type { UserRole } from "@/lib/types";
 import {
+  normalizePropertyVideoRecords,
+  probePropertyHasVideo,
+  resolvePropertyHasVideoSignal,
+} from "@/lib/properties/video-signal.server";
+import {
   canShowExpiredListingPublic,
   computeExpiryAt,
   isListingPubliclyVisible,
@@ -585,18 +590,24 @@ export async function GET(
     (data as { cover_image_url?: string | null }).cover_image_url ?? null,
     (data as { property_images?: Array<{ id: string; image_url: string; position?: number; created_at?: string }> }).property_images
   );
-  const propertyVideos =
+  const propertyVideos = normalizePropertyVideoRecords(
     (data as {
-      property_videos?: Array<{
-        id: string;
-        video_url: string;
-        storage_path?: string | null;
-        bytes?: number | null;
-        format?: string | null;
-        created_at?: string | null;
-        updated_at?: string | null;
-      }>;
-    }).property_videos ?? null;
+      property_videos?: unknown;
+    }).property_videos
+  );
+  const probedHasVideo =
+    typeof (data as { has_video?: boolean | null }).has_video === "boolean" || propertyVideos?.length
+      ? null
+      : await probePropertyHasVideo(data.id);
+  const hasVideo =
+    typeof probedHasVideo === "boolean"
+      ? probedHasVideo
+      : resolvePropertyHasVideoSignal({
+          hasVideo: (data as { has_video?: boolean | null }).has_video ?? null,
+          propertyVideos,
+          featuredMedia: (data as { featured_media?: "image" | "video" | null }).featured_media ?? null,
+          allowFeaturedMediaFallback: true,
+        });
 
   const flagEnabled = await getAppSettingBool("show_tenant_checkin_badge", false);
   const effectiveFlag =
@@ -607,7 +618,13 @@ export async function GET(
   });
 
   return NextResponse.json({
-    property: { ...data, property_images: orderedImages, property_videos: propertyVideos, checkin_signal: checkinSignal },
+    property: {
+      ...data,
+      has_video: hasVideo,
+      property_images: orderedImages,
+      property_videos: propertyVideos,
+      checkin_signal: checkinSignal,
+    },
   });
 }
 

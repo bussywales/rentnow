@@ -46,9 +46,11 @@ test("property detail renders video hero for featured-video listings when public
   const detailResponse = await page.request.get(`/api/properties/${candidate!.id}`);
   test.skip(!detailResponse.ok(), "Property detail API unavailable for selected featured-video listing.");
   const detailPayload = (await detailResponse.json()) as {
-    property?: { property_videos?: Array<{ id?: string }> | null } | null;
+    property?: { has_video?: boolean | null; property_videos?: Array<{ id?: string }> | null } | null;
   };
-  const hasVideo = (detailPayload.property?.property_videos?.length ?? 0) > 0;
+  const hasVideo =
+    detailPayload.property?.has_video === true ||
+    (detailPayload.property?.property_videos?.length ?? 0) > 0;
   test.skip(!hasVideo, "Selected featured-video listing has no attached video.");
 
   const signedUrlProbe = await page.request.get(`/api/properties/${candidate!.id}/video/public`);
@@ -89,9 +91,11 @@ test("property detail shows video tour chip and section when listing has video b
   const detailResponse = await page.request.get(`/api/properties/${candidate.id}`);
   test.skip(!detailResponse.ok(), "Property detail API unavailable for selected image-featured listing.");
   const detailPayload = (await detailResponse.json()) as {
-    property?: { property_videos?: Array<{ id?: string }> | null } | null;
+    property?: { has_video?: boolean | null; property_videos?: Array<{ id?: string }> | null } | null;
   };
-  const hasVideo = (detailPayload.property?.property_videos?.length ?? 0) > 0;
+  const hasVideo =
+    detailPayload.property?.has_video === true ||
+    (detailPayload.property?.property_videos?.length ?? 0) > 0;
   test.skip(!hasVideo, "Selected image-featured listing has no attached video.");
 
   await page.goto(`/properties/${candidate.id}`, { waitUntil: "domcontentloaded" });
