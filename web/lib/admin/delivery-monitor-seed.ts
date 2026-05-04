@@ -83,7 +83,7 @@ export const DELIVERY_MONITOR_SEED_ITEMS: DeliveryMonitorSeedItem[] = [
     workstream: "Billing / market pricing / entitlements",
     status: "amber",
     owner: "Billing policy + admin ops",
-    nextAction: "Validate seeded market policy edits and audit history before wiring any runtime billing or entitlement reads.",
+    nextAction: "Validate the guarded Canada PAYG readiness resolver against seeded CA rows before wiring any live checkout or entitlement runtime reads.",
     description:
       "Create the first admin-managed market pricing and entitlement control plane without changing current checkout or enforcement behavior.",
     whyItMatters:
@@ -92,11 +92,13 @@ export const DELIVERY_MONITOR_SEED_ITEMS: DeliveryMonitorSeedItem[] = [
       "Schema foundation exists for market policy, one-off pricing, and listing entitlements.",
       "Admin can see and edit seeded market policy rows, entitlement rows, and one-off price rows.",
       "One-off price rows now support role/tier-aware control-plane pricing for Canada PAYG policy planning.",
+      "A guarded Canada rental PAYG readiness resolver can now evaluate CA role/tier pricing rows without touching live checkout or listing enforcement.",
       "Every successful edit writes market pricing audit history.",
       "Runtime source diagnostics make it explicit that current billing still uses legacy settings and code constants.",
     ],
     outstanding: [
       "Runtime checkout and entitlement enforcement still need an explicit integration batch.",
+      "Canada PAYG checkout remains intentionally disabled until live Stripe integration and guarded runtime wiring ship.",
       "Canada PAYG remains policy-gated until pricing, provider routing, tax posture, and launch scope are approved.",
       "Enterprise remains a planning-only control-plane tier until separate runtime support exists.",
       "Provider routing and tax/compliance posture still need stakeholder sign-off before live market activation.",
@@ -104,6 +106,7 @@ export const DELIVERY_MONITOR_SEED_ITEMS: DeliveryMonitorSeedItem[] = [
     testingGuide: [
       "Open /admin/settings/billing/market-pricing and confirm policy, one-off pricing, and entitlement rows render.",
       "Confirm one-off price rows show role and tier columns, including Canada planning rows.",
+      "Run the Canada PAYG readiness resolver tests and confirm CA landlord free and agent pro scenarios resolve seeded CAD pricing while checkout stays disabled.",
       "Edit one policy row, one one-off price row, and one entitlement row, then confirm each change appears in the table and recent audit entries.",
       "Confirm the runtime diagnostics explicitly say legacy checkout and listing-cap enforcement are still in effect.",
       "Confirm Canada remains draft or disabled and does not imply live PAYG availability.",

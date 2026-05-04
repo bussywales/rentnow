@@ -11,12 +11,15 @@ void test("market pricing admin edit batch does not switch checkout or enforceme
   const entitlementServer = read("lib/billing/listing-publish-entitlement.server.ts");
   const planEnforcement = read("lib/plan-enforcement.ts");
   const paygConfig = read("lib/billing/payg.ts");
+  const listingSubmitRoute = read("app/api/properties/[id]/submit/route.ts");
 
-  for (const source of [checkoutRoute, entitlementServer, planEnforcement, paygConfig]) {
+  for (const source of [checkoutRoute, entitlementServer, planEnforcement, paygConfig, listingSubmitRoute]) {
     assert.doesNotMatch(source, /market_billing_policies/);
     assert.doesNotMatch(source, /market_listing_entitlements/);
     assert.doesNotMatch(source, /market_one_off_price_book/);
     assert.doesNotMatch(source, /loadAdminMarketPricingControlPlane/);
+    assert.doesNotMatch(source, /resolveCanadaRentalPaygReadiness/);
+    assert.doesNotMatch(source, /canada-payg-readiness/);
   }
 
   assert.match(checkoutRoute, /z\.enum\(\["listing_submission", "featured_listing"\]\)/);

@@ -86,6 +86,10 @@ export default async function AdminMarketPricingPage() {
         Role/tier price rows are still control-plane only. Enterprise pricing rows remain planning-only until Enterprise runtime tier support is explicitly implemented.
       </div>
 
+      <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-5 py-4 text-sm text-indigo-900" data-testid="market-pricing-canada-readiness-warning">
+        Canada PAYG readiness resolver is available for validation only. Checkout remains disabled and production runtime still uses legacy PAYG and listing-cap enforcement.
+      </div>
+
       <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6" data-testid="market-pricing-summary-grid">
         <SummaryCard label="Policy rows" value={state.summary.policyRows} />
         <SummaryCard label="Live policies" value={state.summary.livePolicies} />
