@@ -8,6 +8,11 @@ This is a policy and readiness document only.
 
 No Canada segmentation code should proceed until the decisions in this document are made.
 
+Companion policy:
+
+- The first Canada rental PAYG commercial default set is now documented in [canada-rental-payg-pilot-policy.md](/Users/olubusayoadewale/rentnow/docs/product/canada-rental-payg-pilot-policy.md).
+- That companion document defines the intended pilot posture, but it does not make Canada runtime-ready or live.
+
 ## Current repo-truth baseline
 
 Canada is partially present in the repo through shared multi-market plumbing, but Canada does not yet have a complete product, pricing, tax, or compliance policy.
@@ -28,6 +33,10 @@ What already exists:
   - [web/lib/billing/subscription-price-book.ts](/Users/olubusayoadewale/rentnow/web/lib/billing/subscription-price-book.ts)
   - [web/lib/billing/subscription-pricing.ts](/Users/olubusayoadewale/rentnow/web/lib/billing/subscription-pricing.ts)
   - [web/lib/billing/stripe-plans.ts](/Users/olubusayoadewale/rentnow/web/lib/billing/stripe-plans.ts)
+- Market pricing control-plane foundation and admin edit controls now exist in:
+  - [web/lib/billing/market-pricing.ts](/Users/olubusayoadewale/rentnow/web/lib/billing/market-pricing.ts)
+  - [web/lib/billing/market-pricing-control-plane.server.ts](/Users/olubusayoadewale/rentnow/web/lib/billing/market-pricing-control-plane.server.ts)
+  - [web/app/admin/settings/billing/market-pricing/page.tsx](/Users/olubusayoadewale/rentnow/web/app/admin/settings/billing/market-pricing/page.tsx)
 - Canada pricing test coverage exists in:
   - [web/tests/unit/subscription-pricing.test.ts](/Users/olubusayoadewale/rentnow/web/tests/unit/subscription-pricing.test.ts)
   - [web/tests/unit/billing-market-pricing-contract.test.ts](/Users/olubusayoadewale/rentnow/web/tests/unit/billing-market-pricing-contract.test.ts)
@@ -245,6 +254,8 @@ No Canada segmentation code should proceed until stakeholders define:
 - Canada-specific entitlement, moderation, and compliance rules
 
 This document should be treated as the pre-implementation policy gate for the Canada market segmentation workstream.
+
+The Canada rental PAYG pilot companion policy narrows some of the commercial defaults for the rental lane, but runtime implementation remains blocked until the remaining tax, provider, tier-model, and activation decisions are completed.
 
 ## Audit source files
 
