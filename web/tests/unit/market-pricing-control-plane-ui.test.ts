@@ -21,6 +21,14 @@ void test("admin market pricing page stays admin-only and renders the seeded con
   assert.match(pageSource, /Canada PAYG is not live\. Draft rows do not enable checkout\./);
   assert.match(pageSource, /Enterprise pricing rows remain planning-only/);
   assert.match(pageSource, /Canada PAYG readiness resolver is available for validation only/);
+  assert.match(pageSource, /Canada runtime diagnostics/);
+  assert.match(pageSource, /Runtime gate/);
+  assert.match(pageSource, /Resolver available/);
+  assert.match(pageSource, /Checkout enabled/);
+  assert.match(pageSource, /Runtime source/);
+  assert.match(pageSource, /Next activation prerequisites/);
+  assert.match(pageSource, /gateEnabled \? "ON" : "OFF"/);
+  assert.match(pageSource, /data-testid="market-pricing-canada-runtime-diagnostics"/);
   assert.match(pageSource, /Runtime source diagnostics/);
   assert.match(pageSource, /AdminMarketPricingControlPlaneEditor/);
   assert.match(pageSource, /data-testid="admin-market-pricing-page"/);

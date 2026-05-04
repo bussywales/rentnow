@@ -16,6 +16,7 @@ type ListingRow = {
   owner_id: string;
   status?: string | null;
   submitted_at?: string | null;
+  country_code?: string | null;
   listing_intent?: string | null;
   rental_type?: string | null;
 };
@@ -224,6 +225,176 @@ void test("submit returns payment required when no credits", async () => {
   assert.equal(json.billingUrl, "/dashboard/billing#plans");
   assert.match(String(json.resumeUrl ?? ""), /^\/host\/properties\/prop1\/edit\?/);
   assert.match(String(json.resumeUrl ?? ""), /monetization=payment_required/);
+});
+
+void test("Canada submit keeps legacy payment-required behaviour while the guarded runtime gate is off", async () => {
+  const listing: ListingRow = {
+    id: "prop1",
+    owner_id: "owner",
+    status: "draft",
+    submitted_at: null,
+    country_code: "CA",
+    listing_intent: "rent",
+    rental_type: "long_term",
+  };
+  const { supabase } = buildSupabaseStub(listing, {
+    activeCount: 3,
+    planTier: "starter",
+    maxListingsOverride: 5,
+  });
+  const typedSupabase = supabase as ReturnType<
+    ListingSubmitDeps["createServerSupabaseClient"]
+  >;
+  let canadaRuntimeChecks = 0;
+
+  const deps: ListingSubmitDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => true,
+    createServerSupabaseClient: async () => typedSupabase,
+    createServiceRoleClient: () =>
+      typedSupabase as ReturnType<ListingSubmitDeps["createServiceRoleClient"]>,
+    requireUser: async () =>
+      ({
+        ok: true,
+        user: { id: "owner" } as User,
+        supabase: typedSupabase,
+      }) as Awaited<ReturnType<ListingSubmitDeps["requireUser"]>>,
+    getUserRole: async () => "landlord",
+    getListingAccessResult: () => ({ ok: true }),
+    hasActiveDelegation: async () => false,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => ({ ok: false, reason: "NO_CREDITS" }),
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
+    getAppSettingBool: async () => false,
+    getListingExpiryDays: async () => 90,
+    requireLegalAcceptance: async () => ({ ok: true, status: {} }) as Awaited<
+      ReturnType<ListingSubmitDeps["requireLegalAcceptance"]>
+    >,
+    logPropertyEvent: async () => ({ ok: true, data: {} }),
+    resolveEventSessionKey: () => null,
+    logFailure: () => undefined,
+    loadCanadaRentalPaygRuntimeDecision: async () => {
+      canadaRuntimeChecks += 1;
+      return {
+        gateEnabled: false,
+        marketCountry: "CA",
+        runtimeSource: "legacy" as const,
+        resolverAvailable: true as const,
+        checkoutEnabled: false as const,
+        readiness: {
+          status: "blocked" as const,
+          eligible: true,
+          reasonCode: "POLICY_STATE_NOT_READY" as const,
+          blockers: ["POLICY_STATE_NOT_READY" as const],
+          marketCountry: "CA",
+          role: "landlord",
+          tier: "free",
+          normalizedIntent: "rent",
+          isShortlet: false,
+          policyState: "draft",
+          activeListingCount: 3,
+          includedActiveListingLimit: 3,
+          overIncludedCap: true,
+          policyRow: null,
+          entitlementRow: null,
+          priceRow: null,
+          amountMinor: 400,
+          currency: "CAD",
+          provider: "stripe",
+          runtimeActivationAllowed: false,
+          checkoutEnabled: false,
+          warnings: [],
+        },
+        nextActivationPrerequisites: [],
+      };
+    },
+  };
+
+  const res = await postPropertySubmitResponse(
+    makeRequest({ idempotencyKey: "idem-ca-gate-off" }),
+    "prop1",
+    deps
+  );
+  assert.equal(res.status, 402);
+  const json = await res.json();
+  assert.equal(json.reason, "PAYMENT_REQUIRED");
+  assert.equal(json.currency, "NGN");
+  assert.equal(canadaRuntimeChecks, 1);
+});
+
+void test("non-Canada submit does not invoke the guarded Canada runtime adapter", async () => {
+  const listing: ListingRow = {
+    id: "prop1",
+    owner_id: "owner",
+    status: "draft",
+    submitted_at: null,
+    country_code: "NG",
+    listing_intent: "rent",
+    rental_type: "long_term",
+  };
+  const { supabase } = buildSupabaseStub(listing, {
+    activeCount: 3,
+    planTier: "starter",
+    maxListingsOverride: 5,
+  });
+  const typedSupabase = supabase as ReturnType<
+    ListingSubmitDeps["createServerSupabaseClient"]
+  >;
+  let canadaRuntimeChecks = 0;
+
+  const deps: ListingSubmitDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => true,
+    createServerSupabaseClient: async () => typedSupabase,
+    createServiceRoleClient: () =>
+      typedSupabase as ReturnType<ListingSubmitDeps["createServiceRoleClient"]>,
+    requireUser: async () =>
+      ({
+        ok: true,
+        user: { id: "owner" } as User,
+        supabase: typedSupabase,
+      }) as Awaited<ReturnType<ListingSubmitDeps["requireUser"]>>,
+    getUserRole: async () => "landlord",
+    getListingAccessResult: () => ({ ok: true }),
+    hasActiveDelegation: async () => false,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => ({ ok: false, reason: "NO_CREDITS" }),
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
+    getAppSettingBool: async () => false,
+    getListingExpiryDays: async () => 90,
+    requireLegalAcceptance: async () => ({ ok: true, status: {} }) as Awaited<
+      ReturnType<ListingSubmitDeps["requireLegalAcceptance"]>
+    >,
+    logPropertyEvent: async () => ({ ok: true, data: {} }),
+    resolveEventSessionKey: () => null,
+    logFailure: () => undefined,
+    loadCanadaRentalPaygRuntimeDecision: async () => {
+      canadaRuntimeChecks += 1;
+      throw new Error("should not be called");
+    },
+  };
+
+  const res = await postPropertySubmitResponse(
+    makeRequest({ idempotencyKey: "idem-ng-legacy" }),
+    "prop1",
+    deps
+  );
+  assert.equal(res.status, 402);
+  const json = await res.json();
+  assert.equal(json.reason, "PAYMENT_REQUIRED");
+  assert.equal(canadaRuntimeChecks, 0);
 });
 
 void test("submit keeps entitlement server errors user-safe", async () => {

@@ -34,6 +34,7 @@ import {
   buildActiveListingLimitRecoveryPayload,
   enforceActiveListingLimit,
 } from "@/lib/plan-enforcement";
+import { loadCanadaRentalPaygRuntimeDecision } from "@/lib/billing/canada-payg-runtime.server";
 import { sanitizeUserFacingErrorMessage } from "@/lib/observability/user-facing-errors";
 import { captureServerException } from "@/lib/monitoring/sentry";
 
@@ -94,6 +95,7 @@ export type ListingSubmitDeps = {
   resolveEventSessionKey: typeof resolveEventSessionKey;
   logFailure: typeof logFailure;
   notifyAdminsOfListingReviewSubmission?: typeof notifyAdminsOfListingReviewSubmission;
+  loadCanadaRentalPaygRuntimeDecision?: typeof loadCanadaRentalPaygRuntimeDecision;
 };
 
 const defaultDeps: ListingSubmitDeps = {
@@ -115,6 +117,7 @@ const defaultDeps: ListingSubmitDeps = {
   resolveEventSessionKey,
   logFailure,
   notifyAdminsOfListingReviewSubmission,
+  loadCanadaRentalPaygRuntimeDecision,
 };
 
 export async function postPropertySubmitResponse(
@@ -333,6 +336,34 @@ export async function postPropertySubmitResponse(
       serviceClient: adminClient,
       excludeId: propertyId,
     });
+    if (
+      listing.country_code?.toUpperCase() === "CA" &&
+      deps.loadCanadaRentalPaygRuntimeDecision &&
+      !activeLimit.usage.error
+    ) {
+      try {
+        await deps.loadCanadaRentalPaygRuntimeDecision({
+          serviceClient: adminClient,
+          ownerId,
+          listingId: propertyId,
+          marketCountry: listing.country_code,
+          listingIntent: listing.listing_intent,
+          rentalType: listing.rental_type,
+          role: ownerRole,
+          tier: activeLimit.usage.plan.tier,
+          activeListingCount: activeLimit.usage.activeCount,
+        });
+      } catch (error) {
+        deps.logFailure({
+          request,
+          route: routeLabel,
+          status: 200,
+          startTime,
+          level: "warn",
+          error,
+        });
+      }
+    }
     if (!activeLimit.ok) {
       if (activeLimit.usage.error) {
         deps.logFailure({

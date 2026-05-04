@@ -9,6 +9,7 @@ import { getProviderModes } from "@/lib/billing/provider-settings";
 import { getPaystackConfig } from "@/lib/billing/paystack";
 import { getPaygConfig } from "@/lib/billing/payg";
 import { getFeaturedConfig } from "@/lib/billing/featured";
+import { loadCanadaRentalPaygRuntimeDecision } from "@/lib/billing/canada-payg-runtime.server";
 import { getSiteUrl } from "@/lib/env";
 import { logFailure } from "@/lib/observability";
 import { logPropertyEvent, resolveEventSessionKey } from "@/lib/analytics/property-events.server";
@@ -23,21 +24,78 @@ const payloadSchema = z.object({
   idempotencyKey: z.string().min(8).optional(),
 });
 
-export async function POST(request: Request) {
+type CheckoutListingRow = {
+  id: string;
+  owner_id: string;
+  status?: string | null;
+  is_featured?: boolean | null;
+  featured_until?: string | null;
+  is_demo?: boolean | null;
+  country_code?: string | null;
+  listing_intent?: string | null;
+  rental_type?: string | null;
+};
+
+export type BillingCheckoutRouteDeps = {
+  hasServerSupabaseEnv: typeof hasServerSupabaseEnv;
+  hasServiceRoleEnv: typeof hasServiceRoleEnv;
+  createServerSupabaseClient: typeof createServerSupabaseClient;
+  createServiceRoleClient: typeof createServiceRoleClient;
+  requireUser: typeof requireUser;
+  getUserRole: typeof getUserRole;
+  getListingAccessResult: typeof getListingAccessResult;
+  hasActiveDelegation: typeof hasActiveDelegation;
+  getProviderModes: typeof getProviderModes;
+  getPaystackConfig: typeof getPaystackConfig;
+  getPaygConfig: typeof getPaygConfig;
+  getFeaturedConfig: typeof getFeaturedConfig;
+  getSiteUrl: typeof getSiteUrl;
+  logFailure: typeof logFailure;
+  logPropertyEvent: typeof logPropertyEvent;
+  resolveEventSessionKey: typeof resolveEventSessionKey;
+  loadCanadaRentalPaygRuntimeDecision: typeof loadCanadaRentalPaygRuntimeDecision;
+  fetchImplementation: typeof fetch;
+};
+
+const defaultDeps: BillingCheckoutRouteDeps = {
+  hasServerSupabaseEnv,
+  hasServiceRoleEnv,
+  createServerSupabaseClient,
+  createServiceRoleClient,
+  requireUser,
+  getUserRole,
+  getListingAccessResult,
+  hasActiveDelegation,
+  getProviderModes,
+  getPaystackConfig,
+  getPaygConfig,
+  getFeaturedConfig,
+  getSiteUrl,
+  logFailure,
+  logPropertyEvent,
+  resolveEventSessionKey,
+  loadCanadaRentalPaygRuntimeDecision,
+  fetchImplementation: fetch,
+};
+
+export async function postBillingCheckoutResponse(
+  request: Request,
+  deps: BillingCheckoutRouteDeps = defaultDeps
+) {
   const startTime = Date.now();
-  if (!hasServerSupabaseEnv()) {
+  if (!deps.hasServerSupabaseEnv()) {
     return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   }
-  if (!hasServiceRoleEnv()) {
+  if (!deps.hasServiceRoleEnv()) {
     return NextResponse.json({ error: "Service role not configured" }, { status: 503 });
   }
 
-  const supabase = await createServerSupabaseClient();
-  const auth = await requireUser({ request, route: routeLabel, startTime, supabase });
+  const supabase = await deps.createServerSupabaseClient();
+  const auth = await deps.requireUser({ request, route: routeLabel, startTime, supabase });
   if (!auth.ok) return auth.response;
 
-  const role = await getUserRole(supabase, auth.user.id);
-  const access = getListingAccessResult(role, true);
+  const role = await deps.getUserRole(supabase, auth.user.id);
+  const access = deps.getListingAccessResult(role, true);
   if (!access.ok) {
     return NextResponse.json(
       { error: access.message, code: access.code },
@@ -52,23 +110,16 @@ export async function POST(request: Request) {
   }
 
   const { listingId, idempotencyKey, purpose } = parsed.data;
-  const adminClient = createServiceRoleClient() as unknown as UntypedAdminClient;
+  const adminClient = deps.createServiceRoleClient() as unknown as UntypedAdminClient;
   const lookupClient = adminClient;
 
   const { data: listing, error: listingError } = await lookupClient
     .from("properties")
-    .select("id, owner_id, status, is_featured, featured_until, is_demo")
+    .select("id, owner_id, status, is_featured, featured_until, is_demo, country_code, listing_intent, rental_type")
     .eq("id", listingId)
     .maybeSingle();
 
-  const typedListing = listing as {
-    id: string;
-    owner_id: string;
-    status?: string | null;
-    is_featured?: boolean | null;
-    featured_until?: string | null;
-    is_demo?: boolean | null;
-  } | null;
+  const typedListing = listing as CheckoutListingRow | null;
   if (listingError || !typedListing) {
     return NextResponse.json({ error: "Listing not found" }, { status: 404 });
   }
@@ -103,21 +154,58 @@ export async function POST(request: Request) {
   });
   if (!ownership.ok) {
     if (role === "agent") {
-      const allowed = await hasActiveDelegation(supabase, auth.user.id, typedListing.owner_id);
+      const allowed = await deps.hasActiveDelegation(supabase, auth.user.id, typedListing.owner_id);
       if (!allowed) return ownership.response;
     } else {
       return ownership.response;
     }
   }
 
-  const paygConfig = await getPaygConfig();
-  const featuredConfig = await getFeaturedConfig();
+  if (purpose === "listing_submission" && typedListing.country_code?.toUpperCase() === "CA") {
+    const canadaDecision = await deps.loadCanadaRentalPaygRuntimeDecision({
+      serviceClient: adminClient,
+      ownerId: typedListing.owner_id,
+      listingId,
+      marketCountry: typedListing.country_code,
+      listingIntent: typedListing.listing_intent,
+      rentalType: typedListing.rental_type,
+    });
+
+    if (!canadaDecision.gateEnabled) {
+      return NextResponse.json(
+        {
+          error: "Canada rental PAYG runtime is disabled.",
+          code: "CANADA_PAYG_RUNTIME_DISABLED",
+          reasonCode: canadaDecision.readiness.reasonCode,
+          runtimeActivationAllowed: false,
+          checkoutEnabled: false,
+        },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: "Canada rental PAYG checkout is not enabled in this batch.",
+        code: canadaDecision.readiness.runtimeActivationAllowed
+          ? "CANADA_PAYG_CHECKOUT_DISABLED"
+          : "CANADA_PAYG_NOT_READY",
+        reasonCode: canadaDecision.readiness.reasonCode,
+        runtimeActivationAllowed: canadaDecision.readiness.runtimeActivationAllowed,
+        checkoutEnabled: false,
+      },
+      { status: 409 }
+    );
+  }
+
+  const paygConfig = await deps.getPaygConfig();
+  const featuredConfig = await deps.getFeaturedConfig();
   if (!paygConfig.enabled && purpose === "listing_submission") {
     return NextResponse.json({ error: "PAYG is disabled." }, { status: 409 });
   }
 
-  const { paystackMode } = await getProviderModes();
-  const config = await getPaystackConfig(paystackMode);
+  const { paystackMode } = await deps.getProviderModes();
+  const config = await deps.getPaystackConfig(paystackMode);
   if (!config.keyPresent) {
     return NextResponse.json(
       { error: "Paystack is not configured. Add keys in Admin → Billing settings." },
@@ -135,7 +223,7 @@ export async function POST(request: Request) {
   const amount = purpose === "listing_submission" ? paygConfig.amount : featuredConfig.paygAmount;
   const currency = purpose === "listing_submission" ? paygConfig.currency : featuredConfig.currency;
   const amountMinor = Math.round(amount * 100);
-  const baseUrl = await getSiteUrl();
+  const baseUrl = await deps.getSiteUrl();
   const callbackUrl =
     purpose === "listing_submission"
       ? `${baseUrl}${buildHostPropertyEditHref(listingId, { payment: "payg" })}`
@@ -147,7 +235,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await fetch("https://api.paystack.co/transaction/initialize", {
+    const response = await deps.fetchImplementation("https://api.paystack.co/transaction/initialize", {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -172,7 +260,7 @@ export async function POST(request: Request) {
 
     const payload = await response.json().catch(() => null);
     if (!response.ok || !payload?.status || !payload?.data?.authorization_url) {
-      logFailure({
+      deps.logFailure({
         request,
         route: routeLabel,
         status: response.status || 502,
@@ -203,7 +291,7 @@ export async function POST(request: Request) {
     const { error: insertError } = await adminClient.from(paymentsTable).insert(payloadInsert);
 
     if (insertError) {
-      logFailure({
+      deps.logFailure({
         request,
         route: routeLabel,
         status: 500,
@@ -214,8 +302,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unable to start checkout." }, { status: 500 });
     }
 
-    const sessionKey = resolveEventSessionKey({ request, userId: auth.user.id });
-    await logPropertyEvent({
+    const sessionKey = deps.resolveEventSessionKey({ request, userId: auth.user.id });
+    await deps.logPropertyEvent({
       supabase,
       propertyId: listingId,
       eventType: "listing_payment_started",
@@ -235,7 +323,7 @@ export async function POST(request: Request) {
       purpose,
     });
   } catch (error) {
-    logFailure({
+    deps.logFailure({
       request,
       route: routeLabel,
       status: 500,
@@ -244,4 +332,8 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ error: "Paystack request failed." }, { status: 502 });
   }
+}
+
+export async function POST(request: Request) {
+  return postBillingCheckoutResponse(request);
 }

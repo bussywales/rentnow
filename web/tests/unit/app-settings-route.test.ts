@@ -60,6 +60,14 @@ void test("patchSchema accepts agent network discovery payload", () => {
   assert.equal(parsed.key, "agent_network_discovery_enabled");
 });
 
+void test("patchSchema accepts Canada PAYG runtime gate payload", () => {
+  const parsed = patchSchema.parse({
+    key: "canada_rental_payg_runtime_enabled",
+    value: { enabled: false },
+  });
+  assert.equal(parsed.key, "canada_rental_payg_runtime_enabled");
+});
+
 void test("patchSchema accepts payg amount payload", () => {
   const parsed = patchSchema.parse({
     key: "payg_listing_fee_amount",

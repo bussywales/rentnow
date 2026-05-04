@@ -62,6 +62,7 @@ export const APP_SETTING_KEYS = {
   defaultMarketCurrency: "default_market_currency",
   marketAutoDetectEnabled: "market_auto_detect_enabled",
   marketSelectorEnabled: "market_selector_enabled",
+  canadaRentalPaygRuntimeEnabled: "canada_rental_payg_runtime_enabled",
   brandSocialInstagramUrl: "brand_social_instagram_url",
   brandSocialYoutubeUrl: "brand_social_youtube_url",
   brandSocialTiktokUrl: "brand_social_tiktok_url",

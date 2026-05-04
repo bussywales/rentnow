@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { AdminMarketPricingControlPlaneEditor } from "@/components/admin/AdminMarketPricingControlPlaneEditor";
 import { loadAdminMarketPricingControlPlane } from "@/lib/billing/market-pricing-control-plane.server";
+import { getCanadaRentalPaygRuntimeDiagnostics } from "@/lib/billing/canada-payg-runtime.server";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,7 @@ export default async function AdminMarketPricingPage() {
   }
 
   const state = await loadAdminMarketPricingControlPlane(supabase);
+  const canadaRuntimeDiagnostics = await getCanadaRentalPaygRuntimeDiagnostics(supabase);
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8" data-testid="admin-market-pricing-page">
@@ -89,6 +91,55 @@ export default async function AdminMarketPricingPage() {
       <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-5 py-4 text-sm text-indigo-900" data-testid="market-pricing-canada-readiness-warning">
         Canada PAYG readiness resolver is available for validation only. Checkout remains disabled and production runtime still uses legacy PAYG and listing-cap enforcement.
       </div>
+
+      <section
+        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        data-testid="market-pricing-canada-runtime-diagnostics"
+      >
+        <div>
+          <p className="text-sm font-semibold text-slate-900">Canada runtime diagnostics</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Guarded runtime wiring exists for validation, but Canada checkout is still intentionally disabled.
+          </p>
+        </div>
+        <dl className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Runtime gate</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.gateEnabled ? "ON" : "OFF"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Resolver available</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.resolverAvailable ? "YES" : "NO"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Checkout enabled</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.checkoutEnabled ? "YES" : "NO"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Runtime source</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.runtimeSource}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Next activation prerequisites</dt>
+            <dd className="mt-2 text-sm text-slate-700">
+              {canadaRuntimeDiagnostics.nextActivationPrerequisites.length}
+            </dd>
+          </div>
+        </dl>
+        <ul className="mt-4 list-disc space-y-1 pl-5 text-sm text-slate-700">
+          {canadaRuntimeDiagnostics.nextActivationPrerequisites.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </section>
 
       <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6" data-testid="market-pricing-summary-grid">
         <SummaryCard label="Policy rows" value={state.summary.policyRows} />
