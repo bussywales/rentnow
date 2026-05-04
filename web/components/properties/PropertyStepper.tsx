@@ -508,6 +508,9 @@ export function PropertyStepper({
     : monetizationNeedsPayment
       ? `Free posting limit reached. Choose a plan or pay once before ${monetizationActionLabel}.`
       : `Free posting limit reached. Choose a plan before ${monetizationActionLabel}.`;
+  const monetizationGateTitle = monetizationNeedsLimitRecovery
+    ? `Listing limit reached before ${monetizationActionLabel}`
+    : `Payment required before ${monetizationActionLabel}`;
 
   useEffect(() => {
     if (!propertyId || typeof window === "undefined") return;
@@ -5364,11 +5367,11 @@ export function PropertyStepper({
       <div className="flex flex-col gap-2">
         {monetizationGateActive && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            <p className="font-semibold">Payment required before {monetizationActionLabel}</p>
+            <p className="font-semibold">{monetizationGateTitle}</p>
             <p className="mt-1">{monetizationGateMessage}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button size="sm" onClick={openBillingPlans}>
-                Continue to billing
+                {monetizationNeedsLimitRecovery ? "Upgrade plan" : "Continue to billing"}
               </Button>
               {monetizationNeedsPayment && (
                 <Button

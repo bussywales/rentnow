@@ -75,7 +75,7 @@ export function ListingPaywallModal({
     : `${formatted} (one-time)`;
   const primaryLabel = isFeatured ? `Pay ${formatted} to feature` : `Pay ${formatted} and publish`;
   const payLabel = isFeatured ? primaryLabel : `Pay ${formatted} for this listing`;
-  const planLabel = isListingLimit ? "View plans" : "Continue to billing";
+  const planLabel = isListingLimit ? "Upgrade plan" : "Continue to billing";
 
   useEffect(() => {
     if (!open || !isListingLimit) return;

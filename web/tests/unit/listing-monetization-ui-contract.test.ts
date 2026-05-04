@@ -25,6 +25,7 @@ const paywallModalPath = path.join(
 void test("property stepper routes blocked listing flows to billing and explicit save/exit copy", () => {
   const source = readFileSync(stepperPath, "utf8");
   assert.match(source, /Continue to billing/);
+  assert.match(source, /Upgrade plan/);
   assert.match(source, /Save and exit/);
   assert.match(source, /\/dashboard\/billing#plans/);
   assert.doesNotMatch(source, /router\.push\(\"\/pricing\"\)/);
@@ -35,12 +36,16 @@ void test("property stepper supports listing-limit recovery with plans and manag
   const modalSource = readFileSync(paywallModalPath, "utf8");
   assert.match(source, /monetizationReason === "listing_limit"/);
   assert.match(source, /Manage listings/);
+  assert.match(source, /monetizationNeedsLimitRecovery \? "Upgrade plan" : "Continue to billing"/);
+  assert.match(source, /Listing limit reached before/);
   assert.match(source, /mode=\{monetizationNeedsLimitRecovery \? "listing_limit" : "listing"\}/);
   assert.match(source, /trackingDedupeKey=\{propertyId \? `listing-limit:\$\{propertyId\}` : "listing-limit:unknown"\}/);
   assert.match(modalSource, /listing_limit_recovery_viewed/);
   assert.match(modalSource, /listing_limit_recovery_cta_clicked/);
   assert.match(modalSource, /view_plans/);
   assert.match(modalSource, /manage_listings/);
+  assert.match(modalSource, /const planLabel = isListingLimit \? "Upgrade plan" : "Continue to billing"/);
+  assert.match(modalSource, /!isListingLimit && !billingOnly && onPay/);
 });
 
 void test("renew listing button forwards blocked responses into the monetization resume path", () => {
