@@ -67,6 +67,8 @@ const oneOffPriceRow: MarketOneOffPriceRow = {
   currency: "NGN",
   amount_minor: 2000,
   provider: "paystack",
+  role: null,
+  tier: null,
   enabled: true,
   effective_from: null,
   active: true,
@@ -251,7 +253,7 @@ void test("market pricing policy route allows admin updates", async () => {
 
 void test("market pricing one-off route allows admin updates", async () => {
   const response = await patchAdminMarketPricingOneOffPriceResponse(
-    makePatchRequest({ amount_minor: 4500 }),
+    makePatchRequest({ amount_minor: 4500, role: "landlord", tier: "free" }),
     { params: { id: "price-ng-listing" } },
     {
       createServerSupabaseClient: async () => ({}) as never,
@@ -265,7 +267,7 @@ void test("market pricing one-off route allows admin updates", async () => {
       updateMarketOneOffPrice: async () =>
         ({
           ok: true,
-          row: { ...oneOffPriceRow, amount_minor: 4500 },
+          row: { ...oneOffPriceRow, amount_minor: 4500, role: "landlord", tier: "free" },
         }) as never,
     }
   );
@@ -273,6 +275,8 @@ void test("market pricing one-off route allows admin updates", async () => {
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.row.amount_minor, 4500);
+  assert.equal(body.row.role, "landlord");
+  assert.equal(body.row.tier, "free");
 });
 
 void test("policy action accepts valid updates and writes audit history", async () => {
@@ -366,6 +370,8 @@ void test("one-off price action accepts valid updates and writes audit history",
     payload: {
       amount_minor: 4500,
       provider: "paystack",
+      role: "agent",
+      tier: "pro",
       enabled: false,
       operator_notes: "Hold until runtime integration",
       effective_from: "2026-05-06T00:00:00.000Z",
@@ -376,8 +382,12 @@ void test("one-off price action accepts valid updates and writes audit history",
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.row.amount_minor, 4500);
+  assert.equal(result.row.role, "agent");
+  assert.equal(result.row.tier, "pro");
   assert.equal(tables.market_pricing_audit_log[0]?.entity_type, "market_one_off_price");
   assert.equal((tables.market_pricing_audit_log[0]?.next_snapshot as Record<string, unknown>)?.amount_minor, 4500);
+  assert.equal((tables.market_pricing_audit_log[0]?.next_snapshot as Record<string, unknown>)?.role, "agent");
+  assert.equal((tables.market_pricing_audit_log[0]?.next_snapshot as Record<string, unknown>)?.tier, "pro");
 });
 
 void test("one-off price action rejects negative amounts", async () => {
@@ -389,6 +399,8 @@ void test("one-off price action rejects negative amounts", async () => {
     payload: {
       amount_minor: -1,
       provider: "paystack",
+      role: null,
+      tier: null,
       enabled: false,
       operator_notes: null,
       effective_from: null,
@@ -410,6 +422,8 @@ void test("one-off price action rejects invalid providers", async () => {
     payload: {
       amount_minor: 100,
       provider: "invalid-provider",
+      role: null,
+      tier: null,
       enabled: true,
       operator_notes: null,
       effective_from: null,
@@ -420,6 +434,30 @@ void test("one-off price action rejects invalid providers", async () => {
   assert.equal(result.ok, false);
   if (result.ok) return;
   assert.equal(result.status, 400);
+});
+
+void test("one-off price action rejects invalid role and tier combinations", async () => {
+  const { client } = buildClient();
+  const result = await updateMarketOneOffPrice({
+    client,
+    actorId: "admin-1",
+    id: "price-ng-listing",
+    payload: {
+      amount_minor: 100,
+      provider: "paystack",
+      role: "landlord",
+      tier: "tenant_pro",
+      enabled: true,
+      operator_notes: null,
+      effective_from: null,
+      active: true,
+    },
+  });
+
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.status, 400);
+  assert.match(result.error, /not valid for role landlord/i);
 });
 
 void test("entitlement action accepts valid updates and writes audit history", async () => {

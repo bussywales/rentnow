@@ -19,15 +19,21 @@ void test("admin market pricing page stays admin-only and renders the seeded con
   assert.match(pageSource, /control-plane rows and audit history only/);
   assert.match(pageSource, /This page is currently a control-plane foundation/);
   assert.match(pageSource, /Canada PAYG is not live\. Draft rows do not enable checkout\./);
+  assert.match(pageSource, /Enterprise pricing rows remain planning-only/);
   assert.match(pageSource, /Runtime source diagnostics/);
   assert.match(pageSource, /AdminMarketPricingControlPlaneEditor/);
   assert.match(pageSource, /data-testid="admin-market-pricing-page"/);
   assert.match(pageSource, /data-testid="market-pricing-runtime-diagnostics"/);
+  assert.match(pageSource, /data-testid="market-pricing-enterprise-planning-warning"/);
 
   assert.match(editorSource, /data-testid="market-pricing-control-plane-editor"/);
   assert.match(editorSource, /Market policy rows/);
   assert.match(editorSource, /One-off price rows/);
   assert.match(editorSource, /Listing entitlement rows/);
+  assert.match(editorSource, /Role\/tier prices are control-plane rows only until runtime integration ships/);
+  assert.match(editorSource, /Enterprise rows are planning-only until Enterprise runtime tier support is implemented/);
+  assert.match(editorSource, />Role</);
+  assert.match(editorSource, />Tier</);
   assert.match(editorSource, /market-policy-edit-button-\$\{row\.id\}/);
   assert.match(editorSource, /market-one-off-edit-button-\$\{row\.id\}/);
   assert.match(editorSource, /market-entitlement-edit-button-\$\{row\.id\}/);

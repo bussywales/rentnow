@@ -61,11 +61,14 @@ void test("market pricing control plane seed stays amber and foundation-focused 
   assert.match(item?.workstream ?? "", /Billing \/ market pricing \/ entitlements/i);
   assert.match(item?.delivered.join(" "), /Schema foundation exists/i);
   assert.match(item?.delivered.join(" "), /edit seeded market policy rows/i);
+  assert.match(item?.delivered.join(" "), /role\/tier-aware control-plane pricing/i);
   assert.match(item?.delivered.join(" "), /audit history/i);
   assert.match(item?.delivered.join(" "), /legacy settings and code constants/i);
   assert.match(item?.outstanding.join(" "), /runtime checkout/i);
   assert.match(item?.outstanding.join(" "), /Canada PAYG remains policy-gated/i);
+  assert.match(item?.outstanding.join(" "), /Enterprise remains a planning-only control-plane tier/i);
   assert.match(item?.testingGuide.join(" "), /market-pricing/i);
+  assert.match(item?.testingGuide.join(" "), /role and tier columns/i);
   assert.match(item?.testingGuide.join(" "), /edit one policy row, one one-off price row, and one entitlement row/i);
   assert.match(item?.testingGuide.join(" "), /legacy checkout and listing-cap enforcement/i);
 });

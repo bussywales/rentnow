@@ -2,14 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildMarketPricingSummary,
+  formatMarketPricingControlPlaneTierLabel,
   formatMarketPricingPolicyStateLabel,
   formatMarketPricingProductLabel,
+  formatMarketPricingRoleScopeLabel,
   getMarketPricingRuntimeDiagnostics,
+  type MarketBillingProvider,
   type MarketBillingPolicyRow,
   type MarketListingEntitlementRow,
   type MarketOneOffPriceRow,
   type MarketPricingAuditLogRow,
 } from "@/lib/billing/market-pricing";
+import { loadAdminMarketPricingControlPlane } from "@/lib/billing/market-pricing-control-plane.server";
 
 const policies: MarketBillingPolicyRow[] = [
   {
@@ -85,6 +89,8 @@ const oneOffPrices: MarketOneOffPriceRow[] = [
     currency: "NGN",
     amount_minor: 2000,
     provider: "paystack",
+    role: null,
+    tier: null,
     enabled: true,
     effective_from: null,
     active: true,
@@ -101,6 +107,8 @@ const oneOffPrices: MarketOneOffPriceRow[] = [
     currency: "NGN",
     amount_minor: 1999,
     provider: "paystack",
+    role: null,
+    tier: null,
     enabled: false,
     effective_from: null,
     active: true,
@@ -165,4 +173,106 @@ void test("market pricing labels stay operator-readable", () => {
   assert.equal(formatMarketPricingPolicyStateLabel("live"), "Live");
   assert.equal(formatMarketPricingProductLabel("listing_submission"), "Listing submission");
   assert.equal(formatMarketPricingProductLabel("featured_listing_30d"), "Featured listing 30 days");
+  assert.equal(formatMarketPricingRoleScopeLabel(null), "All roles");
+  assert.equal(formatMarketPricingRoleScopeLabel("landlord"), "Landlord");
+  assert.equal(formatMarketPricingControlPlaneTierLabel(null), "All tiers");
+  assert.equal(formatMarketPricingControlPlaneTierLabel("enterprise"), "Enterprise");
+  assert.equal(formatMarketPricingControlPlaneTierLabel("tenant_pro"), "Tenant Pro");
+});
+
+type FakeSelectResult<T> = Promise<{ data: T[]; error?: null }>;
+
+function makeFakeSelectClient(input: {
+  policies: MarketBillingPolicyRow[];
+  entitlements: MarketListingEntitlementRow[];
+  oneOffPrices: MarketOneOffPriceRow[];
+  auditRows: MarketPricingAuditLogRow[];
+}) {
+  return {
+    from(table: string) {
+      return {
+        select() {
+          const dataMap: Record<string, unknown[]> = {
+            market_billing_policies: input.policies,
+            market_listing_entitlements: input.entitlements,
+            market_one_off_price_book: input.oneOffPrices,
+            market_pricing_audit_log: input.auditRows,
+          };
+          return {
+            order() {
+              return this;
+            },
+            limit() {
+              return Promise.resolve({
+                data: dataMap[table] ?? [],
+                error: null,
+              }) as FakeSelectResult<unknown>;
+            },
+            then(resolve: (value: { data: unknown[]; error: null }) => unknown) {
+              return Promise.resolve({
+                data: dataMap[table] ?? [],
+                error: null,
+              }).then(resolve);
+            },
+          };
+        },
+      };
+    },
+  };
+}
+
+void test("market pricing loader keeps one-off rows in deterministic market/product/role/tier/provider order", async () => {
+  const state = await loadAdminMarketPricingControlPlane(
+    makeFakeSelectClient({
+      policies,
+      entitlements,
+      auditRows,
+      oneOffPrices: [
+        {
+          ...oneOffPrices[0],
+          id: "price-ca-agent-pro",
+          market_country: "CA",
+          currency: "CAD",
+          provider: "stripe" satisfies MarketBillingProvider,
+          role: "agent",
+          tier: "pro",
+        },
+        {
+          ...oneOffPrices[0],
+          id: "price-ca-agent-free",
+          market_country: "CA",
+          currency: "CAD",
+          provider: "stripe" satisfies MarketBillingProvider,
+          role: "agent",
+          tier: "free",
+        },
+        {
+          ...oneOffPrices[0],
+          id: "price-ca-landlord-free",
+          market_country: "CA",
+          currency: "CAD",
+          provider: "stripe" satisfies MarketBillingProvider,
+          role: "landlord",
+          tier: "free",
+        },
+        {
+          ...oneOffPrices[1],
+          id: "price-ng-generic-featured",
+          market_country: "NG",
+          role: null,
+          tier: null,
+        },
+      ],
+    }) as never
+  );
+
+  assert.deepEqual(
+    state.oneOffPrices.map((row) => `${row.market_country}:${row.product_code}:${row.role ?? "all"}:${row.tier ?? "all"}:${row.provider}`),
+    [
+      "CA:listing_submission:landlord:free:stripe",
+      "CA:listing_submission:agent:free:stripe",
+      "CA:listing_submission:agent:pro:stripe",
+      "NG:featured_listing_7d:all:all:paystack",
+    ]
+  );
 });

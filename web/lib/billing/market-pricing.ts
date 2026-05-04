@@ -3,6 +3,7 @@ import type { PlanTier } from "@/lib/plans";
 
 export type MarketPricingPolicyState = "draft" | "approved" | "live" | "disabled";
 export type MarketBillingProvider = "stripe" | "paystack" | "flutterwave";
+export type MarketPricingControlPlaneTier = PlanTier | "enterprise";
 export type MarketOneOffProductCode =
   | "listing_submission"
   | "featured_listing_7d"
@@ -56,6 +57,8 @@ export type MarketOneOffPriceRow = {
   currency: string;
   amount_minor: number;
   provider: MarketBillingProvider;
+  role: BillingRole | null;
+  tier: MarketPricingControlPlaneTier | null;
   enabled: boolean;
   effective_from: string | null;
   active: boolean;
@@ -116,11 +119,22 @@ export function formatMarketPricingRoleLabel(role: BillingRole) {
   return "Agent";
 }
 
+export function formatMarketPricingRoleScopeLabel(role: BillingRole | null) {
+  if (!role) return "All roles";
+  return formatMarketPricingRoleLabel(role);
+}
+
 export function formatMarketPricingTierLabel(tier: PlanTier) {
   if (tier === "tenant_pro") return "Tenant Pro";
   if (tier === "starter") return "Starter";
   if (tier === "pro") return "Pro";
   return "Free";
+}
+
+export function formatMarketPricingControlPlaneTierLabel(tier: MarketPricingControlPlaneTier | null) {
+  if (!tier) return "All tiers";
+  if (tier === "enterprise") return "Enterprise";
+  return formatMarketPricingTierLabel(tier);
 }
 
 export function formatMarketPricingProductLabel(productCode: MarketOneOffProductCode) {

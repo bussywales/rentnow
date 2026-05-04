@@ -9,6 +9,7 @@ import {
   type MarketListingEntitlementRow,
   type MarketOneOffPriceRow,
   type MarketPricingAuditLogRow,
+  type MarketPricingControlPlaneTier,
 } from "@/lib/billing/market-pricing";
 
 export type AdminMarketPricingControlPlaneState = {
@@ -50,9 +51,29 @@ function sortOneOffPrices(rows: MarketOneOffPriceRow[]) {
     featured_listing_7d: 20,
     featured_listing_30d: 30,
   } as const;
+  const roleOrder = {
+    __all__: 0,
+    landlord: 10,
+    agent: 20,
+    tenant: 30,
+  } as const;
+  const tierOrder: Record<MarketPricingControlPlaneTier | "__all__", number> = {
+    __all__: 0,
+    free: 10,
+    starter: 20,
+    pro: 30,
+    tenant_pro: 40,
+    enterprise: 50,
+  };
   return rows.slice().sort((a, b) => {
     if (a.market_country !== b.market_country) return a.market_country.localeCompare(b.market_country);
     if (a.product_code !== b.product_code) return productOrder[a.product_code] - productOrder[b.product_code];
+    const aRole = a.role ?? "__all__";
+    const bRole = b.role ?? "__all__";
+    if (aRole !== bRole) return roleOrder[aRole] - roleOrder[bRole];
+    const aTier = a.tier ?? "__all__";
+    const bTier = b.tier ?? "__all__";
+    if (aTier !== bTier) return tierOrder[aTier] - tierOrder[bTier];
     return a.provider.localeCompare(b.provider);
   });
 }
@@ -97,7 +118,7 @@ export async function loadAdminMarketPricingControlPlane(
     supabase
       .from("market_one_off_price_book")
       .select(
-        "id,market_country,product_code,currency,amount_minor,provider,enabled,effective_from,active,operator_notes,created_by,updated_by,created_at,updated_at"
+        "id,market_country,product_code,currency,amount_minor,provider,role,tier,enabled,effective_from,active,operator_notes,created_by,updated_by,created_at,updated_at"
       ),
     supabase
       .from("market_pricing_audit_log")

@@ -91,19 +91,23 @@ export const DELIVERY_MONITOR_SEED_ITEMS: DeliveryMonitorSeedItem[] = [
     delivered: [
       "Schema foundation exists for market policy, one-off pricing, and listing entitlements.",
       "Admin can see and edit seeded market policy rows, entitlement rows, and one-off price rows.",
+      "One-off price rows now support role/tier-aware control-plane pricing for Canada PAYG policy planning.",
       "Every successful edit writes market pricing audit history.",
       "Runtime source diagnostics make it explicit that current billing still uses legacy settings and code constants.",
     ],
     outstanding: [
       "Runtime checkout and entitlement enforcement still need an explicit integration batch.",
       "Canada PAYG remains policy-gated until pricing, provider routing, tax posture, and launch scope are approved.",
+      "Enterprise remains a planning-only control-plane tier until separate runtime support exists.",
       "Provider routing and tax/compliance posture still need stakeholder sign-off before live market activation.",
     ],
     testingGuide: [
       "Open /admin/settings/billing/market-pricing and confirm policy, one-off pricing, and entitlement rows render.",
+      "Confirm one-off price rows show role and tier columns, including Canada planning rows.",
       "Edit one policy row, one one-off price row, and one entitlement row, then confirm each change appears in the table and recent audit entries.",
       "Confirm the runtime diagnostics explicitly say legacy checkout and listing-cap enforcement are still in effect.",
       "Confirm Canada remains draft or disabled and does not imply live PAYG availability.",
+      "Confirm Enterprise rows are labeled planning-only rather than runtime-ready.",
       "Verify no current billing or listing-monetisation smoke flow changes behavior after this foundation ships.",
     ],
     repoUpdatedAt: "2026-05-04T00:00:00.000Z",

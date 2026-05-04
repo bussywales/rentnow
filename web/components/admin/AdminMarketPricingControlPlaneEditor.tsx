@@ -6,14 +6,17 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import {
+  formatMarketPricingControlPlaneTierLabel,
   formatMarketPricingPolicyStateLabel,
   formatMarketPricingProductLabel,
   formatMarketPricingRoleLabel,
+  formatMarketPricingRoleScopeLabel,
   formatMarketPricingTierLabel,
   type MarketBillingPolicyRow,
   type MarketBillingProvider,
   type MarketListingEntitlementRow,
   type MarketOneOffPriceRow,
+  type MarketPricingControlPlaneTier,
   type MarketPricingPolicyState,
 } from "@/lib/billing/market-pricing";
 
@@ -41,6 +44,8 @@ type PolicyDraft = {
 type OneOffPriceDraft = {
   amount_minor: string;
   provider: MarketBillingProvider;
+  role: "tenant" | "landlord" | "agent" | "";
+  tier: MarketPricingControlPlaneTier | "";
   enabled: boolean;
   operator_notes: string;
   effective_from: string;
@@ -65,6 +70,7 @@ type SaveState = {
 
 const POLICY_STATE_OPTIONS: MarketPricingPolicyState[] = ["draft", "approved", "live", "disabled"];
 const PROVIDER_OPTIONS: MarketBillingProvider[] = ["stripe", "paystack", "flutterwave"];
+const ONE_OFF_ROLE_OPTIONS = ["", "landlord", "agent", "tenant"] as const;
 
 function formatAmount(currency: string, amountMinor: number) {
   return new Intl.NumberFormat("en-GB", {
@@ -73,6 +79,17 @@ function formatAmount(currency: string, amountMinor: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amountMinor / 100);
+}
+
+function getAllowedTierOptionsForRole(role: OneOffPriceDraft["role"]) {
+  if (role === "tenant") return ["", "free", "tenant_pro"] as const;
+  if (role === "landlord") return ["", "free", "starter", "pro"] as const;
+  if (role === "agent") return ["", "free", "starter", "pro", "enterprise"] as const;
+  return [""] as const;
+}
+
+function isAllowedTierForRole(role: OneOffPriceDraft["role"], tier: OneOffPriceDraft["tier"]) {
+  return getAllowedTierOptionsForRole(role).some((option) => option === tier);
 }
 
 function toDateTimeLocalInput(value: string | null) {
@@ -263,10 +280,11 @@ function OneOffPriceEditForm({
   onChange: (patch: Partial<OneOffPriceDraft>) => void;
   onSave: () => void;
 }) {
+  const allowedTierOptions = getAllowedTierOptionsForRole(draft.role);
   return (
     <tr data-testid={`market-price-edit-${row.id}`}>
-      <td colSpan={7} className="bg-slate-50 px-3 py-4">
-        <div className="grid gap-4 lg:grid-cols-3">
+      <td colSpan={9} className="bg-slate-50 px-3 py-4">
+        <div className="grid gap-4 lg:grid-cols-5">
           <label className="space-y-1 text-sm text-slate-700">
             <span className="font-medium">Amount (minor units)</span>
             <Input
@@ -287,6 +305,46 @@ function OneOffPriceEditForm({
               {PROVIDER_OPTIONS.map((option) => (
                 <option key={option} value={option}>
                   {option}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="space-y-1 text-sm text-slate-700">
+            <span className="font-medium">Role</span>
+            <Select
+              value={draft.role}
+              onChange={(event) =>
+                onChange({
+                  role: event.target.value as OneOffPriceDraft["role"],
+                  tier: isAllowedTierForRole(
+                    event.target.value as OneOffPriceDraft["role"],
+                    draft.tier
+                  )
+                    ? draft.tier
+                    : "",
+                })
+              }
+              disabled={pending}
+            >
+              <option value="">All roles</option>
+              {ONE_OFF_ROLE_OPTIONS.filter((option) => option !== "").map((option) => (
+                <option key={option} value={option}>
+                  {formatMarketPricingRoleLabel(option)}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="space-y-1 text-sm text-slate-700">
+            <span className="font-medium">Tier</span>
+            <Select
+              value={draft.tier}
+              onChange={(event) => onChange({ tier: event.target.value as OneOffPriceDraft["tier"] })}
+              disabled={pending}
+            >
+              <option value="">All tiers</option>
+              {allowedTierOptions.filter((option) => option !== "").map((option) => (
+                <option key={option} value={option}>
+                  {formatMarketPricingControlPlaneTierLabel(option)}
                 </option>
               ))}
             </Select>
@@ -335,6 +393,10 @@ function OneOffPriceEditForm({
             className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
           />
         </label>
+
+        <p className="mt-3 text-xs text-slate-500">
+          Role/tier prices are control-plane rows only until runtime integration ships. Enterprise rows are planning-only until Enterprise runtime tier support is implemented.
+        </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button size="sm" onClick={onSave} disabled={pending}>
@@ -494,6 +556,8 @@ export function AdminMarketPricingControlPlaneEditor({
     setPriceDraft({
       amount_minor: String(row.amount_minor),
       provider: row.provider,
+      role: row.role ?? "",
+      tier: row.tier ?? "",
       enabled: row.enabled,
       operator_notes: row.operator_notes ?? "",
       effective_from: toDateTimeLocalInput(row.effective_from),
@@ -569,6 +633,8 @@ export function AdminMarketPricingControlPlaneEditor({
         body: JSON.stringify({
           amount_minor: amountMinor,
           provider: priceDraft.provider,
+          role: priceDraft.role || null,
+          tier: priceDraft.tier || null,
           enabled: priceDraft.enabled,
           operator_notes: priceDraft.operator_notes || null,
           effective_from: toIsoOrNull(priceDraft.effective_from),
@@ -729,6 +795,9 @@ export function AdminMarketPricingControlPlaneEditor({
           <p className="mt-1 text-sm text-slate-600">
             Future market-aware PAYG and featured pricing rows. Editing these rows does not change checkout runtime in this batch.
           </p>
+          <p className="mt-2 text-xs text-slate-500">
+            Role/tier prices are control-plane rows only until runtime integration ships. Enterprise rows are planning-only until Enterprise runtime tier support is implemented.
+          </p>
         </div>
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -737,6 +806,8 @@ export function AdminMarketPricingControlPlaneEditor({
                 <th className="px-3 py-2">Market</th>
                 <th className="px-3 py-2">Product</th>
                 <th className="px-3 py-2">Provider</th>
+                <th className="px-3 py-2">Role</th>
+                <th className="px-3 py-2">Tier</th>
                 <th className="px-3 py-2">Amount</th>
                 <th className="px-3 py-2">Enabled</th>
                 <th className="px-3 py-2">Notes</th>
@@ -750,6 +821,8 @@ export function AdminMarketPricingControlPlaneEditor({
                     <td className="px-3 py-3 font-medium text-slate-900">{row.market_country}</td>
                     <td className="px-3 py-3 text-slate-700">{formatMarketPricingProductLabel(row.product_code)}</td>
                     <td className="px-3 py-3 text-slate-700">{row.provider}</td>
+                    <td className="px-3 py-3 text-slate-700">{formatMarketPricingRoleScopeLabel(row.role)}</td>
+                    <td className="px-3 py-3 text-slate-700">{formatMarketPricingControlPlaneTierLabel(row.tier)}</td>
                     <td className="px-3 py-3 text-slate-700">{formatAmount(row.currency, row.amount_minor)}</td>
                     <td className="px-3 py-3 text-slate-700">{row.enabled ? "Yes" : "No"}</td>
                     <td className="px-3 py-3 text-slate-700">{row.operator_notes ?? "—"}</td>

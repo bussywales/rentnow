@@ -82,6 +82,10 @@ export default async function AdminMarketPricingPage() {
         Canada PAYG is not live. Draft rows do not enable checkout.
       </div>
 
+      <div className="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-900" data-testid="market-pricing-enterprise-planning-warning">
+        Role/tier price rows are still control-plane only. Enterprise pricing rows remain planning-only until Enterprise runtime tier support is explicitly implemented.
+      </div>
+
       <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6" data-testid="market-pricing-summary-grid">
         <SummaryCard label="Policy rows" value={state.summary.policyRows} />
         <SummaryCard label="Live policies" value={state.summary.livePolicies} />

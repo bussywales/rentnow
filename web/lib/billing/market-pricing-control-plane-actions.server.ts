@@ -5,6 +5,7 @@ import type {
   MarketListingEntitlementRow,
   MarketOneOffPriceRow,
   MarketPricingAuditLogRow,
+  MarketPricingControlPlaneTier,
   MarketPricingPolicyState,
 } from "@/lib/billing/market-pricing";
 
@@ -28,6 +29,14 @@ type MarketPricingDbClient = {
 
 export const MARKET_PRICING_PROVIDER_VALUES = ["stripe", "paystack", "flutterwave"] as const;
 export const MARKET_PRICING_POLICY_STATE_VALUES = ["draft", "approved", "live", "disabled"] as const;
+export const MARKET_PRICING_ONE_OFF_ROLE_VALUES = ["tenant", "landlord", "agent"] as const;
+export const MARKET_PRICING_ONE_OFF_TIER_VALUES = [
+  "free",
+  "starter",
+  "pro",
+  "tenant_pro",
+  "enterprise",
+] as const;
 
 const optionalDateTimeSchema = z
   .string()
@@ -77,14 +86,42 @@ export const marketBillingPolicyPatchSchema = z
     }
   });
 
-export const marketOneOffPricePatchSchema = z.object({
-  amount_minor: z.number().int().min(0),
-  provider: z.enum(MARKET_PRICING_PROVIDER_VALUES),
-  enabled: z.boolean(),
-  operator_notes: optionalNotesSchema,
-  effective_from: optionalDateTimeSchema,
-  active: z.boolean(),
-});
+export const marketOneOffPricePatchSchema = z
+  .object({
+    amount_minor: z.number().int().min(0),
+    provider: z.enum(MARKET_PRICING_PROVIDER_VALUES),
+    role: z.enum(MARKET_PRICING_ONE_OFF_ROLE_VALUES).nullable(),
+    tier: z.enum(MARKET_PRICING_ONE_OFF_TIER_VALUES).nullable(),
+    enabled: z.boolean(),
+    operator_notes: optionalNotesSchema,
+    effective_from: optionalDateTimeSchema,
+    active: z.boolean(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.role && value.tier) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["tier"],
+        message: "Tier cannot be set without a role.",
+      });
+      return;
+    }
+    if (!value.role) return;
+
+    const allowedTiers: Record<(typeof MARKET_PRICING_ONE_OFF_ROLE_VALUES)[number], readonly MarketPricingControlPlaneTier[]> = {
+      tenant: ["free", "tenant_pro"],
+      landlord: ["free", "starter", "pro"],
+      agent: ["free", "starter", "pro", "enterprise"],
+    };
+
+    if (value.tier && !allowedTiers[value.role].includes(value.tier)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["tier"],
+        message: `Tier ${value.tier} is not valid for role ${value.role}.`,
+      });
+    }
+  });
 
 export const marketListingEntitlementPatchSchema = z.object({
   active_listing_limit: z.number().int().min(0),
