@@ -52,6 +52,7 @@ void test("delivery monitor seed includes the core stakeholder closure items", (
   assert.match(source, /property_request_title_integrity/);
   assert.match(source, /property_request_taxonomy_non_room_logic/);
   assert.match(source, /property_request_submission_trust/);
+  assert.match(source, /market_pricing_control_plane/);
   assert.match(source, /property_request_subscriber_alerts/);
   assert.match(source, /role_account_state_hardening/);
   assert.match(source, /property_prep_model_b_foundation/);

@@ -78,6 +78,35 @@ export const DELIVERY_MONITOR_SEED_ITEMS: DeliveryMonitorSeedItem[] = [
     repoUpdatedAt: "2026-05-04T00:00:00.000Z",
   },
   {
+    key: "market_pricing_control_plane",
+    title: "Market pricing control plane",
+    workstream: "Billing / market pricing / entitlements",
+    status: "amber",
+    owner: "Billing policy + admin ops",
+    nextAction: "Validate seeded market policy rows and admin diagnostics before wiring runtime.",
+    description:
+      "Create the first admin-managed market pricing and entitlement foundation without changing current checkout or enforcement behavior.",
+    whyItMatters:
+      "Canada PAYG and stakeholder-managed market pricing need a governed control plane before runtime billing can safely become market-aware.",
+    delivered: [
+      "Schema foundation exists for market policy, one-off pricing, and listing entitlements.",
+      "Admin can see seeded market policy rows, entitlement rows, and one-off price rows.",
+      "Runtime source diagnostics make it explicit that current billing still uses legacy settings and code constants.",
+    ],
+    outstanding: [
+      "Runtime checkout and entitlement enforcement still need an explicit integration batch.",
+      "Canada PAYG remains policy-gated until pricing, provider routing, tax posture, and launch scope are approved.",
+      "Provider routing and tax/compliance posture still need stakeholder sign-off before live market activation.",
+    ],
+    testingGuide: [
+      "Open /admin/settings/billing/market-pricing and confirm policy, one-off pricing, and entitlement rows render.",
+      "Confirm the runtime diagnostics explicitly say legacy checkout and listing-cap enforcement are still in effect.",
+      "Confirm Canada remains draft or disabled and does not imply live PAYG availability.",
+      "Verify no current billing or listing-monetisation smoke flow changes behavior after this foundation ships.",
+    ],
+    repoUpdatedAt: "2026-05-04T00:00:00.000Z",
+  },
+  {
     key: "property_request_title_integrity",
     title: "Property request title / rendering / data integrity",
     workstream: "Property requests marketplace",

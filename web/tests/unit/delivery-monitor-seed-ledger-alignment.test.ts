@@ -52,3 +52,17 @@ void test("property request subscriber alerts seed stays amber and validation-fo
   assert.match(item?.outstanding.join(" "), /live adoption/i);
   assert.match(item?.outstanding.join(" "), /matching quality/i);
 });
+
+void test("market pricing control plane seed stays amber and foundation-focused while runtime remains legacy-backed", () => {
+  const item = getDeliveryMonitorSeedItem("market_pricing_control_plane");
+
+  assert.ok(item);
+  assert.equal(item?.status, "amber");
+  assert.match(item?.workstream ?? "", /Billing \/ market pricing \/ entitlements/i);
+  assert.match(item?.delivered.join(" "), /Schema foundation exists/i);
+  assert.match(item?.delivered.join(" "), /legacy settings and code constants/i);
+  assert.match(item?.outstanding.join(" "), /runtime checkout/i);
+  assert.match(item?.outstanding.join(" "), /Canada PAYG remains policy-gated/i);
+  assert.match(item?.testingGuide.join(" "), /market-pricing/i);
+  assert.match(item?.testingGuide.join(" "), /legacy checkout and listing-cap enforcement/i);
+});

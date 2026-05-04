@@ -16,6 +16,7 @@ void test("delivery monitor seed covers the expected current internal workstream
 
   assert.ok(keys.includes("listing_publish_renew_recovery"));
   assert.ok(keys.includes("listing_media_playback_gallery_sync"));
+  assert.ok(keys.includes("market_pricing_control_plane"));
   assert.ok(keys.includes("property_request_subscriber_alerts"));
   assert.ok(keys.includes("property_prep_dispatch_follow_through"));
   assert.ok(keys.includes("bootcamp_launch_system"));
