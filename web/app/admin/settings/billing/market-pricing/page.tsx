@@ -122,6 +122,22 @@ export default async function AdminMarketPricingPage() {
             </dd>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Stripe prep layer</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.stripePrepLayerAvailable ? "AVAILABLE" : "UNAVAILABLE"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Checkout creation</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.checkoutCreationEnabled ? "ENABLED" : "DISABLED"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Canada session creation</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">BLOCKED BY DESIGN</dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <dt className="text-xs uppercase tracking-wide text-slate-500">Runtime source</dt>
             <dd className="mt-2 text-sm font-semibold text-slate-900">
               {canadaRuntimeDiagnostics.runtimeSource}

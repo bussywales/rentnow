@@ -286,7 +286,9 @@ void test("Canada submit keeps legacy payment-required behaviour while the guard
         marketCountry: "CA",
         runtimeSource: "legacy" as const,
         resolverAvailable: true as const,
+        stripePrepLayerAvailable: true as const,
         checkoutEnabled: false as const,
+        checkoutCreationEnabled: false as const,
         readiness: {
           status: "blocked" as const,
           eligible: true,

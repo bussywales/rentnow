@@ -5,6 +5,7 @@ import {
   postBillingCheckoutResponse,
   type BillingCheckoutRouteDeps,
 } from "@/app/api/billing/checkout/route";
+import type { PreparedCanadaRentalPaygStripeCheckout } from "@/lib/billing/canada-payg-stripe-prep.server";
 
 const makeRequest = (payload: Record<string, unknown>) =>
   new Request("http://localhost/api/billing/checkout", {
@@ -53,6 +54,7 @@ function buildAdminClient(listing: ListingStub) {
 function buildDeps(options: {
   listing: ListingStub;
   loadCanadaDecision?: BillingCheckoutRouteDeps["loadCanadaRentalPaygRuntimeDecision"];
+  prepareCanadaRentalPaygStripeCheckout?: BillingCheckoutRouteDeps["prepareCanadaRentalPaygStripeCheckout"];
   fetchImplementation?: BillingCheckoutRouteDeps["fetchImplementation"];
 }) {
   const { client, getInsertedPayment } = buildAdminClient(options.listing);
@@ -117,7 +119,9 @@ function buildDeps(options: {
         marketCountry: "CA",
         runtimeSource: "legacy",
         resolverAvailable: true,
+        stripePrepLayerAvailable: true,
         checkoutEnabled: false,
+        checkoutCreationEnabled: false,
         readiness: {
           status: "blocked",
           eligible: true,
@@ -144,6 +148,49 @@ function buildDeps(options: {
         },
         nextActivationPrerequisites: [],
       })),
+    prepareCanadaRentalPaygStripeCheckout:
+      options.prepareCanadaRentalPaygStripeCheckout ??
+      ((input) =>
+        ({
+          ready: true,
+          blockedReason: null,
+          amountMinor: input.amountMinor,
+          currency: "CAD",
+          provider: "stripe",
+          mode: "payment",
+          lineItems: [
+            {
+              quantity: 1,
+              price_data: {
+                currency: "cad",
+                unit_amount: input.amountMinor ?? 0,
+                product_data: {
+                  name: "Canada rental listing submission",
+                  description: "Prepared Canada PAYG checkout",
+                },
+              },
+            },
+          ],
+          metadata: {
+            purpose: "listing_submission",
+            market: "CA",
+            listing_id: input.listingId,
+            owner_id: input.ownerId,
+            payer_user_id: input.userId,
+            role: input.role ?? "unknown",
+            tier: input.tier ?? "unknown",
+            product_code: "listing_submission",
+            pricing_source: "market_one_off_price_book",
+            provider: "stripe",
+            currency: "CAD",
+            amount_minor: String(input.amountMinor ?? ""),
+            checkout_enabled: "false",
+          },
+          successUrl: "https://example.com/host/properties/123/edit?payment=canada_payg&canada_payg=success",
+          cancelUrl: "https://example.com/host/properties/123/edit?payment=canada_payg&canada_payg=cancel",
+          idempotencyKey: "idem-ca-payg-123",
+          checkoutCreationEnabled: false,
+        }) satisfies PreparedCanadaRentalPaygStripeCheckout),
     fetchImplementation,
   };
 
@@ -180,7 +227,7 @@ void test("Canada checkout cannot create a live checkout when the gate is off", 
   assert.equal(getInsertedPayment(), null);
 });
 
-void test("Canada checkout stays disabled even when the guarded runtime decision is activation-ready", async () => {
+void test("Canada checkout returns not-ready when the gate is on but readiness is still blocked", async () => {
   const { deps, getInsertedPayment, getFetchCalls } = buildDeps({
     listing: {
       id: "22222222-2222-4222-8222-222222222222",
@@ -195,12 +242,14 @@ void test("Canada checkout stays disabled even when the guarded runtime decision
       marketCountry: "CA",
       runtimeSource: "legacy",
       resolverAvailable: true,
+      stripePrepLayerAvailable: true,
       checkoutEnabled: false,
+      checkoutCreationEnabled: false,
       readiness: {
-        status: "ready",
+        status: "blocked",
         eligible: true,
-        reasonCode: "READY_FOR_RUNTIME_INTEGRATION",
-        blockers: [],
+        reasonCode: "PRICE_ROW_DISABLED",
+        blockers: ["PRICE_ROW_DISABLED"],
         marketCountry: "CA",
         role: "landlord",
         tier: "free",
@@ -216,7 +265,7 @@ void test("Canada checkout stays disabled even when the guarded runtime decision
         amountMinor: 400,
         currency: "CAD",
         provider: "stripe",
-        runtimeActivationAllowed: true,
+        runtimeActivationAllowed: false,
         checkoutEnabled: false,
         warnings: [],
       },
@@ -231,9 +280,78 @@ void test("Canada checkout stays disabled even when the guarded runtime decision
 
   assert.equal(response.status, 409);
   const body = await response.json();
-  assert.equal(body.code, "CANADA_PAYG_CHECKOUT_DISABLED");
+  assert.equal(body.code, "CANADA_PAYG_NOT_READY");
+  assert.equal(body.checkoutEnabled, false);
+  assert.equal(body.runtimeActivationAllowed, false);
+  assert.equal(body.reasonCode, "PRICE_ROW_DISABLED");
+  assert.equal(getFetchCalls(), 0);
+  assert.equal(getInsertedPayment(), null);
+});
+
+void test("Canada checkout returns prepared Stripe diagnostics when gate is on and runtime readiness is activation-ready", async () => {
+  const { deps, getInsertedPayment, getFetchCalls } = buildDeps({
+    listing: {
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      owner_id: "owner-1",
+      status: "draft",
+      country_code: "CA",
+      listing_intent: "rent",
+      rental_type: "long_term",
+    },
+    loadCanadaDecision: async () => ({
+      gateEnabled: true,
+      marketCountry: "CA",
+      runtimeSource: "legacy",
+      resolverAvailable: true,
+      stripePrepLayerAvailable: true,
+      checkoutEnabled: false,
+      checkoutCreationEnabled: false,
+      readiness: {
+        status: "ready",
+        eligible: true,
+        reasonCode: "READY_FOR_RUNTIME_INTEGRATION",
+        blockers: [],
+        marketCountry: "CA",
+        role: "agent",
+        tier: "pro",
+        normalizedIntent: "rent",
+        isShortlet: false,
+        policyState: "live",
+        activeListingCount: 10,
+        includedActiveListingLimit: 10,
+        overIncludedCap: true,
+        policyRow: null,
+        entitlementRow: null,
+        priceRow: null,
+        amountMinor: 200,
+        currency: "CAD",
+        provider: "stripe",
+        runtimeActivationAllowed: true,
+        checkoutEnabled: false,
+        warnings: [],
+      },
+      nextActivationPrerequisites: [],
+    }),
+  });
+
+  const response = await postBillingCheckoutResponse(
+    makeRequest({ listingId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", purpose: "listing_submission" }),
+    deps
+  );
+
+  assert.equal(response.status, 409);
+  const body = await response.json();
+  assert.equal(body.code, "CANADA_PAYG_STRIPE_PREPARED_CHECKOUT_DISABLED");
   assert.equal(body.checkoutEnabled, false);
   assert.equal(body.runtimeActivationAllowed, true);
+  assert.equal(body.amountMinor, 200);
+  assert.equal(body.currency, "CAD");
+  assert.equal(body.provider, "stripe");
+  assert.equal(body.stripePrep.mode, "payment");
+  assert.equal(body.stripePrep.metadata.purpose, "listing_submission");
+  assert.equal(body.stripePrep.metadata.provider, "stripe");
+  assert.equal(body.stripePrep.metadata.currency, "CAD");
+  assert.equal(body.stripePrep.checkoutCreationEnabled, false);
   assert.equal(getFetchCalls(), 0);
   assert.equal(getInsertedPayment(), null);
 });

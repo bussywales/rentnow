@@ -33,7 +33,9 @@ export type CanadaRentalPaygRuntimeDecision = {
   marketCountry: string | null;
   runtimeSource: "legacy";
   resolverAvailable: true;
+  stripePrepLayerAvailable: true;
   checkoutEnabled: false;
+  checkoutCreationEnabled: false;
   readiness: CanadaRentalPaygReadinessResult;
   nextActivationPrerequisites: string[];
 };
@@ -53,7 +55,9 @@ export type CanadaRentalPaygRuntimeInput = {
 export type CanadaRentalPaygRuntimeDiagnostics = {
   gateEnabled: boolean;
   resolverAvailable: true;
+  stripePrepLayerAvailable: true;
   checkoutEnabled: false;
+  checkoutCreationEnabled: false;
   runtimeSource: "legacy";
   nextActivationPrerequisites: string[];
 };
@@ -161,7 +165,9 @@ export async function getCanadaRentalPaygRuntimeDiagnostics(
   return {
     gateEnabled: await getCanadaRentalPaygRuntimeEnabled(client),
     resolverAvailable: true,
+    stripePrepLayerAvailable: true,
     checkoutEnabled: false,
+    checkoutCreationEnabled: false,
     runtimeSource: "legacy",
     nextActivationPrerequisites: [...CANADA_RENTAL_PAYG_RUNTIME_PREREQUISITES],
   };
@@ -201,7 +207,9 @@ export async function loadCanadaRentalPaygRuntimeDecision(
     marketCountry: readiness.marketCountry,
     runtimeSource: "legacy",
     resolverAvailable: true,
+    stripePrepLayerAvailable: true,
     checkoutEnabled: false,
+    checkoutCreationEnabled: false,
     readiness,
     nextActivationPrerequisites: [...CANADA_RENTAL_PAYG_RUNTIME_PREREQUISITES],
   };

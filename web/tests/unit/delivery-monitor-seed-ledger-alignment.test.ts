@@ -64,11 +64,14 @@ void test("market pricing control plane seed stays amber and foundation-focused 
   assert.match(item?.delivered.join(" "), /role\/tier-aware control-plane pricing/i);
   assert.match(item?.delivered.join(" "), /Canada rental PAYG readiness resolver/i);
   assert.match(item?.delivered.join(" "), /Canada runtime gate/i);
+  assert.match(item?.delivered.join(" "), /Stripe checkout preparation layer/i);
   assert.match(item?.delivered.join(" "), /audit history/i);
   assert.match(item?.delivered.join(" "), /legacy settings and code constants/i);
-  assert.match(item?.nextAction ?? "", /guarded Canada runtime adapter/i);
+  assert.match(item?.nextAction ?? "", /Stripe prep layer/i);
   assert.match(item?.outstanding.join(" "), /runtime checkout/i);
-  assert.match(item?.outstanding.join(" "), /checkout remains intentionally disabled/i);
+  assert.match(item?.outstanding.join(" "), /checkout session creation remains intentionally disabled/i);
+  assert.match(item?.outstanding.join(" "), /Webhook\/callback recovery/i);
+  assert.match(item?.outstanding.join(" "), /Tax, receipt, and compliance posture/i);
   assert.match(item?.outstanding.join(" "), /Canada PAYG remains policy-gated/i);
   assert.match(item?.outstanding.join(" "), /Enterprise remains a planning-only control-plane tier/i);
   assert.match(item?.testingGuide.join(" "), /market-pricing/i);
@@ -76,6 +79,8 @@ void test("market pricing control plane seed stays amber and foundation-focused 
   assert.match(item?.testingGuide.join(" "), /Canada PAYG readiness resolver tests/i);
   assert.match(item?.testingGuide.join(" "), /gate OFF/i);
   assert.match(item?.testingGuide.join(" "), /guarded Canada runtime adapter tests/i);
+  assert.match(item?.testingGuide.join(" "), /Stripe prep layer AVAILABLE/i);
+  assert.match(item?.testingGuide.join(" "), /Canada Stripe prep tests/i);
   assert.match(item?.testingGuide.join(" "), /edit one policy row, one one-off price row, and one entitlement row/i);
   assert.match(item?.testingGuide.join(" "), /legacy checkout and listing-cap enforcement/i);
 });

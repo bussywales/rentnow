@@ -10,6 +10,7 @@ import { getPaystackConfig } from "@/lib/billing/paystack";
 import { getPaygConfig } from "@/lib/billing/payg";
 import { getFeaturedConfig } from "@/lib/billing/featured";
 import { loadCanadaRentalPaygRuntimeDecision } from "@/lib/billing/canada-payg-runtime.server";
+import { prepareCanadaRentalPaygStripeCheckout } from "@/lib/billing/canada-payg-stripe-prep.server";
 import { getSiteUrl } from "@/lib/env";
 import { logFailure } from "@/lib/observability";
 import { logPropertyEvent, resolveEventSessionKey } from "@/lib/analytics/property-events.server";
@@ -54,6 +55,7 @@ export type BillingCheckoutRouteDeps = {
   logPropertyEvent: typeof logPropertyEvent;
   resolveEventSessionKey: typeof resolveEventSessionKey;
   loadCanadaRentalPaygRuntimeDecision: typeof loadCanadaRentalPaygRuntimeDecision;
+  prepareCanadaRentalPaygStripeCheckout: typeof prepareCanadaRentalPaygStripeCheckout;
   fetchImplementation: typeof fetch;
 };
 
@@ -75,6 +77,7 @@ const defaultDeps: BillingCheckoutRouteDeps = {
   logPropertyEvent,
   resolveEventSessionKey,
   loadCanadaRentalPaygRuntimeDecision,
+  prepareCanadaRentalPaygStripeCheckout,
   fetchImplementation: fetch,
 };
 
@@ -184,15 +187,60 @@ export async function postBillingCheckoutResponse(
       );
     }
 
+    if (!canadaDecision.readiness.runtimeActivationAllowed) {
+      return NextResponse.json(
+        {
+          error: "Canada rental PAYG is not runtime-ready for this listing.",
+          code: "CANADA_PAYG_NOT_READY",
+          reasonCode: canadaDecision.readiness.reasonCode,
+          runtimeActivationAllowed: false,
+          checkoutEnabled: false,
+        },
+        { status: 409 }
+      );
+    }
+
+    const siteUrl = await deps.getSiteUrl();
+    const stripePrep = deps.prepareCanadaRentalPaygStripeCheckout({
+      listingId,
+      ownerId: typedListing.owner_id,
+      userId: auth.user.id,
+      role: canadaDecision.readiness.role,
+      tier: canadaDecision.readiness.tier,
+      amountMinor: canadaDecision.readiness.amountMinor,
+      currency: canadaDecision.readiness.currency,
+      provider: canadaDecision.readiness.provider,
+      marketCountry: canadaDecision.readiness.marketCountry,
+      readiness: canadaDecision.readiness,
+      successUrlBase: siteUrl,
+      cancelUrlBase: siteUrl,
+      idempotencyKey,
+    });
+
     return NextResponse.json(
       {
-        error: "Canada rental PAYG checkout is not enabled in this batch.",
-        code: canadaDecision.readiness.runtimeActivationAllowed
-          ? "CANADA_PAYG_CHECKOUT_DISABLED"
+        error: stripePrep.ready
+          ? "Canada rental PAYG Stripe checkout is prepared but disabled in this batch."
+          : "Canada rental PAYG Stripe preparation is blocked.",
+        code: stripePrep.ready
+          ? "CANADA_PAYG_STRIPE_PREPARED_CHECKOUT_DISABLED"
           : "CANADA_PAYG_NOT_READY",
         reasonCode: canadaDecision.readiness.reasonCode,
-        runtimeActivationAllowed: canadaDecision.readiness.runtimeActivationAllowed,
+        blockedReason: stripePrep.blockedReason,
+        runtimeActivationAllowed: stripePrep.ready && canadaDecision.readiness.runtimeActivationAllowed,
         checkoutEnabled: false,
+        amountMinor: stripePrep.amountMinor,
+        currency: stripePrep.currency,
+        provider: stripePrep.provider,
+        stripePrep: {
+          mode: stripePrep.mode,
+          lineItems: stripePrep.lineItems,
+          metadata: stripePrep.metadata,
+          successUrl: stripePrep.successUrl,
+          cancelUrl: stripePrep.cancelUrl,
+          idempotencyKey: stripePrep.idempotencyKey,
+          checkoutCreationEnabled: stripePrep.checkoutCreationEnabled,
+        },
       },
       { status: 409 }
     );
