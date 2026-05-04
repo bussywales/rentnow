@@ -133,6 +133,7 @@ export function PropertyGallery({
         <PropertyImageCarousel
           title={title}
           images={normalizedGalleryImages}
+          preserveImageOrder
           fallbackImage={fallbackImage}
           blurDataURL={blurDataURL}
           sizes="(max-width: 768px) 100vw, 640px"

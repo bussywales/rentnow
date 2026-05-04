@@ -46,6 +46,38 @@ export const DELIVERY_MONITOR_SEED_ITEMS: DeliveryMonitorSeedItem[] = [
     repoUpdatedAt: "2026-05-02T00:00:00.000Z",
   },
   {
+    key: "listing_media_playback_gallery_sync",
+    title: "Listing media playback and gallery sync",
+    workstream: "Listings media / featured listings",
+    status: "amber",
+    owner: "Listings media",
+    nextAction:
+      "Fix remaining gallery selected-index synchronisation and rerun production retest on featured listing 48161350-b69c-4b39-b7a6-3af29e4e6a44.",
+    description:
+      "Video visibility is fixed, but property-detail gallery thumbnail sync still fails in production on some listings.",
+    whyItMatters:
+      "Media trust breaks when the highlighted thumbnail does not match the visible image, especially on featured listings where the gallery is part of the sales surface.",
+    delivered: [
+      "Video visibility signal is fixed and production-proven.",
+      "Public listing detail can expose has_video safely.",
+      "Video tour renders on detail pages where video exists.",
+    ],
+    outstanding: [
+      "Active thumbnail must match visible main gallery image.",
+      "Featured listing detail gallery must remain in sync on first render.",
+      "Thumbnail click, next, and previous navigation must stay in sync.",
+    ],
+    testingGuide: [
+      "Open https://www.propatyhub.com/properties/48161350-b69c-4b39-b7a6-3af29e4e6a44?source=featured.",
+      "Confirm first render active thumbnail matches the visible main image.",
+      "Click thumbnail 2 and thumbnail 3 and confirm the visible image, active border, and badge all agree.",
+      "Use next and previous navigation and confirm visible image, active thumbnail, and badge move together.",
+      "Confirm video tour still appears on the page.",
+      "Spot-check an image-only listing and confirm normal gallery behaviour still holds.",
+    ],
+    repoUpdatedAt: "2026-05-04T00:00:00.000Z",
+  },
+  {
     key: "property_request_title_integrity",
     title: "Property request title / rendering / data integrity",
     workstream: "Property requests marketplace",

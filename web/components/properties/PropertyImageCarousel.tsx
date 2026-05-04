@@ -16,6 +16,7 @@ type Props = {
   coverImageUrl?: string | null;
   primaryImageUrl?: string | null;
   images?: PropertyImage[];
+  preserveImageOrder?: boolean;
   fallbackImage: string;
   blurDataURL: string;
   sizes: string;
@@ -38,14 +39,16 @@ export function resolvePropertyImageSources({
   coverImageUrl,
   images,
   primaryImageUrl,
+  preserveImageOrder = false,
   fallbackImage,
 }: {
   coverImageUrl?: string | null;
   images?: PropertyImage[];
   primaryImageUrl?: string | null;
+  preserveImageOrder?: boolean;
   fallbackImage: string;
 }): string[] {
-  const ordered = orderImagesWithCover(coverImageUrl, images ?? []);
+  const ordered = preserveImageOrder ? [...(images ?? [])] : orderImagesWithCover(coverImageUrl, images ?? []);
   const orderedUrls = ordered
     .map((image) => resolvePropertyImageUrl(image, "card") ?? image.image_url)
     .filter((imageUrl): imageUrl is string => typeof imageUrl === "string" && imageUrl.length > 0);
@@ -66,6 +69,7 @@ export function PropertyImageCarousel({
   coverImageUrl,
   primaryImageUrl,
   images,
+  preserveImageOrder = false,
   fallbackImage,
   blurDataURL,
   sizes,
@@ -87,9 +91,10 @@ export function PropertyImageCarousel({
         coverImageUrl,
         images,
         primaryImageUrl,
+        preserveImageOrder,
         fallbackImage,
       }),
-    [coverImageUrl, images, primaryImageUrl, fallbackImage]
+    [coverImageUrl, images, primaryImageUrl, preserveImageOrder, fallbackImage]
   );
 
   const carouselItems = useMemo(

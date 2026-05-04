@@ -59,6 +59,7 @@ void test("detail gallery keeps thumbnail and swipe selection in sync via shared
   const contents = fs.readFileSync(propertyGalleryPath, "utf8");
 
   assert.ok(contents.includes("resolvePropertyGalleryImages(images.length ? images : [], coverImageUrl)"));
+  assert.ok(contents.includes("preserveImageOrder"));
   assert.ok(contents.includes('rootTestId="property-detail-gallery-carousel"'));
   assert.ok(contents.includes("enableActiveSlideMotion"));
   assert.ok(contents.includes('if (e.key === "ArrowLeft")'));

@@ -15,6 +15,7 @@ void test("delivery monitor seed covers the expected current internal workstream
   const keys = DELIVERY_MONITOR_SEED_ITEMS.map((item) => item.key);
 
   assert.ok(keys.includes("listing_publish_renew_recovery"));
+  assert.ok(keys.includes("listing_media_playback_gallery_sync"));
   assert.ok(keys.includes("property_request_subscriber_alerts"));
   assert.ok(keys.includes("property_prep_dispatch_follow_through"));
   assert.ok(keys.includes("bootcamp_launch_system"));

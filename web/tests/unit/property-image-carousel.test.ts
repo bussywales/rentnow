@@ -46,10 +46,38 @@ void test("property image carousel does not use fallback when cover image exists
   assert.equal(sources.includes(fallback), false);
 });
 
+void test("property image carousel can preserve caller-supplied canonical order", () => {
+  const fallback = "https://images.unsplash.com/fallback.jpg";
+  const sources = resolvePropertyImageSources({
+    coverImageUrl: "https://cdn.example.com/cover.jpg",
+    primaryImageUrl: null,
+    preserveImageOrder: true,
+    fallbackImage: fallback,
+    images: [
+      {
+        id: "cover",
+        image_url: "https://cdn.example.com/cover.jpg",
+        position: 12,
+      },
+      {
+        id: "first",
+        image_url: "https://cdn.example.com/first.jpg",
+        position: 0,
+      },
+    ],
+  });
+
+  assert.deepEqual(sources, [
+    "https://cdn.example.com/cover.jpg",
+    "https://cdn.example.com/first.jpg",
+  ]);
+});
+
 void test("property image carousel uses unified carousel foundation with shared control markers", () => {
   const contents = fs.readFileSync(propertyCarouselPath, "utf8");
 
   assert.ok(contents.includes("UnifiedImageCarousel"));
+  assert.ok(contents.includes("preserveImageOrder?: boolean;"));
   assert.ok(contents.includes('rootTestId={rootTestId}'));
   assert.ok(contents.includes("showArrows={shouldRenderImageCountBadge(carouselItems.length)}"));
   assert.ok(contents.includes("prioritizeFirstImage={prioritizeFirstImage}"));

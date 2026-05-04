@@ -31,6 +31,18 @@ void test("listing monetisation seed stays validation-focused after repo-truth h
   assert.match(item?.outstanding.join(" "), /live/i);
 });
 
+void test("listing media playback and gallery sync seed stays amber and production-fix focused", () => {
+  const item = getDeliveryMonitorSeedItem("listing_media_playback_gallery_sync");
+
+  assert.ok(item);
+  assert.equal(item?.status, "amber");
+  assert.match(item?.delivered.join(" "), /video visibility signal is fixed/i);
+  assert.match(item?.outstanding.join(" "), /active thumbnail must match visible main gallery image/i);
+  assert.match(item?.nextAction ?? "", /48161350-b69c-4b39-b7a6-3af29e4e6a44/i);
+  assert.match(item?.testingGuide.join(" "), /click thumbnail 2 and thumbnail 3/i);
+  assert.match(item?.testingGuide.join(" "), /video tour still appears/i);
+});
+
 void test("property request subscriber alerts seed stays amber and validation-focused", () => {
   const item = getDeliveryMonitorSeedItem("property_request_subscriber_alerts");
 
