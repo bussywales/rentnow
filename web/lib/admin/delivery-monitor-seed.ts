@@ -83,14 +83,15 @@ export const DELIVERY_MONITOR_SEED_ITEMS: DeliveryMonitorSeedItem[] = [
     workstream: "Billing / market pricing / entitlements",
     status: "amber",
     owner: "Billing policy + admin ops",
-    nextAction: "Validate seeded market policy rows and admin diagnostics before wiring runtime.",
+    nextAction: "Validate seeded market policy edits and audit history before wiring any runtime billing or entitlement reads.",
     description:
-      "Create the first admin-managed market pricing and entitlement foundation without changing current checkout or enforcement behavior.",
+      "Create the first admin-managed market pricing and entitlement control plane without changing current checkout or enforcement behavior.",
     whyItMatters:
       "Canada PAYG and stakeholder-managed market pricing need a governed control plane before runtime billing can safely become market-aware.",
     delivered: [
       "Schema foundation exists for market policy, one-off pricing, and listing entitlements.",
-      "Admin can see seeded market policy rows, entitlement rows, and one-off price rows.",
+      "Admin can see and edit seeded market policy rows, entitlement rows, and one-off price rows.",
+      "Every successful edit writes market pricing audit history.",
       "Runtime source diagnostics make it explicit that current billing still uses legacy settings and code constants.",
     ],
     outstanding: [
@@ -100,6 +101,7 @@ export const DELIVERY_MONITOR_SEED_ITEMS: DeliveryMonitorSeedItem[] = [
     ],
     testingGuide: [
       "Open /admin/settings/billing/market-pricing and confirm policy, one-off pricing, and entitlement rows render.",
+      "Edit one policy row, one one-off price row, and one entitlement row, then confirm each change appears in the table and recent audit entries.",
       "Confirm the runtime diagnostics explicitly say legacy checkout and listing-cap enforcement are still in effect.",
       "Confirm Canada remains draft or disabled and does not imply live PAYG availability.",
       "Verify no current billing or listing-monetisation smoke flow changes behavior after this foundation ships.",

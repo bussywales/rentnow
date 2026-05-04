@@ -1,13 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerAuthUser } from "@/lib/auth/server-session";
+import { AdminMarketPricingControlPlaneEditor } from "@/components/admin/AdminMarketPricingControlPlaneEditor";
 import { loadAdminMarketPricingControlPlane } from "@/lib/billing/market-pricing-control-plane.server";
-import {
-  formatMarketPricingPolicyStateLabel,
-  formatMarketPricingProductLabel,
-  formatMarketPricingRoleLabel,
-  formatMarketPricingTierLabel,
-} from "@/lib/billing/market-pricing";
 
 export const dynamic = "force-dynamic";
 
@@ -22,15 +17,6 @@ function formatDateTime(value: string | null) {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function formatAmount(currency: string, amountMinor: number) {
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amountMinor / 100);
 }
 
 function SummaryCard({ label, value }: { label: string; value: number }) {
@@ -62,8 +48,8 @@ export default async function AdminMarketPricingPage() {
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Admin</p>
           <h1 className="text-3xl font-semibold text-slate-900">Market pricing control plane</h1>
           <p className="max-w-3xl text-sm text-slate-600">
-            Read-only market pricing and entitlement foundation for future market-managed billing. This page does not
-            switch runtime billing or listing enforcement yet.
+            Market pricing and entitlement foundation for future market-managed billing. Admin edits on this page write
+            control-plane rows and audit history only; runtime billing and listing enforcement stay unchanged.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -130,116 +116,11 @@ export default async function AdminMarketPricingPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="market-pricing-policies-section">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">Market policy rows</p>
-          <p className="mt-1 text-sm text-slate-600">Per-market commercial gating and provider envelope. These rows are seeded for visibility and audit only in this batch.</p>
-        </div>
-        <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-3 py-2">Market</th>
-                <th className="px-3 py-2">State</th>
-                <th className="px-3 py-2">Currency</th>
-                <th className="px-3 py-2">Providers</th>
-                <th className="px-3 py-2">Enabled lanes</th>
-                <th className="px-3 py-2">Notes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {state.policies.map((row) => (
-                <tr key={row.id}>
-                  <td className="px-3 py-3 font-medium text-slate-900">{row.market_country}</td>
-                  <td className="px-3 py-3 text-slate-700">{formatMarketPricingPolicyStateLabel(row.policy_state)}</td>
-                  <td className="px-3 py-3 text-slate-700">{row.currency}</td>
-                  <td className="px-3 py-3 text-slate-700">
-                    Listing: {row.listing_payg_provider ?? "—"}
-                    <br />
-                    Featured: {row.featured_listing_provider ?? "—"}
-                  </td>
-                  <td className="px-3 py-3 text-slate-700">
-                    Rental {row.rental_enabled ? "Yes" : "No"} · Sale {row.sale_enabled ? "Yes" : "No"} · Shortlet {row.shortlet_enabled ? "Yes" : "No"}
-                    <br />
-                    PAYG {row.payg_listing_enabled ? "Yes" : "No"} · Featured {row.featured_listing_enabled ? "Yes" : "No"} · Subs {row.subscription_checkout_enabled ? "Yes" : "No"}
-                  </td>
-                  <td className="px-3 py-3 text-slate-700">{row.operator_notes ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="market-pricing-one-off-section">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">One-off price rows</p>
-          <p className="mt-1 text-sm text-slate-600">Future market-aware PAYG and featured pricing rows. Runtime checkout still uses legacy settings in this batch.</p>
-        </div>
-        <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-3 py-2">Market</th>
-                <th className="px-3 py-2">Product</th>
-                <th className="px-3 py-2">Provider</th>
-                <th className="px-3 py-2">Amount</th>
-                <th className="px-3 py-2">Enabled</th>
-                <th className="px-3 py-2">Notes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {state.oneOffPrices.map((row) => (
-                <tr key={row.id}>
-                  <td className="px-3 py-3 font-medium text-slate-900">{row.market_country}</td>
-                  <td className="px-3 py-3 text-slate-700">{formatMarketPricingProductLabel(row.product_code)}</td>
-                  <td className="px-3 py-3 text-slate-700">{row.provider}</td>
-                  <td className="px-3 py-3 text-slate-700">{formatAmount(row.currency, row.amount_minor)}</td>
-                  <td className="px-3 py-3 text-slate-700">{row.enabled ? "Yes" : "No"}</td>
-                  <td className="px-3 py-3 text-slate-700">{row.operator_notes ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="market-pricing-entitlements-section">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">Listing entitlement rows</p>
-          <p className="mt-1 text-sm text-slate-600">Market x role x tier matrix for future listing-cap and credit control. Current runtime still reads plans.ts and profile overrides.</p>
-        </div>
-        <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-3 py-2">Market</th>
-                <th className="px-3 py-2">Role</th>
-                <th className="px-3 py-2">Tier</th>
-                <th className="px-3 py-2">Active listing limit</th>
-                <th className="px-3 py-2">Credits</th>
-                <th className="px-3 py-2">Notes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {state.entitlements.map((row) => (
-                <tr key={row.id}>
-                  <td className="px-3 py-3 font-medium text-slate-900">{row.market_country}</td>
-                  <td className="px-3 py-3 text-slate-700">{formatMarketPricingRoleLabel(row.role)}</td>
-                  <td className="px-3 py-3 text-slate-700">{formatMarketPricingTierLabel(row.tier)}</td>
-                  <td className="px-3 py-3 text-slate-700">{row.active_listing_limit}</td>
-                  <td className="px-3 py-3 text-slate-700">
-                    Listing {row.listing_credits} · Featured {row.featured_credits}
-                    <br />
-                    Client pages {row.client_page_limit ?? "—"} · Beyond cap {row.payg_beyond_cap_enabled ? "Yes" : "No"}
-                  </td>
-                  <td className="px-3 py-3 text-slate-700">{row.operator_notes ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <AdminMarketPricingControlPlaneEditor
+        policies={state.policies}
+        oneOffPrices={state.oneOffPrices}
+        entitlements={state.entitlements}
+      />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="market-pricing-audit-section">
         <div>
