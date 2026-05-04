@@ -7,7 +7,7 @@ import {
 
 void test("mobile quick search category options include shortlets and properties categories", () => {
   const optionKeys = MOBILE_QUICKSEARCH_CATEGORY_OPTIONS.map((option) => option.key);
-  assert.deepEqual(optionKeys, ["rent", "buy", "shortlet", "off_plan", "all"]);
+  assert.deepEqual(optionKeys, ["all", "rent", "buy", "shortlet", "off_plan"]);
 });
 
 void test("mobile quick search presets return shortlet recents first when shortlet category is selected", () => {

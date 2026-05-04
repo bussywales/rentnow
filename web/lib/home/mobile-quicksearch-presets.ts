@@ -19,6 +19,8 @@ export type MobileQuickSearchPreset = {
   shortletParams?: Record<string, string>;
 };
 
+// Keep mobile quick-search category chips aligned with the shared /properties browse rail,
+// including the "All homes" default-first ordering.
 export const MOBILE_QUICKSEARCH_CATEGORY_OPTIONS: MobileQuickSearchCategoryOption[] =
   PROPERTIES_BROWSE_CATEGORY_OPTIONS.map((option) => ({
     key: option.value,
