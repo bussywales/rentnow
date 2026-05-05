@@ -11,6 +11,7 @@ import { getPaygConfig } from "@/lib/billing/payg";
 import { getFeaturedConfig } from "@/lib/billing/featured";
 import { loadCanadaRentalPaygRuntimeDecision } from "@/lib/billing/canada-payg-runtime.server";
 import { prepareCanadaRentalPaygStripeCheckout } from "@/lib/billing/canada-payg-stripe-prep.server";
+import { createCanadaRentalPaygStripeSessionDisabled } from "@/lib/billing/canada-payg-stripe-session.server";
 import { getSiteUrl } from "@/lib/env";
 import { logFailure } from "@/lib/observability";
 import { logPropertyEvent, resolveEventSessionKey } from "@/lib/analytics/property-events.server";
@@ -56,6 +57,7 @@ export type BillingCheckoutRouteDeps = {
   resolveEventSessionKey: typeof resolveEventSessionKey;
   loadCanadaRentalPaygRuntimeDecision: typeof loadCanadaRentalPaygRuntimeDecision;
   prepareCanadaRentalPaygStripeCheckout: typeof prepareCanadaRentalPaygStripeCheckout;
+  createCanadaRentalPaygStripeSessionDisabled: typeof createCanadaRentalPaygStripeSessionDisabled;
   fetchImplementation: typeof fetch;
 };
 
@@ -78,6 +80,7 @@ const defaultDeps: BillingCheckoutRouteDeps = {
   resolveEventSessionKey,
   loadCanadaRentalPaygRuntimeDecision,
   prepareCanadaRentalPaygStripeCheckout,
+  createCanadaRentalPaygStripeSessionDisabled,
   fetchImplementation: fetch,
 };
 
@@ -217,29 +220,37 @@ export async function postBillingCheckoutResponse(
       idempotencyKey,
     });
 
+    const stripeSession = deps.createCanadaRentalPaygStripeSessionDisabled({
+      prepared: stripePrep,
+      customerEmail: auth.user.email ?? null,
+    });
+
     return NextResponse.json(
       {
         error: stripePrep.ready
-          ? "Canada rental PAYG Stripe checkout is prepared but disabled in this batch."
+          ? "Canada rental PAYG Stripe session request is defined but disabled in this batch."
           : "Canada rental PAYG Stripe preparation is blocked.",
         code: stripePrep.ready
-          ? "CANADA_PAYG_STRIPE_PREPARED_CHECKOUT_DISABLED"
+          ? "CANADA_PAYG_STRIPE_SESSION_CREATION_DISABLED"
           : "CANADA_PAYG_NOT_READY",
         reasonCode: canadaDecision.readiness.reasonCode,
-        blockedReason: stripePrep.blockedReason,
+        blockedReason: stripeSession.blockedReason ?? stripePrep.blockedReason,
         runtimeActivationAllowed: stripePrep.ready && canadaDecision.readiness.runtimeActivationAllowed,
         checkoutEnabled: false,
+        checkoutCreationEnabled: stripeSession.checkoutCreationEnabled,
+        stripeSessionCreationAttempted: stripeSession.stripeSessionCreationAttempted,
         amountMinor: stripePrep.amountMinor,
         currency: stripePrep.currency,
         provider: stripePrep.provider,
-        stripePrep: {
-          mode: stripePrep.mode,
-          lineItems: stripePrep.lineItems,
-          metadata: stripePrep.metadata,
-          successUrl: stripePrep.successUrl,
-          cancelUrl: stripePrep.cancelUrl,
-          idempotencyKey: stripePrep.idempotencyKey,
-          checkoutCreationEnabled: stripePrep.checkoutCreationEnabled,
+        mode: stripePrep.mode,
+        stripeSession: {
+          metadataKeysPresent: stripeSession.request ? Object.keys(stripeSession.request.metadata ?? {}) : [],
+          paymentIntentMetadataKeysPresent: stripeSession.request?.payment_intent_data?.metadata
+            ? Object.keys(stripeSession.request.payment_intent_data.metadata)
+            : [],
+          idempotencyKeyPresent: !!stripeSession.idempotencyKey,
+          checkoutCreationEnabled: stripeSession.checkoutCreationEnabled,
+          stripeSessionCreationAttempted: stripeSession.stripeSessionCreationAttempted,
         },
       },
       { status: 409 }

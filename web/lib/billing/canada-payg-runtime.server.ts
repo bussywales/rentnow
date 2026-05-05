@@ -34,8 +34,10 @@ export type CanadaRentalPaygRuntimeDecision = {
   runtimeSource: "legacy";
   resolverAvailable: true;
   stripePrepLayerAvailable: true;
+  stripeSessionRequestDefined: true;
   checkoutEnabled: false;
   checkoutCreationEnabled: false;
+  paymentRecoveryScaffolded: true;
   readiness: CanadaRentalPaygReadinessResult;
   nextActivationPrerequisites: string[];
 };
@@ -56,8 +58,10 @@ export type CanadaRentalPaygRuntimeDiagnostics = {
   gateEnabled: boolean;
   resolverAvailable: true;
   stripePrepLayerAvailable: true;
+  stripeSessionRequestDefined: true;
   checkoutEnabled: false;
   checkoutCreationEnabled: false;
+  paymentRecoveryScaffolded: true;
   runtimeSource: "legacy";
   nextActivationPrerequisites: string[];
 };
@@ -166,8 +170,10 @@ export async function getCanadaRentalPaygRuntimeDiagnostics(
     gateEnabled: await getCanadaRentalPaygRuntimeEnabled(client),
     resolverAvailable: true,
     stripePrepLayerAvailable: true,
+    stripeSessionRequestDefined: true,
     checkoutEnabled: false,
     checkoutCreationEnabled: false,
+    paymentRecoveryScaffolded: true,
     runtimeSource: "legacy",
     nextActivationPrerequisites: [...CANADA_RENTAL_PAYG_RUNTIME_PREREQUISITES],
   };
@@ -208,8 +214,10 @@ export async function loadCanadaRentalPaygRuntimeDecision(
     runtimeSource: "legacy",
     resolverAvailable: true,
     stripePrepLayerAvailable: true,
+    stripeSessionRequestDefined: true,
     checkoutEnabled: false,
     checkoutCreationEnabled: false,
+    paymentRecoveryScaffolded: true,
     readiness,
     nextActivationPrerequisites: [...CANADA_RENTAL_PAYG_RUNTIME_PREREQUISITES],
   };

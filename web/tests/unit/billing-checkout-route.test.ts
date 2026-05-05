@@ -6,6 +6,7 @@ import {
   type BillingCheckoutRouteDeps,
 } from "@/app/api/billing/checkout/route";
 import type { PreparedCanadaRentalPaygStripeCheckout } from "@/lib/billing/canada-payg-stripe-prep.server";
+import type { CanadaRentalPaygStripeSessionBuildResult } from "@/lib/billing/canada-payg-stripe-session.server";
 
 const makeRequest = (payload: Record<string, unknown>) =>
   new Request("http://localhost/api/billing/checkout", {
@@ -55,6 +56,7 @@ function buildDeps(options: {
   listing: ListingStub;
   loadCanadaDecision?: BillingCheckoutRouteDeps["loadCanadaRentalPaygRuntimeDecision"];
   prepareCanadaRentalPaygStripeCheckout?: BillingCheckoutRouteDeps["prepareCanadaRentalPaygStripeCheckout"];
+  createCanadaRentalPaygStripeSessionDisabled?: BillingCheckoutRouteDeps["createCanadaRentalPaygStripeSessionDisabled"];
   fetchImplementation?: BillingCheckoutRouteDeps["fetchImplementation"];
 }) {
   const { client, getInsertedPayment } = buildAdminClient(options.listing);
@@ -191,6 +193,28 @@ function buildDeps(options: {
           idempotencyKey: "idem-ca-payg-123",
           checkoutCreationEnabled: false,
         }) satisfies PreparedCanadaRentalPaygStripeCheckout),
+    createCanadaRentalPaygStripeSessionDisabled:
+      options.createCanadaRentalPaygStripeSessionDisabled ??
+      ((input) =>
+        ({
+          ready: false,
+          blockedReason: "CHECKOUT_CREATION_DISABLED",
+          request: {
+            mode: "payment",
+            line_items: input.prepared.lineItems,
+            success_url: input.prepared.successUrl,
+            cancel_url: input.prepared.cancelUrl,
+            metadata: input.prepared.metadata,
+            payment_intent_data: {
+              metadata: input.prepared.metadata,
+            },
+            customer_email: "owner@example.com",
+            idempotencyKey: input.prepared.idempotencyKey,
+          },
+          idempotencyKey: input.prepared.idempotencyKey,
+          checkoutCreationEnabled: false,
+          stripeSessionCreationAttempted: false,
+        }) satisfies CanadaRentalPaygStripeSessionBuildResult),
     fetchImplementation,
   };
 
@@ -288,7 +312,7 @@ void test("Canada checkout returns not-ready when the gate is on but readiness i
   assert.equal(getInsertedPayment(), null);
 });
 
-void test("Canada checkout returns prepared Stripe diagnostics when gate is on and runtime readiness is activation-ready", async () => {
+void test("Canada checkout returns disabled Stripe session diagnostics when gate is on and runtime readiness is activation-ready", async () => {
   const { deps, getInsertedPayment, getFetchCalls } = buildDeps({
     listing: {
       id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -341,17 +365,34 @@ void test("Canada checkout returns prepared Stripe diagnostics when gate is on a
 
   assert.equal(response.status, 409);
   const body = await response.json();
-  assert.equal(body.code, "CANADA_PAYG_STRIPE_PREPARED_CHECKOUT_DISABLED");
+  assert.equal(body.code, "CANADA_PAYG_STRIPE_SESSION_CREATION_DISABLED");
   assert.equal(body.checkoutEnabled, false);
+  assert.equal(body.checkoutCreationEnabled, false);
+  assert.equal(body.stripeSessionCreationAttempted, false);
   assert.equal(body.runtimeActivationAllowed, true);
   assert.equal(body.amountMinor, 200);
   assert.equal(body.currency, "CAD");
   assert.equal(body.provider, "stripe");
-  assert.equal(body.stripePrep.mode, "payment");
-  assert.equal(body.stripePrep.metadata.purpose, "listing_submission");
-  assert.equal(body.stripePrep.metadata.provider, "stripe");
-  assert.equal(body.stripePrep.metadata.currency, "CAD");
-  assert.equal(body.stripePrep.checkoutCreationEnabled, false);
+  assert.equal(body.mode, "payment");
+  assert.deepEqual(body.stripeSession.metadataKeysPresent.sort(), [
+    "amount_minor",
+    "checkout_enabled",
+    "currency",
+    "listing_id",
+    "market",
+    "owner_id",
+    "payer_user_id",
+    "pricing_source",
+    "product_code",
+    "provider",
+    "purpose",
+    "role",
+    "tier",
+  ]);
+  assert.deepEqual(body.stripeSession.paymentIntentMetadataKeysPresent.sort(), body.stripeSession.metadataKeysPresent.sort());
+  assert.equal(body.stripeSession.idempotencyKeyPresent, true);
+  assert.equal(body.stripeSession.checkoutCreationEnabled, false);
+  assert.equal(body.stripeSession.stripeSessionCreationAttempted, false);
   assert.equal(getFetchCalls(), 0);
   assert.equal(getInsertedPayment(), null);
 });

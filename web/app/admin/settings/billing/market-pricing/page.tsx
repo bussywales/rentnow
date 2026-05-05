@@ -134,6 +134,18 @@ export default async function AdminMarketPricingPage() {
             </dd>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Stripe session request</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.stripeSessionRequestDefined ? "DEFINED" : "UNDEFINED"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Canada payment recovery</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.paymentRecoveryScaffolded ? "SCAFFOLDED / NOT LIVE" : "UNAVAILABLE"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <dt className="text-xs uppercase tracking-wide text-slate-500">Canada session creation</dt>
             <dd className="mt-2 text-sm font-semibold text-slate-900">BLOCKED BY DESIGN</dd>
           </div>

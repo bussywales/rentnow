@@ -204,6 +204,7 @@ void test("Canada runtime gate defaults off in the guarded adapter and keeps che
   assert.equal(decision.checkoutEnabled, false);
   assert.equal(decision.runtimeSource, "legacy");
   assert.equal(decision.resolverAvailable, true);
+  assert.equal(decision.stripeSessionRequestDefined, true);
   assert.equal(decision.readiness.reasonCode, "POLICY_STATE_NOT_READY");
   assert.equal(decision.readiness.amountMinor, 400);
   assert.deepEqual(decision.nextActivationPrerequisites, [...CANADA_RENTAL_PAYG_RUNTIME_PREREQUISITES]);
