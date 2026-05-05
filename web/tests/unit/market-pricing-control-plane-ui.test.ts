@@ -29,6 +29,10 @@ void test("admin market pricing page stays admin-only and renders the seeded con
   assert.match(pageSource, /Checkout creation/);
   assert.match(pageSource, /Stripe session request/);
   assert.match(pageSource, /Canada payment recovery/);
+  assert.match(pageSource, /Canada fulfilment plan/);
+  assert.match(pageSource, /Fulfilment execution/);
+  assert.match(pageSource, /Listing unlock/);
+  assert.match(pageSource, /Payment record write/);
   assert.match(pageSource, /Canada session creation/);
   assert.match(pageSource, /BLOCKED BY DESIGN/);
   assert.match(pageSource, /Runtime source/);
@@ -38,6 +42,10 @@ void test("admin market pricing page stays admin-only and renders the seeded con
   assert.match(pageSource, /stripeSessionRequestDefined \? "DEFINED" : "UNDEFINED"/);
   assert.match(pageSource, /checkoutCreationEnabled \? "ENABLED" : "DISABLED"/);
   assert.match(pageSource, /paymentRecoveryScaffolded \? "SCAFFOLDED \/ NOT LIVE" : "UNAVAILABLE"/);
+  assert.match(pageSource, /fulfilmentPlanDefined \? "DEFINED" : "UNDEFINED"/);
+  assert.match(pageSource, /fulfilmentExecutionEnabled \? "ENABLED" : "DISABLED"/);
+  assert.match(pageSource, /listingUnlockEnabled \? "ENABLED" : "DISABLED"/);
+  assert.match(pageSource, /paymentRecordWriteEnabled \? "ENABLED" : "DISABLED"/);
   assert.match(pageSource, /data-testid="market-pricing-canada-runtime-diagnostics"/);
   assert.match(pageSource, /Runtime source diagnostics/);
   assert.match(pageSource, /AdminMarketPricingControlPlaneEditor/);

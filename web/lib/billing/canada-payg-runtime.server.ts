@@ -35,9 +35,13 @@ export type CanadaRentalPaygRuntimeDecision = {
   resolverAvailable: true;
   stripePrepLayerAvailable: true;
   stripeSessionRequestDefined: true;
+  fulfilmentPlanDefined: true;
   checkoutEnabled: false;
   checkoutCreationEnabled: false;
   paymentRecoveryScaffolded: true;
+  fulfilmentExecutionEnabled: false;
+  listingUnlockEnabled: false;
+  paymentRecordWriteEnabled: false;
   readiness: CanadaRentalPaygReadinessResult;
   nextActivationPrerequisites: string[];
 };
@@ -59,9 +63,13 @@ export type CanadaRentalPaygRuntimeDiagnostics = {
   resolverAvailable: true;
   stripePrepLayerAvailable: true;
   stripeSessionRequestDefined: true;
+  fulfilmentPlanDefined: true;
   checkoutEnabled: false;
   checkoutCreationEnabled: false;
   paymentRecoveryScaffolded: true;
+  fulfilmentExecutionEnabled: false;
+  listingUnlockEnabled: false;
+  paymentRecordWriteEnabled: false;
   runtimeSource: "legacy";
   nextActivationPrerequisites: string[];
 };
@@ -171,9 +179,13 @@ export async function getCanadaRentalPaygRuntimeDiagnostics(
     resolverAvailable: true,
     stripePrepLayerAvailable: true,
     stripeSessionRequestDefined: true,
+    fulfilmentPlanDefined: true,
     checkoutEnabled: false,
     checkoutCreationEnabled: false,
     paymentRecoveryScaffolded: true,
+    fulfilmentExecutionEnabled: false,
+    listingUnlockEnabled: false,
+    paymentRecordWriteEnabled: false,
     runtimeSource: "legacy",
     nextActivationPrerequisites: [...CANADA_RENTAL_PAYG_RUNTIME_PREREQUISITES],
   };
@@ -215,9 +227,13 @@ export async function loadCanadaRentalPaygRuntimeDecision(
     resolverAvailable: true,
     stripePrepLayerAvailable: true,
     stripeSessionRequestDefined: true,
+    fulfilmentPlanDefined: true,
     checkoutEnabled: false,
     checkoutCreationEnabled: false,
     paymentRecoveryScaffolded: true,
+    fulfilmentExecutionEnabled: false,
+    listingUnlockEnabled: false,
+    paymentRecordWriteEnabled: false,
     readiness,
     nextActivationPrerequisites: [...CANADA_RENTAL_PAYG_RUNTIME_PREREQUISITES],
   };
