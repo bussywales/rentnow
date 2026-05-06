@@ -6,6 +6,13 @@ import path from "node:path";
 const repoRoot = "/Users/olubusayoadewale/rentnow/web";
 const schemaPath = path.join(repoRoot, "supabase", "schema.sql");
 const migrationPath = path.join(repoRoot, "supabase", "migrations", "20260414124500_listing_ownership_transfers.sql");
+const rlsFixMigrationPath = path.join(
+  repoRoot,
+  "supabase",
+  "migrations",
+  "20260506061000_listing_transfer_requests_rls.sql"
+);
+const rlsPoliciesPath = path.join(repoRoot, "supabase", "rls_policies.sql");
 
 void test("listing transfer schema keeps one pending request per listing and audit columns", () => {
   const schema = readFileSync(schemaPath, "utf8");
@@ -41,4 +48,23 @@ void test("listing credit consumptions no longer enforce one lifetime consumptio
 
   assert.doesNotMatch(schema, /UNIQUE \(listing_id\)/);
   assert.match(migration, /DROP CONSTRAINT IF EXISTS listing_credit_consumptions_listing_id_key/);
+});
+
+void test("listing transfer requests now enforce RLS with admin and service-role policies", () => {
+  const migration = readFileSync(rlsFixMigrationPath, "utf8");
+  const rlsPolicies = readFileSync(rlsPoliciesPath, "utf8");
+
+  assert.match(migration, /ALTER TABLE public\.listing_transfer_requests ENABLE ROW LEVEL SECURITY;/);
+  assert.match(migration, /ALTER TABLE public\.listing_transfer_requests FORCE ROW LEVEL SECURITY;/);
+  assert.match(migration, /CREATE POLICY "listing transfer requests admin select"/);
+  assert.match(migration, /CREATE POLICY "listing transfer requests service write"/);
+  assert.match(migration, /CREATE POLICY "listing transfer requests admin write"/);
+  assert.match(migration, /auth\.role\(\) = 'service_role'/);
+  assert.match(migration, /public\.is_admin\(\)/);
+
+  assert.match(rlsPolicies, /ALTER TABLE public\.listing_transfer_requests ENABLE ROW LEVEL SECURITY;/);
+  assert.match(rlsPolicies, /ALTER TABLE public\.listing_transfer_requests FORCE ROW LEVEL SECURITY;/);
+  assert.match(rlsPolicies, /CREATE POLICY "listing transfer requests admin select"/);
+  assert.match(rlsPolicies, /CREATE POLICY "listing transfer requests service write"/);
+  assert.match(rlsPolicies, /CREATE POLICY "listing transfer requests admin write"/);
 });

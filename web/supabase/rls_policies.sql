@@ -83,6 +83,9 @@ ALTER TABLE public.profile_billing_notes FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.plan_upgrade_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.plan_upgrade_requests FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE public.listing_transfer_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.listing_transfer_requests FORCE ROW LEVEL SECURITY;
+
 -- Helpers: admin role check
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN
@@ -1828,6 +1831,26 @@ CREATE POLICY "listing payments service write"
 DROP POLICY IF EXISTS "listing payments admin write" ON public.listing_payments;
 CREATE POLICY "listing payments admin write"
   ON public.listing_payments
+  FOR ALL
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "listing transfer requests admin select" ON public.listing_transfer_requests;
+CREATE POLICY "listing transfer requests admin select"
+  ON public.listing_transfer_requests
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "listing transfer requests service write" ON public.listing_transfer_requests;
+CREATE POLICY "listing transfer requests service write"
+  ON public.listing_transfer_requests
+  FOR ALL
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "listing transfer requests admin write" ON public.listing_transfer_requests;
+CREATE POLICY "listing transfer requests admin write"
+  ON public.listing_transfer_requests
   FOR ALL
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
