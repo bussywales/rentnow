@@ -68,11 +68,13 @@ void test("market pricing control plane seed stays amber and foundation-focused 
   assert.match(item?.delivered.join(" "), /Stripe session-request layer/i);
   assert.match(item?.delivered.join(" "), /payment recovery metadata parsing is scaffolded/i);
   assert.match(item?.delivered.join(" "), /disabled Canada PAYG fulfilment plan/i);
+  assert.match(item?.delivered.join(" "), /disabled Canada webhook-validation contract/i);
   assert.match(item?.delivered.join(" "), /audit history/i);
   assert.match(item?.delivered.join(" "), /legacy settings and code constants/i);
-  assert.match(item?.nextAction ?? "", /Canada fulfilment plan/i);
+  assert.match(item?.nextAction ?? "", /Canada webhook contract/i);
   assert.match(item?.outstanding.join(" "), /runtime checkout/i);
   assert.match(item?.outstanding.join(" "), /live Stripe session creation remains intentionally disabled/i);
+  assert.match(item?.outstanding.join(" "), /schema or migration is still future work/i);
   assert.match(item?.outstanding.join(" "), /Webhook fulfilment and payment persistence/i);
   assert.match(item?.outstanding.join(" "), /Listing entitlement grant and listing-specific recovery unlock/i);
   assert.match(item?.outstanding.join(" "), /Tax, receipt, and compliance posture/i);
@@ -90,6 +92,8 @@ void test("market pricing control plane seed stays amber and foundation-focused 
   assert.match(item?.testingGuide.join(" "), /Canada fulfilment scaffold tests/i);
   assert.match(item?.testingGuide.join(" "), /payment, entitlement, or listing mutation/i);
   assert.match(item?.testingGuide.join(" "), /Canada fulfilment plan DEFINED/i);
+  assert.match(item?.testingGuide.join(" "), /Canada webhook contract tests/i);
+  assert.match(item?.testingGuide.join(" "), /Canada webhook contract DEFINED/i);
   assert.match(item?.testingGuide.join(" "), /edit one policy row, one one-off price row, and one entitlement row/i);
   assert.match(item?.testingGuide.join(" "), /legacy checkout and listing-cap enforcement/i);
 });

@@ -84,7 +84,7 @@ export const DELIVERY_MONITOR_SEED_ITEMS: DeliveryMonitorSeedItem[] = [
     status: "amber",
     owner: "Billing policy + admin ops",
     nextAction:
-      "Validate the disabled Canada fulfilment plan and entitlement-unlock scaffold before shipping any live Stripe payment persistence or fulfilment integration.",
+      "Validate the disabled Canada webhook contract and payment-persistence scaffolding before shipping any live Stripe webhook fulfilment or entitlement unlock.",
     description:
       "Create the first admin-managed market pricing and entitlement control plane without changing current checkout or enforcement behavior.",
     whyItMatters:
@@ -99,12 +99,14 @@ export const DELIVERY_MONITOR_SEED_ITEMS: DeliveryMonitorSeedItem[] = [
       "A disabled Canada Stripe session-request layer now defines the exact future mode=payment request plus payment metadata propagation without creating a live session.",
       "Canada one-off payment recovery metadata parsing is scaffolded for future webhook fulfilment without unlocking entitlements in this batch.",
       "A disabled Canada PAYG fulfilment plan now defines the future payment persistence, entitlement-unlock, and listing-recovery actions without mutating runtime state.",
+      "A disabled Canada webhook-validation contract now defines the future checkout.session.completed metadata path, payment persistence contract, and listing-scoped entitlement grant contract without mutating runtime state.",
       "Every successful edit writes market pricing audit history.",
       "Runtime source diagnostics make it explicit that current billing still uses legacy settings and code constants.",
     ],
     outstanding: [
       "Runtime checkout and entitlement enforcement still need the explicit live integration batch that consumes the guarded Canada decision path.",
       "Canada PAYG live Stripe session creation remains intentionally disabled until the next explicit activation layer ships on top of the guarded runtime wiring.",
+      "Any listing-scoped extra-slot entitlement storage schema or migration is still future work and remains undefined in the live database.",
       "Webhook fulfilment and payment persistence for Canada one-off Stripe payments are still not implemented.",
       "Listing entitlement grant and listing-specific recovery unlock for Canada one-off Stripe payments are still not implemented.",
       "Tax, receipt, and compliance posture still need sign-off before any Canada production activation.",
@@ -125,6 +127,8 @@ export const DELIVERY_MONITOR_SEED_ITEMS: DeliveryMonitorSeedItem[] = [
       "Confirm the admin diagnostics show Stripe session request DEFINED and Canada payment recovery SCAFFOLDED / NOT LIVE.",
       "Run the Canada fulfilment scaffold tests and confirm valid Stripe metadata builds a disabled plan with no payment, entitlement, or listing mutation.",
       "Confirm the admin diagnostics show Canada fulfilment plan DEFINED, fulfilment execution DISABLED, listing unlock DISABLED, and payment record write DISABLED.",
+      "Run the Canada webhook contract tests and confirm checkout.session.completed metadata resolves into disabled payment persistence and entitlement grant contracts with no live mutation.",
+      "Confirm the admin diagnostics show Canada webhook contract DEFINED, payment persistence contract DEFINED, entitlement grant contract DEFINED, and live webhook fulfilment DISABLED.",
       "Confirm the runtime diagnostics explicitly say legacy checkout and listing-cap enforcement are still in effect.",
       "Confirm Canada remains draft or disabled and does not imply live PAYG availability.",
       "Confirm Enterprise rows are labeled planning-only rather than runtime-ready.",

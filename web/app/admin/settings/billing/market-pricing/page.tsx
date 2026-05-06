@@ -146,6 +146,30 @@ export default async function AdminMarketPricingPage() {
             </dd>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Canada webhook contract</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.webhookContractDefined ? "DEFINED" : "UNDEFINED"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Payment persistence contract</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.paymentPersistenceContractDefined ? "DEFINED" : "UNDEFINED"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Entitlement grant contract</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.entitlementGrantContractDefined ? "DEFINED" : "UNDEFINED"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Live webhook fulfilment</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.liveWebhookFulfilmentEnabled ? "ENABLED" : "DISABLED"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <dt className="text-xs uppercase tracking-wide text-slate-500">Canada fulfilment plan</dt>
             <dd className="mt-2 text-sm font-semibold text-slate-900">
               {canadaRuntimeDiagnostics.fulfilmentPlanDefined ? "DEFINED" : "UNDEFINED"}

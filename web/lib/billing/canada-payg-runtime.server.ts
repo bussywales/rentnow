@@ -35,10 +35,14 @@ export type CanadaRentalPaygRuntimeDecision = {
   resolverAvailable: true;
   stripePrepLayerAvailable: true;
   stripeSessionRequestDefined: true;
+  webhookContractDefined: true;
+  paymentPersistenceContractDefined: true;
+  entitlementGrantContractDefined: true;
   fulfilmentPlanDefined: true;
   checkoutEnabled: false;
   checkoutCreationEnabled: false;
   paymentRecoveryScaffolded: true;
+  liveWebhookFulfilmentEnabled: false;
   fulfilmentExecutionEnabled: false;
   listingUnlockEnabled: false;
   paymentRecordWriteEnabled: false;
@@ -63,10 +67,14 @@ export type CanadaRentalPaygRuntimeDiagnostics = {
   resolverAvailable: true;
   stripePrepLayerAvailable: true;
   stripeSessionRequestDefined: true;
+  webhookContractDefined: true;
+  paymentPersistenceContractDefined: true;
+  entitlementGrantContractDefined: true;
   fulfilmentPlanDefined: true;
   checkoutEnabled: false;
   checkoutCreationEnabled: false;
   paymentRecoveryScaffolded: true;
+  liveWebhookFulfilmentEnabled: false;
   fulfilmentExecutionEnabled: false;
   listingUnlockEnabled: false;
   paymentRecordWriteEnabled: false;
@@ -179,10 +187,14 @@ export async function getCanadaRentalPaygRuntimeDiagnostics(
     resolverAvailable: true,
     stripePrepLayerAvailable: true,
     stripeSessionRequestDefined: true,
+    webhookContractDefined: true,
+    paymentPersistenceContractDefined: true,
+    entitlementGrantContractDefined: true,
     fulfilmentPlanDefined: true,
     checkoutEnabled: false,
     checkoutCreationEnabled: false,
     paymentRecoveryScaffolded: true,
+    liveWebhookFulfilmentEnabled: false,
     fulfilmentExecutionEnabled: false,
     listingUnlockEnabled: false,
     paymentRecordWriteEnabled: false,
@@ -227,10 +239,14 @@ export async function loadCanadaRentalPaygRuntimeDecision(
     resolverAvailable: true,
     stripePrepLayerAvailable: true,
     stripeSessionRequestDefined: true,
+    webhookContractDefined: true,
+    paymentPersistenceContractDefined: true,
+    entitlementGrantContractDefined: true,
     fulfilmentPlanDefined: true,
     checkoutEnabled: false,
     checkoutCreationEnabled: false,
     paymentRecoveryScaffolded: true,
+    liveWebhookFulfilmentEnabled: false,
     fulfilmentExecutionEnabled: false,
     listingUnlockEnabled: false,
     paymentRecordWriteEnabled: false,
