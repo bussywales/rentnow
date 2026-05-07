@@ -11,6 +11,7 @@ void test("properties page includes unified category row", () => {
   assert.match(source, /data-testid="properties-category-row"/);
   assert.match(source, /PROPERTIES_BROWSE_CATEGORY_OPTIONS\.map/);
   assert.match(source, /data-testid={`properties-category-\$\{option\.value\}`}/);
+  assert.match(helperSource, /{ value: "all", label: "All homes" },\s*{ value: "rent", label: "To rent" }/s);
   assert.match(helperSource, /label: "To rent"/);
   assert.match(helperSource, /label: "For sale"/);
   assert.match(helperSource, /label: "Short-lets"/);

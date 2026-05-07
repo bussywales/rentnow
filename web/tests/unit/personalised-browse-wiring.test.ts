@@ -10,6 +10,15 @@ void test("properties page wires browse intent persistence client", () => {
   assert.match(contents, /persistFilters=\{hasFilters\}/);
 });
 
+void test("properties page defaults naked browse to all homes instead of restoring rent from cookie intent", () => {
+  const pagePath = path.join(process.cwd(), "app", "properties", "page.tsx");
+  const contents = fs.readFileSync(pagePath, "utf8");
+  assert.match(contents, /const hasExplicitBrowseContext = Boolean\(/);
+  assert.match(contents, /cookieIntent:\s*shouldFavorSavedSearchIntent \|\| !hasExplicitBrowseContext \? null : cookieIntent,/);
+  assert.match(contents, /defaultIntent: filters\.listingIntent \?\? "all"/);
+  assert.match(contents, /\}\) \?\? "all";/);
+});
+
 void test("tenant home wires continue browsing CTA component", () => {
   const tenantHomePath = path.join(process.cwd(), "app", "tenant", "home", "page.tsx");
   const tenantHome = fs.readFileSync(tenantHomePath, "utf8");

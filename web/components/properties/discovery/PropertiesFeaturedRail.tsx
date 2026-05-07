@@ -123,20 +123,24 @@ export function PropertiesFeaturedRail() {
                     marketCountry: market.country,
                   }}
                   data-testid="properties-featured-item"
-                  className={`relative inline-flex w-full flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br p-3.5 text-white shadow-sm ${ACCENT_CLASSES[index % ACCENT_CLASSES.length]}`}
+                  className={`relative inline-flex h-[252px] w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br p-3.5 text-white shadow-sm ${ACCENT_CLASSES[index % ACCENT_CLASSES.length]}`}
                 >
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(255,255,255,0.25),transparent_45%)]" />
-                  <div className="relative space-y-2 pr-10">
-                    <span className="inline-flex rounded-full border border-white/30 bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]">
-                      {item.tag}
-                    </span>
-                    <TrustBadges badges={item.badges} marketCountry={market.country} tone="overlay" />
-                    <p className="line-clamp-2 text-[15px] font-semibold leading-tight">{titleText}</p>
-                    <p className="line-clamp-2 text-xs text-white/90">{item.subtitle}</p>
+                  <div className="relative flex h-full flex-col pr-10">
+                    <div className="space-y-2">
+                      <span className="inline-flex rounded-full border border-white/30 bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]">
+                        {item.tag}
+                      </span>
+                      <TrustBadges badges={item.badges} marketCountry={market.country} tone="overlay" />
+                    </div>
+                    <div className="mt-auto flex min-h-[112px] flex-col justify-end">
+                      <p className="line-clamp-2 text-[15px] font-semibold leading-tight">{titleText}</p>
+                      <p className="mt-2 line-clamp-3 text-xs text-white/90">{item.subtitle}</p>
+                      <span className="mt-4 inline-flex text-[11px] font-semibold uppercase tracking-[0.14em] text-white/90">
+                        Explore
+                      </span>
+                    </div>
                   </div>
-                  <span className="relative mt-4 inline-flex text-[11px] font-semibold uppercase tracking-[0.14em] text-white/90">
-                    Explore
-                  </span>
                 </TrackViewedLink>
               </div>
             );

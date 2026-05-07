@@ -21,19 +21,19 @@ export type PropertiesCategoryContext = {
 };
 
 const CATEGORY_VALUES: PropertiesBrowseCategory[] = [
+  "all",
   "rent",
   "buy",
   "shortlet",
   "off_plan",
-  "all",
 ];
 
 export const PROPERTIES_BROWSE_CATEGORY_OPTIONS: PropertiesBrowseCategoryOption[] = [
+  { value: "all", label: "All homes" },
   { value: "rent", label: "To rent" },
   { value: "buy", label: "For sale" },
   { value: "shortlet", label: "Short-lets" },
   { value: "off_plan", label: "Off-plan" },
-  { value: "all", label: "All homes" },
 ];
 
 export function isPropertiesBrowseCategory(

@@ -337,13 +337,20 @@ export default async function PropertiesPage({ searchParams }: Props) {
     }
   }
 
+  const hasExplicitBrowseContext = Boolean(
+    readParam(resolvedSearchParams, "category") ||
+      readParam(resolvedSearchParams, "intent") ||
+      readParam(resolvedSearchParams, "stay") ||
+      readParam(resolvedSearchParams, "listingIntent")
+  );
   const shouldFavorSavedSearchIntent = !!savedSearchId && !urlIntent;
   const resolvedIntentFromContext =
     resolveIntent({
       urlIntent,
-      cookieIntent: shouldFavorSavedSearchIntent ? null : cookieIntent,
-      defaultIntent: filters.listingIntent ?? (shouldFavorSavedSearchIntent ? "all" : "rent"),
-    }) ?? (shouldFavorSavedSearchIntent ? "all" : "rent");
+      cookieIntent:
+        shouldFavorSavedSearchIntent || !hasExplicitBrowseContext ? null : cookieIntent,
+      defaultIntent: filters.listingIntent ?? "all",
+    }) ?? "all";
   const normalizedIntentStay = normalizeIntentStaySelection({
     listingIntent: resolvedIntentFromContext,
     stay: filters.stay ?? null,

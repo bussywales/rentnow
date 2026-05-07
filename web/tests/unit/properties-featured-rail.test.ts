@@ -107,6 +107,9 @@ void test("properties featured rail source includes stable testids and snap rail
   assert.match(source, /"aria-label": "Featured properties carousel"/);
   assert.match(source, /motion-reduce:scroll-auto/);
   assert.match(source, /snap-start snap-always/);
+  assert.match(source, /h-\[252px\]/);
+  assert.match(source, /mt-auto flex min-h-\[112px\] flex-col justify-end/);
+  assert.match(source, /line-clamp-3 text-xs text-white\/90/);
   assert.match(source, /useMarketPreference/);
 });
 
