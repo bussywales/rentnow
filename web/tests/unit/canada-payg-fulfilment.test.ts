@@ -3,10 +3,16 @@ import assert from "node:assert/strict";
 import {
   buildCanadaRentalPaygFulfilmentPlan,
   executeCanadaRentalPaygFulfilmentDisabled,
+  executeCanadaRentalPaygFulfilmentPayloadsDisabled,
   validateCanadaRentalPaygFulfilmentInput,
   type CanadaRentalPaygFulfilmentListingContext,
 } from "@/lib/billing/canada-payg-fulfilment.server";
 import { parseCanadaRentalPaygStripeSuccessMetadata } from "@/lib/billing/canada-payg-stripe-session.server";
+import {
+  buildCanadaRentalPaygEntitlementGrantContract,
+  buildCanadaRentalPaygPaymentPersistenceContract,
+  validateCanadaRentalPaygWebhookContract,
+} from "@/lib/billing/canada-payg-webhook-contract.server";
 
 function buildListing(
   overrides: Partial<CanadaRentalPaygFulfilmentListingContext> = {}
@@ -200,4 +206,67 @@ void test("Canada fulfilment scaffold rejects missing listing context and amount
   });
   assert.equal(amountMismatch.ok, false);
   assert.equal(amountMismatch.reasonCode, "AMOUNT_MISMATCH");
+});
+
+void test("Canada fulfilment disabled executor can return both payment and entitlement payloads without mutating", () => {
+  const event = {
+    id: "evt_ca_fulfilment_payloads_1",
+    type: "checkout.session.completed",
+    data: {
+      object: {
+        id: "cs_ca_fulfilment_payloads_1",
+        metadata: {
+          purpose: "listing_submission",
+          market: "CA",
+          listing_id: "listing-ca-fulfilment-1",
+          owner_id: "owner-ca-1",
+          payer_user_id: "user-ca-1",
+          role: "landlord",
+          tier: "free",
+          product_code: "listing_submission",
+          pricing_source: "market_one_off_price_book",
+          provider: "stripe",
+          currency: "CAD",
+          amount_minor: "400",
+          checkout_enabled: "false",
+        },
+      },
+    },
+  } as never;
+
+  const webhookValidation = validateCanadaRentalPaygWebhookContract({
+    event,
+    listing: buildListing(),
+    expectedPricing: { amountMinor: 400, currency: "CAD", provider: "stripe" },
+  });
+
+  assert.equal(webhookValidation.ok, true);
+  if (!webhookValidation.ok) throw new Error("expected valid webhook validation");
+
+  const plan = buildCanadaRentalPaygFulfilmentPlan(webhookValidation.fulfilmentValidation);
+  const paymentContract = buildCanadaRentalPaygPaymentPersistenceContract(webhookValidation, {
+    event,
+    checkoutSessionId: "cs_ca_fulfilment_payloads_1",
+    paymentIntentId: "pi_ca_fulfilment_payloads_1",
+  });
+  const entitlementContract = buildCanadaRentalPaygEntitlementGrantContract(webhookValidation, {
+    event,
+    checkoutSessionId: "cs_ca_fulfilment_payloads_1",
+    paymentIntentId: "pi_ca_fulfilment_payloads_1",
+  });
+
+  const disabled = executeCanadaRentalPaygFulfilmentPayloadsDisabled({
+    plan,
+    paymentContract,
+    entitlementContract,
+    paidAt: "2026-05-07T12:30:00.000Z",
+    grantedAt: "2026-05-07T12:30:00.000Z",
+  });
+
+  assert.equal(disabled.enabled, false);
+  assert.equal(disabled.mutated, false);
+  assert.equal(disabled.wouldCreatePayment, true);
+  assert.equal(disabled.wouldGrantEntitlement, true);
+  assert.equal(disabled.paymentInsertPayload.provider_ref, "pi_ca_fulfilment_payloads_1");
+  assert.equal(disabled.entitlementInsertPayload.listing_id, "listing-ca-fulfilment-1");
 });

@@ -1,5 +1,17 @@
 import type { BillingRole } from "@/lib/billing/stripe-plans";
 import type { MarketPricingControlPlaneTier } from "@/lib/billing/market-pricing";
+import {
+  buildCanadaListingPaymentInsertPayload,
+  type CanadaListingPaymentInsertPayload,
+} from "@/lib/billing/canada-payg-payment-persistence.server";
+import {
+  buildCanadaListingPaygEntitlementInsertPayload,
+  type CanadaListingPaygEntitlementInsertPayload,
+} from "@/lib/billing/canada-payg-entitlements.server";
+import type {
+  CanadaRentalPaygFutureEntitlementGrantContract,
+  CanadaRentalPaygFuturePaymentRecordContract,
+} from "@/lib/billing/canada-payg-webhook-contract.server";
 import type { ParsedCanadaRentalPaygStripeSuccessMetadata } from "@/lib/billing/canada-payg-stripe-session.server";
 import { isRentIntent, isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
@@ -97,6 +109,13 @@ export type CanadaRentalPaygFulfilmentDisabledResult = {
   listingUnlocked: false;
   listingStatusChanged: false;
   plan: CanadaRentalPaygFulfilmentPlan;
+};
+
+export type CanadaRentalPaygFulfilmentPayloadsDisabledResult = CanadaRentalPaygFulfilmentDisabledResult & {
+  wouldCreatePayment: true;
+  wouldGrantEntitlement: true;
+  paymentInsertPayload: CanadaListingPaymentInsertPayload;
+  entitlementInsertPayload: CanadaListingPaygEntitlementInsertPayload;
 };
 
 function normalizeUpper(value: string | null | undefined) {
@@ -474,5 +493,22 @@ export function executeCanadaRentalPaygFulfilmentDisabled(
     listingUnlocked: false,
     listingStatusChanged: false,
     plan,
+  };
+}
+
+export function executeCanadaRentalPaygFulfilmentPayloadsDisabled(input: {
+  plan: CanadaRentalPaygFulfilmentPlan;
+  paymentContract: CanadaRentalPaygFuturePaymentRecordContract;
+  entitlementContract: CanadaRentalPaygFutureEntitlementGrantContract;
+  paidAt?: string;
+  grantedAt?: string;
+}): CanadaRentalPaygFulfilmentPayloadsDisabledResult {
+  const base = executeCanadaRentalPaygFulfilmentDisabled(input.plan);
+  return {
+    ...base,
+    wouldCreatePayment: true,
+    wouldGrantEntitlement: true,
+    paymentInsertPayload: buildCanadaListingPaymentInsertPayload(input.paymentContract, input.paidAt),
+    entitlementInsertPayload: buildCanadaListingPaygEntitlementInsertPayload(input.entitlementContract, input.grantedAt),
   };
 }

@@ -208,7 +208,10 @@ void test("Canada runtime gate defaults off in the guarded adapter and keeps che
   assert.equal(decision.webhookContractDefined, true);
   assert.equal(decision.paymentPersistenceContractDefined, true);
   assert.equal(decision.entitlementGrantContractDefined, true);
+  assert.equal(decision.paymentPersistencePayloadDefined, true);
+  assert.equal(decision.entitlementGrantPayloadDefined, true);
   assert.equal(decision.liveWebhookFulfilmentEnabled, false);
+  assert.equal(decision.fulfilmentMutationEnabled, false);
   assert.equal(decision.readiness.reasonCode, "POLICY_STATE_NOT_READY");
   assert.equal(decision.readiness.amountMinor, 400);
   assert.deepEqual(decision.nextActivationPrerequisites, [...CANADA_RENTAL_PAYG_RUNTIME_PREREQUISITES]);

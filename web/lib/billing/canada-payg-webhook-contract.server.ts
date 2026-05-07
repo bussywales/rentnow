@@ -4,10 +4,12 @@ import type { MarketPricingControlPlaneTier } from "@/lib/billing/market-pricing
 import {
   buildCanadaRentalPaygFulfilmentPlan,
   executeCanadaRentalPaygFulfilmentDisabled,
+  executeCanadaRentalPaygFulfilmentPayloadsDisabled,
   validateCanadaRentalPaygFulfilmentInput,
   type CanadaRentalPaygFulfilmentDisabledResult,
   type CanadaRentalPaygFulfilmentListingContext,
   type CanadaRentalPaygFulfilmentPlan,
+  type CanadaRentalPaygFulfilmentPayloadsDisabledResult,
   type CanadaRentalPaygFulfilmentPricingExpectation,
   type CanadaRentalPaygFulfilmentReasonCode,
   type CanadaRentalPaygFulfilmentValidationResult,
@@ -54,6 +56,7 @@ export type CanadaRentalPaygFuturePaymentRecordContract = {
     checkoutSessionId: string | null;
     paymentIntentId: string | null;
     stripeEventId: string | null;
+    idempotencyKey: string;
     status: "succeeded";
     pricingSource: "market_one_off_price_book";
   };
@@ -117,6 +120,7 @@ export type CanadaRentalPaygWebhookContractDisabledResult = {
   listingStatusChanged: false;
   fulfilmentPlan: CanadaRentalPaygFulfilmentPlan;
   fulfilmentExecution: CanadaRentalPaygFulfilmentDisabledResult;
+  fulfilmentWriteExecution: CanadaRentalPaygFulfilmentPayloadsDisabledResult;
   paymentContract: CanadaRentalPaygFuturePaymentRecordContract;
   entitlementContract: CanadaRentalPaygFutureEntitlementGrantContract;
 };
@@ -197,6 +201,10 @@ export function buildCanadaRentalPaygPaymentPersistenceContract(
   validation: Extract<CanadaRentalPaygWebhookContractValidationResult, { ok: true }>,
   input: Pick<CanadaRentalPaygWebhookContractInput, "checkoutSessionId" | "paymentIntentId" | "event">
 ): CanadaRentalPaygFuturePaymentRecordContract {
+  const checkoutSessionId = input.checkoutSessionId ?? getEventObjectId(input.event);
+  const stripeEventId = input.event.id ?? null;
+  const idempotencyKey = `canada_payg_payment:${checkoutSessionId ?? input.paymentIntentId ?? stripeEventId ?? validation.parsedMetadata.listingId}`;
+
   return {
     kind: "canada_listing_submission_payment_record",
     table: "listing_payments",
@@ -219,9 +227,10 @@ export function buildCanadaRentalPaygPaymentPersistenceContract(
           ? validation.parsedMetadata.tier
           : null,
       productCode: validation.parsedMetadata.productCode,
-      checkoutSessionId: input.checkoutSessionId ?? getEventObjectId(input.event),
+      checkoutSessionId,
       paymentIntentId: input.paymentIntentId ?? null,
-      stripeEventId: input.event.id ?? null,
+      stripeEventId,
+      idempotencyKey,
       status: "succeeded",
       pricingSource: "market_one_off_price_book",
     },
@@ -279,6 +288,11 @@ export function executeCanadaRentalPaygWebhookContractDisabled(
   const fulfilmentPlan = buildCanadaRentalPaygFulfilmentPlan(validation.fulfilmentValidation);
   const paymentContract = buildCanadaRentalPaygPaymentPersistenceContract(validation, input);
   const entitlementContract = buildCanadaRentalPaygEntitlementGrantContract(validation, input);
+  const fulfilmentWriteExecution = executeCanadaRentalPaygFulfilmentPayloadsDisabled({
+    plan: fulfilmentPlan,
+    paymentContract,
+    entitlementContract,
+  });
 
   return {
     enabled: false,
@@ -291,6 +305,7 @@ export function executeCanadaRentalPaygWebhookContractDisabled(
     listingStatusChanged: false,
     fulfilmentPlan,
     fulfilmentExecution: executeCanadaRentalPaygFulfilmentDisabled(fulfilmentPlan),
+    fulfilmentWriteExecution,
     paymentContract,
     entitlementContract,
   };

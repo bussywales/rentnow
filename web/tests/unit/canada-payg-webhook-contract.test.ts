@@ -99,6 +99,7 @@ void test("Canada webhook contract accepts valid future checkout.session.complet
     checkoutSessionId: "cs_ca_payg_1",
     paymentIntentId: "pi_ca_payg_1",
     stripeEventId: "evt_ca_payg_1",
+    idempotencyKey: "canada_payg_payment:cs_ca_payg_1",
     status: "succeeded",
     pricingSource: "market_one_off_price_book",
   });
@@ -139,6 +140,12 @@ void test("Canada webhook contract accepts valid future checkout.session.complet
   assert.equal(disabled.entitlementGranted, false);
   assert.equal(disabled.listingUnlocked, false);
   assert.equal(disabled.listingStatusChanged, false);
+  assert.equal(disabled.fulfilmentWriteExecution.mutated, false);
+  assert.equal(disabled.fulfilmentWriteExecution.wouldCreatePayment, true);
+  assert.equal(disabled.fulfilmentWriteExecution.wouldGrantEntitlement, true);
+  assert.equal(disabled.fulfilmentWriteExecution.paymentInsertPayload.provider_ref, "pi_ca_payg_1");
+  assert.equal(disabled.fulfilmentWriteExecution.paymentInsertPayload.idempotency_key, "canada_payg_payment:cs_ca_payg_1");
+  assert.equal(disabled.fulfilmentWriteExecution.entitlementInsertPayload.idempotency_key, "canada_payg_entitlement:evt_ca_payg_1");
 });
 
 void test("Canada webhook contract rejects wrong event type", () => {

@@ -38,12 +38,15 @@ export type CanadaRentalPaygRuntimeDecision = {
   webhookContractDefined: true;
   paymentPersistenceContractDefined: true;
   entitlementGrantContractDefined: true;
+  paymentPersistencePayloadDefined: true;
+  entitlementGrantPayloadDefined: true;
   fulfilmentPlanDefined: true;
   checkoutEnabled: false;
   checkoutCreationEnabled: false;
   paymentRecoveryScaffolded: true;
   liveWebhookFulfilmentEnabled: false;
   fulfilmentExecutionEnabled: false;
+  fulfilmentMutationEnabled: false;
   listingUnlockEnabled: false;
   paymentRecordWriteEnabled: false;
   readiness: CanadaRentalPaygReadinessResult;
@@ -70,12 +73,15 @@ export type CanadaRentalPaygRuntimeDiagnostics = {
   webhookContractDefined: true;
   paymentPersistenceContractDefined: true;
   entitlementGrantContractDefined: true;
+  paymentPersistencePayloadDefined: true;
+  entitlementGrantPayloadDefined: true;
   fulfilmentPlanDefined: true;
   checkoutEnabled: false;
   checkoutCreationEnabled: false;
   paymentRecoveryScaffolded: true;
   liveWebhookFulfilmentEnabled: false;
   fulfilmentExecutionEnabled: false;
+  fulfilmentMutationEnabled: false;
   listingUnlockEnabled: false;
   paymentRecordWriteEnabled: false;
   runtimeSource: "legacy";
@@ -190,12 +196,15 @@ export async function getCanadaRentalPaygRuntimeDiagnostics(
     webhookContractDefined: true,
     paymentPersistenceContractDefined: true,
     entitlementGrantContractDefined: true,
+    paymentPersistencePayloadDefined: true,
+    entitlementGrantPayloadDefined: true,
     fulfilmentPlanDefined: true,
     checkoutEnabled: false,
     checkoutCreationEnabled: false,
     paymentRecoveryScaffolded: true,
     liveWebhookFulfilmentEnabled: false,
     fulfilmentExecutionEnabled: false,
+    fulfilmentMutationEnabled: false,
     listingUnlockEnabled: false,
     paymentRecordWriteEnabled: false,
     runtimeSource: "legacy",
@@ -242,12 +251,15 @@ export async function loadCanadaRentalPaygRuntimeDecision(
     webhookContractDefined: true,
     paymentPersistenceContractDefined: true,
     entitlementGrantContractDefined: true,
+    paymentPersistencePayloadDefined: true,
+    entitlementGrantPayloadDefined: true,
     fulfilmentPlanDefined: true,
     checkoutEnabled: false,
     checkoutCreationEnabled: false,
     paymentRecoveryScaffolded: true,
     liveWebhookFulfilmentEnabled: false,
     fulfilmentExecutionEnabled: false,
+    fulfilmentMutationEnabled: false,
     listingUnlockEnabled: false,
     paymentRecordWriteEnabled: false,
     readiness,

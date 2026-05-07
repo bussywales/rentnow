@@ -164,6 +164,18 @@ export default async function AdminMarketPricingPage() {
             </dd>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Payment persistence payload</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.paymentPersistencePayloadDefined ? "DEFINED" : "UNDEFINED"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Entitlement grant payload</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.entitlementGrantPayloadDefined ? "DEFINED" : "UNDEFINED"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <dt className="text-xs uppercase tracking-wide text-slate-500">Live webhook fulfilment</dt>
             <dd className="mt-2 text-sm font-semibold text-slate-900">
               {canadaRuntimeDiagnostics.liveWebhookFulfilmentEnabled ? "ENABLED" : "DISABLED"}
@@ -179,6 +191,12 @@ export default async function AdminMarketPricingPage() {
             <dt className="text-xs uppercase tracking-wide text-slate-500">Fulfilment execution</dt>
             <dd className="mt-2 text-sm font-semibold text-slate-900">
               {canadaRuntimeDiagnostics.fulfilmentExecutionEnabled ? "ENABLED" : "DISABLED"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Fulfilment mutation</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.fulfilmentMutationEnabled ? "ENABLED" : "DISABLED"}
             </dd>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
