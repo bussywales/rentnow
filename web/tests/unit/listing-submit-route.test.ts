@@ -168,6 +168,83 @@ void test("submit blocks when active listing limit is already reached", async ()
   assert.equal(getLastPropertyUpdate(), null);
 });
 
+void test("Canada submit keeps the live cap block even when the entitlement read helper would unlock the listing", async () => {
+  const listing: ListingRow = {
+    id: "prop1",
+    owner_id: "owner",
+    status: "draft",
+    submitted_at: null,
+    country_code: "CA",
+    listing_intent: "rent",
+    rental_type: "long_term",
+  };
+  const { supabase } = buildSupabaseStub(listing, {
+    activeCount: 5,
+    planTier: "starter",
+    maxListingsOverride: 5,
+  });
+  const typedSupabase = supabase as ReturnType<ListingSubmitDeps["createServerSupabaseClient"]>;
+  let unlockChecks = 0;
+
+  const deps: ListingSubmitDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => true,
+    createServerSupabaseClient: async () => typedSupabase,
+    createServiceRoleClient: () =>
+      typedSupabase as ReturnType<ListingSubmitDeps["createServiceRoleClient"]>,
+    requireUser: async () =>
+      ({
+        ok: true,
+        user: { id: "owner" } as User,
+        supabase: typedSupabase,
+      }) as Awaited<ReturnType<ListingSubmitDeps["requireUser"]>>,
+    getUserRole: async () => "landlord",
+    getListingAccessResult: () => ({ ok: true }),
+    hasActiveDelegation: async () => false,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => ({ ok: false, reason: "NO_CREDITS" }),
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
+    getAppSettingBool: async () => false,
+    getListingExpiryDays: async () => 90,
+    requireLegalAcceptance: async () => ({ ok: true, status: {} }) as Awaited<
+      ReturnType<ListingSubmitDeps["requireLegalAcceptance"]>
+    >,
+    logPropertyEvent: async () => ({ ok: true, data: {} }),
+    resolveEventSessionKey: () => null,
+    logFailure: () => undefined,
+    resolveCanadaListingPaygUnlockDecision: async () => {
+      unlockChecks += 1;
+      return {
+        wouldUnlock: true,
+        reasonCode: "ACTIVE_ENTITLEMENT_FOUND" as const,
+        listingId: "prop1",
+        ownerId: "owner",
+        entitlementId: "ent-1",
+        scope: "listing_only" as const,
+        accountWideCapBypass: false as const,
+        runtimeMutationEnabled: false as const,
+      };
+    },
+  };
+
+  const res = await postPropertySubmitResponse(
+    makeRequest({ idempotencyKey: "idem-ca-cap-still-blocks" }),
+    "prop1",
+    deps
+  );
+  assert.equal(res.status, 409);
+  const body = await res.json();
+  assert.equal(body.code, "plan_limit_reached");
+  assert.equal(body.reason, "LISTING_LIMIT_REACHED");
+  assert.equal(unlockChecks, 1);
+});
+
 void test("submit returns payment required when no credits", async () => {
   const listing: ListingRow = {
     id: "prop1",
@@ -246,6 +323,7 @@ void test("Canada submit keeps legacy payment-required behaviour while the guard
     ListingSubmitDeps["createServerSupabaseClient"]
   >;
   let canadaRuntimeChecks = 0;
+  let unlockChecks = 0;
 
   const deps: ListingSubmitDeps = {
     hasServerSupabaseEnv: () => true,
@@ -279,6 +357,19 @@ void test("Canada submit keeps legacy payment-required behaviour while the guard
     logPropertyEvent: async () => ({ ok: true, data: {} }),
     resolveEventSessionKey: () => null,
     logFailure: () => undefined,
+    resolveCanadaListingPaygUnlockDecision: async () => {
+      unlockChecks += 1;
+      return {
+        wouldUnlock: false,
+        reasonCode: "NO_ACTIVE_ENTITLEMENT" as const,
+        listingId: "prop1",
+        ownerId: "owner",
+        entitlementId: null,
+        scope: "listing_only" as const,
+        accountWideCapBypass: false as const,
+        runtimeMutationEnabled: false as const,
+      };
+    },
     loadCanadaRentalPaygRuntimeDecision: async () => {
       canadaRuntimeChecks += 1;
       return {
@@ -328,6 +419,7 @@ void test("Canada submit keeps legacy payment-required behaviour while the guard
   assert.equal(json.reason, "PAYMENT_REQUIRED");
   assert.equal(json.currency, "NGN");
   assert.equal(canadaRuntimeChecks, 1);
+  assert.equal(unlockChecks, 1);
 });
 
 void test("non-Canada submit does not invoke the guarded Canada runtime adapter", async () => {
@@ -349,6 +441,7 @@ void test("non-Canada submit does not invoke the guarded Canada runtime adapter"
     ListingSubmitDeps["createServerSupabaseClient"]
   >;
   let canadaRuntimeChecks = 0;
+  let unlockChecks = 0;
 
   const deps: ListingSubmitDeps = {
     hasServerSupabaseEnv: () => true,
@@ -382,6 +475,10 @@ void test("non-Canada submit does not invoke the guarded Canada runtime adapter"
     logPropertyEvent: async () => ({ ok: true, data: {} }),
     resolveEventSessionKey: () => null,
     logFailure: () => undefined,
+    resolveCanadaListingPaygUnlockDecision: async () => {
+      unlockChecks += 1;
+      throw new Error("should not be called");
+    },
     loadCanadaRentalPaygRuntimeDecision: async () => {
       canadaRuntimeChecks += 1;
       throw new Error("should not be called");
@@ -397,6 +494,7 @@ void test("non-Canada submit does not invoke the guarded Canada runtime adapter"
   const json = await res.json();
   assert.equal(json.reason, "PAYMENT_REQUIRED");
   assert.equal(canadaRuntimeChecks, 0);
+  assert.equal(unlockChecks, 0);
 });
 
 void test("submit keeps entitlement server errors user-safe", async () => {

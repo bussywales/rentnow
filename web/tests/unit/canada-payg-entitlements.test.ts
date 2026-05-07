@@ -5,6 +5,8 @@ import {
   findActiveCanadaListingPaygEntitlement,
   grantCanadaListingPaygEntitlementDisabled,
   listingHasActiveCanadaPaygExtraSlot,
+  resolveCanadaListingPaygUnlockDecision,
+  resolveCanadaListingPaygUnlockDecisionFromRow,
   validateCanadaListingPaygEntitlementContract,
   type CanadaListingPaygEntitlementRow,
 } from "@/lib/billing/canada-payg-entitlements.server";
@@ -235,4 +237,239 @@ void test("Canada entitlement lookup helper only treats active granted rows as v
   });
   assert.equal(summary.hasActiveEntitlement, true);
   assert.equal(summary.entitlement?.id, "ent-1");
+});
+
+void test("Canada entitlement unlock decision returns listing-only unlock for a valid active entitlement", async () => {
+  const activeRow: CanadaListingPaygEntitlementRow = {
+    id: "ent-unlock-1",
+    listing_id: "listing-ca-entitlement-1",
+    owner_id: "owner-ca-1",
+    market_country: "CA",
+    provider: "stripe",
+    purpose: "listing_submission",
+    role: "landlord",
+    tier: "free",
+    amount_minor: 400,
+    currency: "CAD",
+    stripe_checkout_session_id: "cs_ca_entitlement_1",
+    stripe_payment_intent_id: "pi_ca_entitlement_1",
+    stripe_event_id: "evt_ca_entitlement_1",
+    idempotency_key: "canada_payg_entitlement:evt_ca_entitlement_1",
+    status: "granted",
+    active: true,
+    granted_at: "2026-05-07T11:00:00.000Z",
+    consumed_at: null,
+    revoked_at: null,
+    expires_at: null,
+    metadata: {},
+    created_at: "2026-05-07T11:00:00.000Z",
+    updated_at: "2026-05-07T11:00:00.000Z",
+  };
+
+  const decision = resolveCanadaListingPaygUnlockDecisionFromRow({
+    entitlement: activeRow,
+    listingId: "listing-ca-entitlement-1",
+    ownerId: "owner-ca-1",
+    now: new Date("2026-05-09T00:00:00.000Z"),
+  });
+
+  assert.deepEqual(decision, {
+    wouldUnlock: true,
+    reasonCode: "ACTIVE_ENTITLEMENT_FOUND",
+    listingId: "listing-ca-entitlement-1",
+    ownerId: "owner-ca-1",
+    entitlementId: "ent-unlock-1",
+    scope: "listing_only",
+    accountWideCapBypass: false,
+    runtimeMutationEnabled: false,
+  });
+});
+
+void test("Canada entitlement unlock decision rejects wrong listing, wrong owner, and inactive states", () => {
+  const baseRow: CanadaListingPaygEntitlementRow = {
+    id: "ent-unlock-2",
+    listing_id: "listing-ca-entitlement-1",
+    owner_id: "owner-ca-1",
+    market_country: "CA",
+    provider: "stripe",
+    purpose: "listing_submission",
+    role: "agent",
+    tier: "pro",
+    amount_minor: 200,
+    currency: "CAD",
+    stripe_checkout_session_id: "cs_ca_entitlement_2",
+    stripe_payment_intent_id: "pi_ca_entitlement_2",
+    stripe_event_id: "evt_ca_entitlement_2",
+    idempotency_key: "canada_payg_entitlement:evt_ca_entitlement_2",
+    status: "granted",
+    active: true,
+    granted_at: "2026-05-07T11:00:00.000Z",
+    consumed_at: null,
+    revoked_at: null,
+    expires_at: null,
+    metadata: {},
+    created_at: "2026-05-07T11:00:00.000Z",
+    updated_at: "2026-05-07T11:00:00.000Z",
+  };
+
+  assert.equal(
+    resolveCanadaListingPaygUnlockDecisionFromRow({
+      entitlement: { ...baseRow, listing_id: "listing-other" },
+      listingId: "listing-ca-entitlement-1",
+      ownerId: "owner-ca-1",
+    }).reasonCode,
+    "WRONG_LISTING"
+  );
+
+  assert.equal(
+    resolveCanadaListingPaygUnlockDecisionFromRow({
+      entitlement: { ...baseRow, owner_id: "owner-other" },
+      listingId: "listing-ca-entitlement-1",
+      ownerId: "owner-ca-1",
+    }).reasonCode,
+    "WRONG_OWNER"
+  );
+
+  assert.equal(
+    resolveCanadaListingPaygUnlockDecisionFromRow({
+      entitlement: { ...baseRow, active: false },
+      listingId: "listing-ca-entitlement-1",
+      ownerId: "owner-ca-1",
+    }).reasonCode,
+    "INACTIVE"
+  );
+
+  assert.equal(
+    resolveCanadaListingPaygUnlockDecisionFromRow({
+      entitlement: { ...baseRow, consumed_at: "2026-05-08T00:00:00.000Z" },
+      listingId: "listing-ca-entitlement-1",
+      ownerId: "owner-ca-1",
+    }).reasonCode,
+    "CONSUMED"
+  );
+
+  assert.equal(
+    resolveCanadaListingPaygUnlockDecisionFromRow({
+      entitlement: { ...baseRow, revoked_at: "2026-05-08T00:00:00.000Z" },
+      listingId: "listing-ca-entitlement-1",
+      ownerId: "owner-ca-1",
+    }).reasonCode,
+    "REVOKED"
+  );
+
+  assert.equal(
+    resolveCanadaListingPaygUnlockDecisionFromRow({
+      entitlement: { ...baseRow, expires_at: "2026-05-08T00:00:00.000Z" },
+      listingId: "listing-ca-entitlement-1",
+      ownerId: "owner-ca-1",
+      now: new Date("2026-05-09T00:00:00.000Z"),
+    }).reasonCode,
+    "EXPIRED"
+  );
+});
+
+void test("Canada entitlement unlock decision rejects wrong market/provider/currency/purpose and unsupported role or tier", () => {
+  const baseRow: CanadaListingPaygEntitlementRow = {
+    id: "ent-unlock-3",
+    listing_id: "listing-ca-entitlement-1",
+    owner_id: "owner-ca-1",
+    market_country: "CA",
+    provider: "stripe",
+    purpose: "listing_submission",
+    role: "landlord",
+    tier: "free",
+    amount_minor: 400,
+    currency: "CAD",
+    stripe_checkout_session_id: "cs_ca_entitlement_3",
+    stripe_payment_intent_id: "pi_ca_entitlement_3",
+    stripe_event_id: "evt_ca_entitlement_3",
+    idempotency_key: "canada_payg_entitlement:evt_ca_entitlement_3",
+    status: "granted",
+    active: true,
+    granted_at: "2026-05-07T11:00:00.000Z",
+    consumed_at: null,
+    revoked_at: null,
+    expires_at: null,
+    metadata: {},
+    created_at: "2026-05-07T11:00:00.000Z",
+    updated_at: "2026-05-07T11:00:00.000Z",
+  };
+
+  assert.equal(
+    resolveCanadaListingPaygUnlockDecisionFromRow({
+      entitlement: { ...baseRow, market_country: "NG" as "CA" },
+      listingId: "listing-ca-entitlement-1",
+      ownerId: "owner-ca-1",
+    }).reasonCode,
+    "WRONG_MARKET"
+  );
+  assert.equal(
+    resolveCanadaListingPaygUnlockDecisionFromRow({
+      entitlement: { ...baseRow, provider: "paystack" as "stripe" },
+      listingId: "listing-ca-entitlement-1",
+      ownerId: "owner-ca-1",
+    }).reasonCode,
+    "WRONG_PROVIDER"
+  );
+  assert.equal(
+    resolveCanadaListingPaygUnlockDecisionFromRow({
+      entitlement: { ...baseRow, currency: "NGN" as "CAD" },
+      listingId: "listing-ca-entitlement-1",
+      ownerId: "owner-ca-1",
+    }).reasonCode,
+    "WRONG_CURRENCY"
+  );
+  assert.equal(
+    resolveCanadaListingPaygUnlockDecisionFromRow({
+      entitlement: { ...baseRow, purpose: "featured_listing" as "listing_submission" },
+      listingId: "listing-ca-entitlement-1",
+      ownerId: "owner-ca-1",
+    }).reasonCode,
+    "WRONG_PURPOSE"
+  );
+  assert.equal(
+    resolveCanadaListingPaygUnlockDecisionFromRow({
+      entitlement: { ...baseRow, role: "tenant" as never },
+      listingId: "listing-ca-entitlement-1",
+      ownerId: "owner-ca-1",
+    }).reasonCode,
+    "TENANT_REJECTED"
+  );
+  assert.equal(
+    resolveCanadaListingPaygUnlockDecisionFromRow({
+      entitlement: { ...baseRow, tier: "enterprise" as never },
+      listingId: "listing-ca-entitlement-1",
+      ownerId: "owner-ca-1",
+    }).reasonCode,
+    "ENTERPRISE_REJECTED"
+  );
+});
+
+void test("Canada entitlement unlock decision lookup returns no active entitlement when the listing has none", async () => {
+  const chain = {
+    eq() {
+      return chain;
+    },
+    async order() {
+      return { data: [] };
+    },
+  };
+
+  const client = {
+    from: () => ({
+      select: () => chain,
+    }),
+  } as never;
+
+  const decision = await resolveCanadaListingPaygUnlockDecision({
+    client,
+    listingId: "listing-ca-entitlement-1",
+    ownerId: "owner-ca-1",
+    now: new Date("2026-05-09T00:00:00.000Z"),
+  });
+
+  assert.equal(decision.wouldUnlock, false);
+  assert.equal(decision.reasonCode, "NO_ACTIVE_ENTITLEMENT");
+  assert.equal(decision.accountWideCapBypass, false);
+  assert.equal(decision.scope, "listing_only");
 });

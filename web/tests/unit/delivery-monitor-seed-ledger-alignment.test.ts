@@ -70,14 +70,15 @@ void test("market pricing control plane seed stays amber and foundation-focused 
   assert.match(item?.delivered.join(" "), /disabled Canada PAYG fulfilment plan/i);
   assert.match(item?.delivered.join(" "), /disabled Canada webhook-validation contract/i);
   assert.match(item?.delivered.join(" "), /canada_listing_payg_entitlements table/i);
+  assert.match(item?.delivered.join(" "), /listing-scoped Canada entitlement read and unlock-decision helper/i);
   assert.match(item?.delivered.join(" "), /audit history/i);
   assert.match(item?.delivered.join(" "), /legacy settings and code constants/i);
-  assert.match(item?.nextAction ?? "", /payment and entitlement insert payload contracts/i);
+  assert.match(item?.nextAction ?? "", /entitlement read and unlock-decision helper/i);
   assert.match(item?.outstanding.join(" "), /runtime checkout/i);
   assert.match(item?.outstanding.join(" "), /live Stripe session creation remains intentionally disabled/i);
   assert.match(item?.outstanding.join(" "), /Live insert execution for Canada one-off Stripe payments and listing-scoped entitlements/i);
   assert.match(item?.outstanding.join(" "), /Webhook wiring and listing-specific recovery unlock/i);
-  assert.match(item?.outstanding.join(" "), /not wired into submit or plan enforcement yet/i);
+  assert.match(item?.outstanding.join(" "), /Live cap-bypass integration, entitlement consumption, and listing-specific unlock/i);
   assert.match(item?.outstanding.join(" "), /Tax, receipt, and compliance posture/i);
   assert.match(item?.outstanding.join(" "), /Canada PAYG remains policy-gated/i);
   assert.match(item?.outstanding.join(" "), /Enterprise remains a planning-only control-plane tier/i);
@@ -97,6 +98,7 @@ void test("market pricing control plane seed stays amber and foundation-focused 
   assert.match(item?.testingGuide.join(" "), /Canada webhook contract DEFINED/i);
   assert.match(item?.testingGuide.join(" "), /Canada entitlement storage migration and helper tests/i);
   assert.match(item?.testingGuide.join(" "), /Canada payment persistence tests/i);
+  assert.match(item?.testingGuide.join(" "), /Canada entitlement read tests/i);
   assert.match(item?.testingGuide.join(" "), /edit one policy row, one one-off price row, and one entitlement row/i);
   assert.match(item?.testingGuide.join(" "), /legacy checkout and listing-cap enforcement/i);
 });

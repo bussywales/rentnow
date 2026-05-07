@@ -34,11 +34,13 @@ void test("admin market pricing page stays admin-only and renders the seeded con
   assert.match(pageSource, /Entitlement grant contract/);
   assert.match(pageSource, /Payment persistence payload/);
   assert.match(pageSource, /Entitlement grant payload/);
+  assert.match(pageSource, /Entitlement read integration/);
   assert.match(pageSource, /Live webhook fulfilment/);
   assert.match(pageSource, /Canada fulfilment plan/);
   assert.match(pageSource, /Fulfilment execution/);
   assert.match(pageSource, /Fulfilment mutation/);
-  assert.match(pageSource, /Listing unlock/);
+  assert.match(pageSource, /Listing unlock execution/);
+  assert.match(pageSource, /Entitlement consume mutation/);
   assert.match(pageSource, /Payment record write/);
   assert.match(pageSource, /Canada session creation/);
   assert.match(pageSource, /BLOCKED BY DESIGN/);
@@ -54,10 +56,12 @@ void test("admin market pricing page stays admin-only and renders the seeded con
   assert.match(pageSource, /entitlementGrantContractDefined \? "DEFINED" : "UNDEFINED"/);
   assert.match(pageSource, /paymentPersistencePayloadDefined \? "DEFINED" : "UNDEFINED"/);
   assert.match(pageSource, /entitlementGrantPayloadDefined \? "DEFINED" : "UNDEFINED"/);
+  assert.match(pageSource, /entitlementReadIntegrationAvailable \? "AVAILABLE" : "UNAVAILABLE"/);
   assert.match(pageSource, /liveWebhookFulfilmentEnabled \? "ENABLED" : "DISABLED"/);
   assert.match(pageSource, /fulfilmentPlanDefined \? "DEFINED" : "UNDEFINED"/);
   assert.match(pageSource, /fulfilmentExecutionEnabled \? "ENABLED" : "DISABLED"/);
   assert.match(pageSource, /fulfilmentMutationEnabled \? "ENABLED" : "DISABLED"/);
+  assert.match(pageSource, /entitlementConsumeMutationEnabled \? "ENABLED" : "DISABLED"/);
   assert.match(pageSource, /listingUnlockEnabled \? "ENABLED" : "DISABLED"/);
   assert.match(pageSource, /paymentRecordWriteEnabled \? "ENABLED" : "DISABLED"/);
   assert.match(pageSource, /data-testid="market-pricing-canada-runtime-diagnostics"/);

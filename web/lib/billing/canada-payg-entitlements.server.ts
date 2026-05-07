@@ -71,6 +71,36 @@ export type CanadaListingPaygEntitlementGrantDisabledResult = {
   validation: Extract<CanadaListingPaygEntitlementContractValidationResult, { ok: true }>;
 };
 
+export type CanadaListingPaygUnlockDecisionReasonCode =
+  | "ACTIVE_ENTITLEMENT_FOUND"
+  | "NO_ACTIVE_ENTITLEMENT"
+  | "WRONG_MARKET"
+  | "WRONG_PROVIDER"
+  | "WRONG_CURRENCY"
+  | "WRONG_PURPOSE"
+  | "WRONG_LISTING"
+  | "WRONG_OWNER"
+  | "INACTIVE"
+  | "CONSUMED"
+  | "REVOKED"
+  | "EXPIRED"
+  | "WRONG_STATUS"
+  | "TENANT_REJECTED"
+  | "ENTERPRISE_REJECTED"
+  | "INVALID_ROLE"
+  | "INVALID_TIER";
+
+export type CanadaListingPaygUnlockDecision = {
+  wouldUnlock: boolean;
+  reasonCode: CanadaListingPaygUnlockDecisionReasonCode;
+  listingId: string;
+  ownerId: string;
+  entitlementId: string | null;
+  scope: "listing_only";
+  accountWideCapBypass: false;
+  runtimeMutationEnabled: false;
+};
+
 function normalizeRole(role: string | null | undefined): CanadaListingPaygEntitlementRole | null {
   return role === "landlord" || role === "agent" ? role : null;
 }
@@ -254,4 +284,260 @@ export async function listingHasActiveCanadaPaygExtraSlot(input: {
     hasActiveEntitlement: !!row,
     entitlement: row,
   };
+}
+
+export function resolveCanadaListingPaygUnlockDecisionFromRow(input: {
+  entitlement: CanadaListingPaygEntitlementRow | null;
+  listingId: string;
+  ownerId: string;
+  now?: Date;
+}): CanadaListingPaygUnlockDecision {
+  const { entitlement, listingId, ownerId } = input;
+  const now = input.now ?? new Date();
+
+  if (!entitlement) {
+    return {
+      wouldUnlock: false,
+      reasonCode: "NO_ACTIVE_ENTITLEMENT",
+      listingId,
+      ownerId,
+      entitlementId: null,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    };
+  }
+
+  if (entitlement.listing_id !== listingId) {
+    return {
+      wouldUnlock: false,
+      reasonCode: "WRONG_LISTING",
+      listingId,
+      ownerId,
+      entitlementId: entitlement.id,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    };
+  }
+
+  if (entitlement.owner_id !== ownerId) {
+    return {
+      wouldUnlock: false,
+      reasonCode: "WRONG_OWNER",
+      listingId,
+      ownerId,
+      entitlementId: entitlement.id,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    };
+  }
+
+  if (entitlement.market_country !== "CA") {
+    return {
+      wouldUnlock: false,
+      reasonCode: "WRONG_MARKET",
+      listingId,
+      ownerId,
+      entitlementId: entitlement.id,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    };
+  }
+
+  if (entitlement.provider !== "stripe") {
+    return {
+      wouldUnlock: false,
+      reasonCode: "WRONG_PROVIDER",
+      listingId,
+      ownerId,
+      entitlementId: entitlement.id,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    };
+  }
+
+  if (entitlement.currency !== "CAD") {
+    return {
+      wouldUnlock: false,
+      reasonCode: "WRONG_CURRENCY",
+      listingId,
+      ownerId,
+      entitlementId: entitlement.id,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    };
+  }
+
+  if (entitlement.purpose !== "listing_submission") {
+    return {
+      wouldUnlock: false,
+      reasonCode: "WRONG_PURPOSE",
+      listingId,
+      ownerId,
+      entitlementId: entitlement.id,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    };
+  }
+
+  const role = String(entitlement.role);
+  const tier = String(entitlement.tier);
+
+  if (role === "tenant") {
+    return {
+      wouldUnlock: false,
+      reasonCode: "TENANT_REJECTED",
+      listingId,
+      ownerId,
+      entitlementId: entitlement.id,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    };
+  }
+
+  if (role !== "landlord" && role !== "agent") {
+    return {
+      wouldUnlock: false,
+      reasonCode: "INVALID_ROLE",
+      listingId,
+      ownerId,
+      entitlementId: entitlement.id,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    };
+  }
+
+  if (tier === "enterprise") {
+    return {
+      wouldUnlock: false,
+      reasonCode: "ENTERPRISE_REJECTED",
+      listingId,
+      ownerId,
+      entitlementId: entitlement.id,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    };
+  }
+
+  if (tier !== "free" && tier !== "pro") {
+    return {
+      wouldUnlock: false,
+      reasonCode: "INVALID_TIER",
+      listingId,
+      ownerId,
+      entitlementId: entitlement.id,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    };
+  }
+
+  if (entitlement.status !== "granted") {
+    return {
+      wouldUnlock: false,
+      reasonCode: "WRONG_STATUS",
+      listingId,
+      ownerId,
+      entitlementId: entitlement.id,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    };
+  }
+
+  if (!entitlement.active) {
+    return {
+      wouldUnlock: false,
+      reasonCode: "INACTIVE",
+      listingId,
+      ownerId,
+      entitlementId: entitlement.id,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    };
+  }
+
+  if (entitlement.consumed_at) {
+    return {
+      wouldUnlock: false,
+      reasonCode: "CONSUMED",
+      listingId,
+      ownerId,
+      entitlementId: entitlement.id,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    };
+  }
+
+  if (entitlement.revoked_at) {
+    return {
+      wouldUnlock: false,
+      reasonCode: "REVOKED",
+      listingId,
+      ownerId,
+      entitlementId: entitlement.id,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    };
+  }
+
+  if (entitlement.expires_at) {
+    const expiresAt = Date.parse(entitlement.expires_at);
+    if (Number.isFinite(expiresAt) && expiresAt <= now.getTime()) {
+      return {
+        wouldUnlock: false,
+        reasonCode: "EXPIRED",
+        listingId,
+        ownerId,
+        entitlementId: entitlement.id,
+        scope: "listing_only",
+        accountWideCapBypass: false,
+        runtimeMutationEnabled: false,
+      };
+    }
+  }
+
+  return {
+    wouldUnlock: true,
+    reasonCode: "ACTIVE_ENTITLEMENT_FOUND",
+    listingId,
+    ownerId,
+    entitlementId: entitlement.id,
+    scope: "listing_only",
+    accountWideCapBypass: false,
+    runtimeMutationEnabled: false,
+  };
+}
+
+export async function resolveCanadaListingPaygUnlockDecision(input: {
+  client: SupabaseClient | UntypedAdminClient;
+  listingId: string;
+  ownerId: string;
+  now?: Date;
+}): Promise<CanadaListingPaygUnlockDecision> {
+  const entitlement = await findActiveCanadaListingPaygEntitlement({
+    client: input.client,
+    listingId: input.listingId,
+    ownerId: input.ownerId,
+    now: input.now,
+  });
+
+  return resolveCanadaListingPaygUnlockDecisionFromRow({
+    entitlement,
+    listingId: input.listingId,
+    ownerId: input.ownerId,
+    now: input.now,
+  });
 }

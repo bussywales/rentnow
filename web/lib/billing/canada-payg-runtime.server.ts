@@ -40,6 +40,7 @@ export type CanadaRentalPaygRuntimeDecision = {
   entitlementGrantContractDefined: true;
   paymentPersistencePayloadDefined: true;
   entitlementGrantPayloadDefined: true;
+  entitlementReadIntegrationAvailable: true;
   fulfilmentPlanDefined: true;
   checkoutEnabled: false;
   checkoutCreationEnabled: false;
@@ -47,6 +48,7 @@ export type CanadaRentalPaygRuntimeDecision = {
   liveWebhookFulfilmentEnabled: false;
   fulfilmentExecutionEnabled: false;
   fulfilmentMutationEnabled: false;
+  entitlementConsumeMutationEnabled: false;
   listingUnlockEnabled: false;
   paymentRecordWriteEnabled: false;
   readiness: CanadaRentalPaygReadinessResult;
@@ -75,6 +77,7 @@ export type CanadaRentalPaygRuntimeDiagnostics = {
   entitlementGrantContractDefined: true;
   paymentPersistencePayloadDefined: true;
   entitlementGrantPayloadDefined: true;
+  entitlementReadIntegrationAvailable: true;
   fulfilmentPlanDefined: true;
   checkoutEnabled: false;
   checkoutCreationEnabled: false;
@@ -82,6 +85,7 @@ export type CanadaRentalPaygRuntimeDiagnostics = {
   liveWebhookFulfilmentEnabled: false;
   fulfilmentExecutionEnabled: false;
   fulfilmentMutationEnabled: false;
+  entitlementConsumeMutationEnabled: false;
   listingUnlockEnabled: false;
   paymentRecordWriteEnabled: false;
   runtimeSource: "legacy";
@@ -198,6 +202,7 @@ export async function getCanadaRentalPaygRuntimeDiagnostics(
     entitlementGrantContractDefined: true,
     paymentPersistencePayloadDefined: true,
     entitlementGrantPayloadDefined: true,
+    entitlementReadIntegrationAvailable: true,
     fulfilmentPlanDefined: true,
     checkoutEnabled: false,
     checkoutCreationEnabled: false,
@@ -205,6 +210,7 @@ export async function getCanadaRentalPaygRuntimeDiagnostics(
     liveWebhookFulfilmentEnabled: false,
     fulfilmentExecutionEnabled: false,
     fulfilmentMutationEnabled: false,
+    entitlementConsumeMutationEnabled: false,
     listingUnlockEnabled: false,
     paymentRecordWriteEnabled: false,
     runtimeSource: "legacy",
@@ -253,6 +259,7 @@ export async function loadCanadaRentalPaygRuntimeDecision(
     entitlementGrantContractDefined: true,
     paymentPersistencePayloadDefined: true,
     entitlementGrantPayloadDefined: true,
+    entitlementReadIntegrationAvailable: true,
     fulfilmentPlanDefined: true,
     checkoutEnabled: false,
     checkoutCreationEnabled: false,
@@ -260,6 +267,7 @@ export async function loadCanadaRentalPaygRuntimeDecision(
     liveWebhookFulfilmentEnabled: false,
     fulfilmentExecutionEnabled: false,
     fulfilmentMutationEnabled: false,
+    entitlementConsumeMutationEnabled: false,
     listingUnlockEnabled: false,
     paymentRecordWriteEnabled: false,
     readiness,

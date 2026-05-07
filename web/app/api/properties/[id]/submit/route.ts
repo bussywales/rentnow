@@ -35,6 +35,7 @@ import {
   enforceActiveListingLimit,
 } from "@/lib/plan-enforcement";
 import { loadCanadaRentalPaygRuntimeDecision } from "@/lib/billing/canada-payg-runtime.server";
+import { resolveCanadaListingPaygUnlockDecision } from "@/lib/billing/canada-payg-entitlements.server";
 import { sanitizeUserFacingErrorMessage } from "@/lib/observability/user-facing-errors";
 import { captureServerException } from "@/lib/monitoring/sentry";
 
@@ -96,6 +97,7 @@ export type ListingSubmitDeps = {
   logFailure: typeof logFailure;
   notifyAdminsOfListingReviewSubmission?: typeof notifyAdminsOfListingReviewSubmission;
   loadCanadaRentalPaygRuntimeDecision?: typeof loadCanadaRentalPaygRuntimeDecision;
+  resolveCanadaListingPaygUnlockDecision?: typeof resolveCanadaListingPaygUnlockDecision;
 };
 
 const defaultDeps: ListingSubmitDeps = {
@@ -118,6 +120,7 @@ const defaultDeps: ListingSubmitDeps = {
   logFailure,
   notifyAdminsOfListingReviewSubmission,
   loadCanadaRentalPaygRuntimeDecision,
+  resolveCanadaListingPaygUnlockDecision,
 };
 
 export async function postPropertySubmitResponse(
@@ -336,6 +339,28 @@ export async function postPropertySubmitResponse(
       serviceClient: adminClient,
       excludeId: propertyId,
     });
+    if (
+      listing.country_code?.toUpperCase() === "CA" &&
+      deps.resolveCanadaListingPaygUnlockDecision &&
+      !activeLimit.usage.error
+    ) {
+      try {
+        await deps.resolveCanadaListingPaygUnlockDecision({
+          client: adminClient,
+          listingId: propertyId,
+          ownerId,
+        });
+      } catch (error) {
+        deps.logFailure({
+          request,
+          route: routeLabel,
+          status: 200,
+          startTime,
+          level: "warn",
+          error,
+        });
+      }
+    }
     if (
       listing.country_code?.toUpperCase() === "CA" &&
       deps.loadCanadaRentalPaygRuntimeDecision &&
