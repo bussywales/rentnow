@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   CANADA_RENTAL_PAYG_RUNTIME_PREREQUISITES,
+  getCanadaRentalPaygListingUnlockEnabled,
   loadCanadaRentalPaygRuntimeDecision,
 } from "@/lib/billing/canada-payg-runtime.server";
 import { resolveCanadaRentalPaygReadiness } from "@/lib/billing/canada-payg-readiness.server";
@@ -194,6 +195,7 @@ void test("Canada runtime gate defaults off in the guarded adapter and keeps che
     },
     {
       getGateEnabled: async () => false,
+      getListingUnlockGateEnabled: async () => false,
       loadPricingRows: async () => pricingRows,
       loadRoleContext: async () => ({ role: "landlord", tier: "free", activeListingCount: 3 }),
       resolveReadiness: resolveCanadaRentalPaygReadiness,
@@ -201,6 +203,7 @@ void test("Canada runtime gate defaults off in the guarded adapter and keeps che
   );
 
   assert.equal(decision.gateEnabled, false);
+  assert.equal(decision.listingUnlockGateEnabled, false);
   assert.equal(decision.checkoutEnabled, false);
   assert.equal(decision.runtimeSource, "legacy");
   assert.equal(decision.resolverAvailable, true);
@@ -211,9 +214,11 @@ void test("Canada runtime gate defaults off in the guarded adapter and keeps che
   assert.equal(decision.paymentPersistencePayloadDefined, true);
   assert.equal(decision.entitlementGrantPayloadDefined, true);
   assert.equal(decision.entitlementReadIntegrationAvailable, true);
+  assert.equal(decision.listingCapBypassDecisionDefined, true);
   assert.equal(decision.liveWebhookFulfilmentEnabled, false);
   assert.equal(decision.fulfilmentMutationEnabled, false);
   assert.equal(decision.entitlementConsumeMutationEnabled, false);
+  assert.equal(decision.liveCapBypassEnabled, false);
   assert.equal(decision.readiness.reasonCode, "POLICY_STATE_NOT_READY");
   assert.equal(decision.readiness.amountMinor, 400);
   assert.deepEqual(decision.nextActivationPrerequisites, [...CANADA_RENTAL_PAYG_RUNTIME_PREREQUISITES]);
@@ -233,6 +238,7 @@ void test("Canada runtime adapter passes normalized listing, role, tier, and pri
     },
     {
       getGateEnabled: async () => false,
+      getListingUnlockGateEnabled: async () => false,
       loadPricingRows: async () => pricingRows,
       loadRoleContext: async () => ({ role: "agent", tier: "pro", activeListingCount: 10 }),
       resolveReadiness: (input) => {
@@ -257,6 +263,7 @@ void test("Canada runtime adapter passes normalized listing, role, tier, and pri
 void test("Canada runtime adapter keeps wrong market, shortlet, tenant, and enterprise blocked", async () => {
   const baseDeps = {
     getGateEnabled: async () => true,
+    getListingUnlockGateEnabled: async () => false,
     loadPricingRows: async () => pricingRows,
     resolveReadiness: resolveCanadaRentalPaygReadiness,
   };
@@ -348,6 +355,7 @@ void test("Canada runtime adapter can report runtime activation allowed while ch
     },
     {
       getGateEnabled: async () => true,
+      getListingUnlockGateEnabled: async () => false,
       loadPricingRows: async () => ({
         policies: [canadaPolicyLive],
         entitlements: canadaEntitlements,
@@ -361,6 +369,19 @@ void test("Canada runtime adapter can report runtime activation allowed while ch
   );
 
   assert.equal(decision.gateEnabled, true);
+  assert.equal(decision.listingUnlockGateEnabled, false);
   assert.equal(decision.readiness.runtimeActivationAllowed, true);
   assert.equal(decision.checkoutEnabled, false);
+});
+
+void test("Canada listing unlock gate defaults off in runtime diagnostics helper", async () => {
+  const enabled = await getCanadaRentalPaygListingUnlockEnabled({
+    from: () => ({
+      select: () => ({
+        in: async () => ({ data: [] }),
+      }),
+    }),
+  } as never);
+
+  assert.equal(enabled, false);
 });

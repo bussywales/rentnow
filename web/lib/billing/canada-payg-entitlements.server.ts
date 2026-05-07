@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BillingRole } from "@/lib/billing/stripe-plans";
 import type { MarketPricingControlPlaneTier } from "@/lib/billing/market-pricing";
 import type { CanadaRentalPaygFutureEntitlementGrantContract } from "@/lib/billing/canada-payg-webhook-contract.server";
+import type { ActiveListingLimitGateResult } from "@/lib/plan-enforcement";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 const CANADA_PAYG_ENTITLEMENT_GRANT_ENABLED = false as const;
@@ -99,6 +100,28 @@ export type CanadaListingPaygUnlockDecision = {
   scope: "listing_only";
   accountWideCapBypass: false;
   runtimeMutationEnabled: false;
+};
+
+export type CanadaListingCapBypassDecisionReasonCode =
+  | "NOT_CANADA"
+  | "NON_RENTAL_LISTING"
+  | "SHORTLET_EXCLUDED"
+  | "ACTIVE_LIMIT_NOT_REACHED"
+  | "ACTIVE_LIMIT_LOOKUP_FAILED"
+  | "CANADA_RUNTIME_GATE_DISABLED"
+  | "CANADA_PAYG_UNLOCK_DISABLED"
+  | "CANADA_PAYG_CAP_BYPASS_READY"
+  | CanadaListingPaygUnlockDecisionReasonCode;
+
+export type CanadaListingCapBypassDecision = {
+  capBypassAllowed: boolean;
+  reasonCode: CanadaListingCapBypassDecisionReasonCode;
+  listingId: string;
+  ownerId: string;
+  entitlementId: string | null;
+  scope: "listing_only";
+  accountWideCapBypass: false;
+  consumeEntitlementEnabled: false;
 };
 
 function normalizeRole(role: string | null | undefined): CanadaListingPaygEntitlementRole | null {
@@ -540,4 +563,133 @@ export async function resolveCanadaListingPaygUnlockDecision(input: {
     ownerId: input.ownerId,
     now: input.now,
   });
+}
+
+export function resolveCanadaListingCapBypassDecision(input: {
+  marketCountry: string | null | undefined;
+  listingIntent?: string | null;
+  rentalType?: string | null;
+  activeLimit: ActiveListingLimitGateResult;
+  runtimeGateEnabled: boolean;
+  unlockGateEnabled: boolean;
+  entitlementDecision: CanadaListingPaygUnlockDecision;
+}): CanadaListingCapBypassDecision {
+  const marketCountry = input.marketCountry?.toUpperCase() ?? null;
+  const listingIntent = input.listingIntent?.toLowerCase().trim() ?? null;
+  const rentalType = input.rentalType?.toLowerCase().trim() ?? null;
+
+  if (marketCountry !== "CA") {
+    return {
+      capBypassAllowed: false,
+      reasonCode: "NOT_CANADA",
+      listingId: input.entitlementDecision.listingId,
+      ownerId: input.entitlementDecision.ownerId,
+      entitlementId: input.entitlementDecision.entitlementId,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      consumeEntitlementEnabled: false,
+    };
+  }
+
+  if (listingIntent !== "rent") {
+    return {
+      capBypassAllowed: false,
+      reasonCode: "NON_RENTAL_LISTING",
+      listingId: input.entitlementDecision.listingId,
+      ownerId: input.entitlementDecision.ownerId,
+      entitlementId: input.entitlementDecision.entitlementId,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      consumeEntitlementEnabled: false,
+    };
+  }
+
+  if (rentalType === "short_let" || rentalType === "shortlet") {
+    return {
+      capBypassAllowed: false,
+      reasonCode: "SHORTLET_EXCLUDED",
+      listingId: input.entitlementDecision.listingId,
+      ownerId: input.entitlementDecision.ownerId,
+      entitlementId: input.entitlementDecision.entitlementId,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      consumeEntitlementEnabled: false,
+    };
+  }
+
+  if (input.activeLimit.ok) {
+    return {
+      capBypassAllowed: false,
+      reasonCode: "ACTIVE_LIMIT_NOT_REACHED",
+      listingId: input.entitlementDecision.listingId,
+      ownerId: input.entitlementDecision.ownerId,
+      entitlementId: input.entitlementDecision.entitlementId,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      consumeEntitlementEnabled: false,
+    };
+  }
+
+  if (input.activeLimit.usage.error) {
+    return {
+      capBypassAllowed: false,
+      reasonCode: "ACTIVE_LIMIT_LOOKUP_FAILED",
+      listingId: input.entitlementDecision.listingId,
+      ownerId: input.entitlementDecision.ownerId,
+      entitlementId: input.entitlementDecision.entitlementId,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      consumeEntitlementEnabled: false,
+    };
+  }
+
+  if (!input.runtimeGateEnabled) {
+    return {
+      capBypassAllowed: false,
+      reasonCode: "CANADA_RUNTIME_GATE_DISABLED",
+      listingId: input.entitlementDecision.listingId,
+      ownerId: input.entitlementDecision.ownerId,
+      entitlementId: input.entitlementDecision.entitlementId,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      consumeEntitlementEnabled: false,
+    };
+  }
+
+  if (!input.unlockGateEnabled) {
+    return {
+      capBypassAllowed: false,
+      reasonCode: "CANADA_PAYG_UNLOCK_DISABLED",
+      listingId: input.entitlementDecision.listingId,
+      ownerId: input.entitlementDecision.ownerId,
+      entitlementId: input.entitlementDecision.entitlementId,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      consumeEntitlementEnabled: false,
+    };
+  }
+
+  if (!input.entitlementDecision.wouldUnlock) {
+    return {
+      capBypassAllowed: false,
+      reasonCode: input.entitlementDecision.reasonCode,
+      listingId: input.entitlementDecision.listingId,
+      ownerId: input.entitlementDecision.ownerId,
+      entitlementId: input.entitlementDecision.entitlementId,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      consumeEntitlementEnabled: false,
+    };
+  }
+
+  return {
+    capBypassAllowed: true,
+    reasonCode: "CANADA_PAYG_CAP_BYPASS_READY",
+    listingId: input.entitlementDecision.listingId,
+    ownerId: input.entitlementDecision.ownerId,
+    entitlementId: input.entitlementDecision.entitlementId,
+    scope: "listing_only",
+    accountWideCapBypass: false,
+    consumeEntitlementEnabled: false,
+  };
 }

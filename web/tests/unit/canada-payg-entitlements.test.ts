@@ -5,11 +5,13 @@ import {
   findActiveCanadaListingPaygEntitlement,
   grantCanadaListingPaygEntitlementDisabled,
   listingHasActiveCanadaPaygExtraSlot,
+  resolveCanadaListingCapBypassDecision,
   resolveCanadaListingPaygUnlockDecision,
   resolveCanadaListingPaygUnlockDecisionFromRow,
   validateCanadaListingPaygEntitlementContract,
   type CanadaListingPaygEntitlementRow,
 } from "@/lib/billing/canada-payg-entitlements.server";
+import type { ActiveListingLimitGateResult } from "@/lib/plan-enforcement";
 import {
   buildCanadaRentalPaygEntitlementGrantContract,
   validateCanadaRentalPaygWebhookContract,
@@ -472,4 +474,160 @@ void test("Canada entitlement unlock decision lookup returns no active entitleme
   assert.equal(decision.reasonCode, "NO_ACTIVE_ENTITLEMENT");
   assert.equal(decision.accountWideCapBypass, false);
   assert.equal(decision.scope, "listing_only");
+});
+
+void test("Canada cap-bypass decision keeps unpaid or gated over-cap listings blocked", () => {
+  const activeLimit: ActiveListingLimitGateResult = {
+    ok: false,
+    error: "Plan limit reached",
+    code: "plan_limit_reached",
+    maxListings: 3,
+    activeCount: 3,
+    planTier: "free",
+    usage: {
+      plan: { tier: "free", maxListings: 3, name: "Free" },
+      activeCount: 3,
+      source: "service",
+    },
+  };
+
+  const noEntitlement = resolveCanadaListingCapBypassDecision({
+    marketCountry: "CA",
+    listingIntent: "rent",
+    rentalType: "long_term",
+    activeLimit,
+    runtimeGateEnabled: true,
+    unlockGateEnabled: true,
+    entitlementDecision: {
+      wouldUnlock: false,
+      reasonCode: "NO_ACTIVE_ENTITLEMENT",
+      listingId: "listing-ca-entitlement-1",
+      ownerId: "owner-ca-1",
+      entitlementId: null,
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    },
+  });
+  assert.equal(noEntitlement.capBypassAllowed, false);
+  assert.equal(noEntitlement.reasonCode, "NO_ACTIVE_ENTITLEMENT");
+  assert.equal(noEntitlement.accountWideCapBypass, false);
+
+  const unlockDisabled = resolveCanadaListingCapBypassDecision({
+    marketCountry: "CA",
+    listingIntent: "rent",
+    rentalType: "long_term",
+    activeLimit,
+    runtimeGateEnabled: true,
+    unlockGateEnabled: false,
+    entitlementDecision: {
+      wouldUnlock: true,
+      reasonCode: "ACTIVE_ENTITLEMENT_FOUND",
+      listingId: "listing-ca-entitlement-1",
+      ownerId: "owner-ca-1",
+      entitlementId: "ent-1",
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    },
+  });
+  assert.equal(unlockDisabled.capBypassAllowed, false);
+  assert.equal(unlockDisabled.reasonCode, "CANADA_PAYG_UNLOCK_DISABLED");
+  assert.equal(unlockDisabled.accountWideCapBypass, false);
+});
+
+void test("Canada cap-bypass decision returns a listing-only ready decision for a valid active entitlement", () => {
+  const activeLimit: ActiveListingLimitGateResult = {
+    ok: false,
+    error: "Plan limit reached",
+    code: "plan_limit_reached",
+    maxListings: 3,
+    activeCount: 3,
+    planTier: "free",
+    usage: {
+      plan: { tier: "free", maxListings: 3, name: "Free" },
+      activeCount: 3,
+      source: "service",
+    },
+  };
+
+  const ready = resolveCanadaListingCapBypassDecision({
+    marketCountry: "CA",
+    listingIntent: "rent",
+    rentalType: "long_term",
+    activeLimit,
+    runtimeGateEnabled: true,
+    unlockGateEnabled: true,
+    entitlementDecision: {
+      wouldUnlock: true,
+      reasonCode: "ACTIVE_ENTITLEMENT_FOUND",
+      listingId: "listing-ca-entitlement-1",
+      ownerId: "owner-ca-1",
+      entitlementId: "ent-1",
+      scope: "listing_only",
+      accountWideCapBypass: false,
+      runtimeMutationEnabled: false,
+    },
+  });
+
+  assert.deepEqual(ready, {
+    capBypassAllowed: true,
+    reasonCode: "CANADA_PAYG_CAP_BYPASS_READY",
+    listingId: "listing-ca-entitlement-1",
+    ownerId: "owner-ca-1",
+    entitlementId: "ent-1",
+    scope: "listing_only",
+    accountWideCapBypass: false,
+    consumeEntitlementEnabled: false,
+  });
+});
+
+void test("Canada cap-bypass decision rejects non-rental and shortlet listing contexts", () => {
+  const activeLimit: ActiveListingLimitGateResult = {
+    ok: false,
+    error: "Plan limit reached",
+    code: "plan_limit_reached",
+    maxListings: 3,
+    activeCount: 3,
+    planTier: "free",
+    usage: {
+      plan: { tier: "free", maxListings: 3, name: "Free" },
+      activeCount: 3,
+      source: "service",
+    },
+  };
+  const entitlementDecision = {
+    wouldUnlock: true,
+    reasonCode: "ACTIVE_ENTITLEMENT_FOUND" as const,
+    listingId: "listing-ca-entitlement-1",
+    ownerId: "owner-ca-1",
+    entitlementId: "ent-1",
+    scope: "listing_only" as const,
+    accountWideCapBypass: false as const,
+    runtimeMutationEnabled: false as const,
+  };
+
+  const sale = resolveCanadaListingCapBypassDecision({
+    marketCountry: "CA",
+    listingIntent: "sale",
+    rentalType: null,
+    activeLimit,
+    runtimeGateEnabled: true,
+    unlockGateEnabled: true,
+    entitlementDecision,
+  });
+  assert.equal(sale.capBypassAllowed, false);
+  assert.equal(sale.reasonCode, "NON_RENTAL_LISTING");
+
+  const shortlet = resolveCanadaListingCapBypassDecision({
+    marketCountry: "CA",
+    listingIntent: "rent",
+    rentalType: "short_let",
+    activeLimit,
+    runtimeGateEnabled: true,
+    unlockGateEnabled: true,
+    entitlementDecision,
+  });
+  assert.equal(shortlet.capBypassAllowed, false);
+  assert.equal(shortlet.reasonCode, "SHORTLET_EXCLUDED");
 });

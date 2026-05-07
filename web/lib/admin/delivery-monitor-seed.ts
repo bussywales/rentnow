@@ -84,7 +84,7 @@ export const DELIVERY_MONITOR_SEED_ITEMS: DeliveryMonitorSeedItem[] = [
     status: "amber",
     owner: "Billing policy + admin ops",
     nextAction:
-      "Validate the listing-scoped Canada entitlement read and unlock-decision helper before shipping any live cap-bypass or entitlement-consume execution.",
+      "Validate the gated listing-only Canada cap-bypass decision path before shipping any live unlock execution or entitlement consumption.",
     description:
       "Create the first admin-managed market pricing and entitlement control plane without changing current checkout or enforcement behavior.",
     whyItMatters:
@@ -103,6 +103,7 @@ export const DELIVERY_MONITOR_SEED_ITEMS: DeliveryMonitorSeedItem[] = [
       "A dedicated canada_listing_payg_entitlements table now exists for listing-scoped extra-slot storage, with disabled helper contracts that build grant payloads without inserting live rows.",
       "Disabled Canada fulfilment execution now builds both listing_payments and canada_listing_payg_entitlements insert payloads without performing live writes.",
       "A listing-scoped Canada entitlement read and unlock-decision helper can now recognise whether one exact CA listing would qualify for a paid extra slot without bypassing caps live.",
+      "A gated listing-only Canada cap-bypass decision path can now prove when one exact over-cap listing would qualify for a future extra-slot unlock while live cap bypass remains disabled.",
       "Every successful edit writes market pricing audit history.",
       "Runtime source diagnostics make it explicit that current billing still uses legacy settings and code constants.",
     ],
@@ -111,7 +112,7 @@ export const DELIVERY_MONITOR_SEED_ITEMS: DeliveryMonitorSeedItem[] = [
       "Canada PAYG live Stripe session creation remains intentionally disabled until the next explicit activation layer ships on top of the guarded runtime wiring.",
       "Live insert execution for Canada one-off Stripe payments and listing-scoped entitlements is still not implemented.",
       "Webhook wiring and listing-specific recovery unlock for Canada one-off Stripe payments are still not implemented.",
-      "Live cap-bypass integration, entitlement consumption, and listing-specific unlock are still not wired into submit or plan enforcement.",
+      "Actual live unlock execution, entitlement consumption, and listing-specific cap bypass are still not wired into submit or plan enforcement.",
       "Tax, receipt, and compliance posture still need sign-off before any Canada production activation.",
       "Canada PAYG remains policy-gated until pricing, provider routing, tax posture, and launch scope are approved.",
       "Enterprise remains a planning-only control-plane tier until separate runtime support exists.",
@@ -135,6 +136,7 @@ export const DELIVERY_MONITOR_SEED_ITEMS: DeliveryMonitorSeedItem[] = [
       "Run the Canada entitlement storage migration and helper tests and confirm the canada_listing_payg_entitlements table exists with RLS, idempotency constraints, and disabled grant helpers only.",
       "Run the Canada payment persistence tests and confirm listing_payments and canada_listing_payg_entitlements insert payloads are built while fulfilment mutation stays DISABLED.",
       "Run the Canada entitlement read tests and confirm only a matching active CA listing-scoped entitlement would unlock exactly one listing while runtime mutation stays DISABLED.",
+      "Run the Canada cap-bypass decision tests and confirm a valid active entitlement can become listing-only ready while live cap bypass stays DISABLED.",
       "Confirm the runtime diagnostics explicitly say legacy checkout and listing-cap enforcement are still in effect.",
       "Confirm Canada remains draft or disabled and does not imply live PAYG availability.",
       "Confirm Enterprise rows are labeled planning-only rather than runtime-ready.",

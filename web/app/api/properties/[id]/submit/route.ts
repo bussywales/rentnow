@@ -35,7 +35,10 @@ import {
   enforceActiveListingLimit,
 } from "@/lib/plan-enforcement";
 import { loadCanadaRentalPaygRuntimeDecision } from "@/lib/billing/canada-payg-runtime.server";
-import { resolveCanadaListingPaygUnlockDecision } from "@/lib/billing/canada-payg-entitlements.server";
+import {
+  resolveCanadaListingCapBypassDecision,
+  resolveCanadaListingPaygUnlockDecision,
+} from "@/lib/billing/canada-payg-entitlements.server";
 import { sanitizeUserFacingErrorMessage } from "@/lib/observability/user-facing-errors";
 import { captureServerException } from "@/lib/monitoring/sentry";
 
@@ -98,6 +101,7 @@ export type ListingSubmitDeps = {
   notifyAdminsOfListingReviewSubmission?: typeof notifyAdminsOfListingReviewSubmission;
   loadCanadaRentalPaygRuntimeDecision?: typeof loadCanadaRentalPaygRuntimeDecision;
   resolveCanadaListingPaygUnlockDecision?: typeof resolveCanadaListingPaygUnlockDecision;
+  resolveCanadaListingCapBypassDecision?: typeof resolveCanadaListingCapBypassDecision;
 };
 
 const defaultDeps: ListingSubmitDeps = {
@@ -121,6 +125,7 @@ const defaultDeps: ListingSubmitDeps = {
   notifyAdminsOfListingReviewSubmission,
   loadCanadaRentalPaygRuntimeDecision,
   resolveCanadaListingPaygUnlockDecision,
+  resolveCanadaListingCapBypassDecision,
 };
 
 export async function postPropertySubmitResponse(
@@ -339,13 +344,19 @@ export async function postPropertySubmitResponse(
       serviceClient: adminClient,
       excludeId: propertyId,
     });
+    const resolveCanadaCapBypassDecision =
+      deps.resolveCanadaListingCapBypassDecision ?? resolveCanadaListingCapBypassDecision;
+    const isCanadaRentalListing = listing.country_code?.toUpperCase() === "CA";
+    let canadaUnlockDecision: Awaited<
+      ReturnType<typeof resolveCanadaListingPaygUnlockDecision>
+    > | null = null;
     if (
-      listing.country_code?.toUpperCase() === "CA" &&
+      isCanadaRentalListing &&
       deps.resolveCanadaListingPaygUnlockDecision &&
       !activeLimit.usage.error
     ) {
       try {
-        await deps.resolveCanadaListingPaygUnlockDecision({
+        canadaUnlockDecision = await deps.resolveCanadaListingPaygUnlockDecision({
           client: adminClient,
           listingId: propertyId,
           ownerId,
@@ -362,7 +373,7 @@ export async function postPropertySubmitResponse(
       }
     }
     if (
-      listing.country_code?.toUpperCase() === "CA" &&
+      isCanadaRentalListing &&
       deps.loadCanadaRentalPaygRuntimeDecision &&
       !activeLimit.usage.error
     ) {
@@ -414,6 +425,44 @@ export async function postPropertySubmitResponse(
           },
         });
         return NextResponse.json({ error: SUBMIT_LISTING_ERROR }, { status: 500 });
+      }
+      if (
+        isCanadaRentalListing &&
+        canadaUnlockDecision
+      ) {
+        const [canadaRuntimeGateEnabled, canadaListingUnlockEnabled] = await Promise.all([
+          deps.getAppSettingBool(APP_SETTING_KEYS.canadaRentalPaygRuntimeEnabled, false),
+          deps.getAppSettingBool(APP_SETTING_KEYS.canadaRentalPaygListingUnlockEnabled, false),
+        ]);
+
+        const canadaCapBypassDecision = resolveCanadaCapBypassDecision({
+          marketCountry: listing.country_code,
+          listingIntent: listing.listing_intent,
+          rentalType: listing.rental_type,
+          activeLimit,
+          runtimeGateEnabled: canadaRuntimeGateEnabled,
+          unlockGateEnabled: canadaListingUnlockEnabled,
+          entitlementDecision: canadaUnlockDecision,
+        });
+
+        if (canadaCapBypassDecision.capBypassAllowed) {
+          return NextResponse.json(
+            {
+              ok: false,
+              code: "CANADA_PAYG_CAP_BYPASS_READY_BUT_DISABLED",
+              error: "Canada PAYG listing unlock is not live yet.",
+              reason: canadaCapBypassDecision.reasonCode,
+              listingId: canadaCapBypassDecision.listingId,
+              ownerId: canadaCapBypassDecision.ownerId,
+              entitlementId: canadaCapBypassDecision.entitlementId,
+              scope: canadaCapBypassDecision.scope,
+              accountWideCapBypass: canadaCapBypassDecision.accountWideCapBypass,
+              consumeEntitlementEnabled: canadaCapBypassDecision.consumeEntitlementEnabled,
+              idempotencyKey,
+            },
+            { status: 409 }
+          );
+        }
       }
       logPlanLimitHit({
         request,

@@ -245,6 +245,162 @@ void test("Canada submit keeps the live cap block even when the entitlement read
   assert.equal(unlockChecks, 1);
 });
 
+void test("Canada submit still returns the legacy listing-limit recovery when runtime is on but listing unlock is off", async () => {
+  const listing: ListingRow = {
+    id: "prop1",
+    owner_id: "owner",
+    status: "draft",
+    submitted_at: null,
+    country_code: "CA",
+    listing_intent: "rent",
+    rental_type: "long_term",
+  };
+  const { supabase } = buildSupabaseStub(listing, {
+    activeCount: 5,
+    planTier: "starter",
+    maxListingsOverride: 5,
+  });
+  const typedSupabase = supabase as ReturnType<ListingSubmitDeps["createServerSupabaseClient"]>;
+
+  const deps: ListingSubmitDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => true,
+    createServerSupabaseClient: async () => typedSupabase,
+    createServiceRoleClient: () =>
+      typedSupabase as ReturnType<ListingSubmitDeps["createServiceRoleClient"]>,
+    requireUser: async () =>
+      ({
+        ok: true,
+        user: { id: "owner" } as User,
+        supabase: typedSupabase,
+      }) as Awaited<ReturnType<ListingSubmitDeps["requireUser"]>>,
+    getUserRole: async () => "landlord",
+    getListingAccessResult: () => ({ ok: true }),
+    hasActiveDelegation: async () => false,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => ({ ok: false, reason: "NO_CREDITS" }),
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
+    getAppSettingBool: async (key) => key === "canada_rental_payg_runtime_enabled",
+    getListingExpiryDays: async () => 90,
+    requireLegalAcceptance: async () => ({ ok: true, status: {} }) as Awaited<
+      ReturnType<ListingSubmitDeps["requireLegalAcceptance"]>
+    >,
+    logPropertyEvent: async () => ({ ok: true, data: {} }),
+    resolveEventSessionKey: () => null,
+    logFailure: () => undefined,
+    resolveCanadaListingPaygUnlockDecision: async () => ({
+      wouldUnlock: true,
+      reasonCode: "ACTIVE_ENTITLEMENT_FOUND" as const,
+      listingId: "prop1",
+      ownerId: "owner",
+      entitlementId: "ent-1",
+      scope: "listing_only" as const,
+      accountWideCapBypass: false as const,
+      runtimeMutationEnabled: false as const,
+    }),
+  };
+
+  const res = await postPropertySubmitResponse(
+    makeRequest({ idempotencyKey: "idem-ca-runtime-on-unlock-off" }),
+    "prop1",
+    deps
+  );
+  assert.equal(res.status, 409);
+  const body = await res.json();
+  assert.equal(body.code, "plan_limit_reached");
+  assert.equal(body.reason, "LISTING_LIMIT_REACHED");
+});
+
+void test("Canada submit returns a non-live cap-bypass-ready response when both gates are on and the listing entitlement is valid", async () => {
+  const listing: ListingRow = {
+    id: "prop1",
+    owner_id: "owner",
+    status: "draft",
+    submitted_at: null,
+    country_code: "CA",
+    listing_intent: "rent",
+    rental_type: "long_term",
+  };
+  const { supabase, getLastPropertyUpdate } = buildSupabaseStub(listing, {
+    activeCount: 5,
+    planTier: "starter",
+    maxListingsOverride: 5,
+  });
+  const typedSupabase = supabase as ReturnType<ListingSubmitDeps["createServerSupabaseClient"]>;
+  let consumedAttempted = false;
+
+  const deps: ListingSubmitDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => true,
+    createServerSupabaseClient: async () => typedSupabase,
+    createServiceRoleClient: () =>
+      typedSupabase as ReturnType<ListingSubmitDeps["createServiceRoleClient"]>,
+    requireUser: async () =>
+      ({
+        ok: true,
+        user: { id: "owner" } as User,
+        supabase: typedSupabase,
+      }) as Awaited<ReturnType<ListingSubmitDeps["requireUser"]>>,
+    getUserRole: async () => "landlord",
+    getListingAccessResult: () => ({ ok: true }),
+    hasActiveDelegation: async () => false,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => {
+      consumedAttempted = true;
+      return { ok: true, consumed: true, alreadyConsumed: false, source: "payg", creditId: "credit-1", idempotencyKey: "idem-cap-bypass-ready" };
+    },
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
+    getAppSettingBool: async (key) =>
+      key === "canada_rental_payg_runtime_enabled" ||
+      key === "canada_rental_payg_listing_unlock_enabled",
+    getListingExpiryDays: async () => 90,
+    requireLegalAcceptance: async () => ({ ok: true, status: {} }) as Awaited<
+      ReturnType<ListingSubmitDeps["requireLegalAcceptance"]>
+    >,
+    logPropertyEvent: async () => ({ ok: true, data: {} }),
+    resolveEventSessionKey: () => null,
+    logFailure: () => undefined,
+    resolveCanadaListingPaygUnlockDecision: async () => ({
+      wouldUnlock: true,
+      reasonCode: "ACTIVE_ENTITLEMENT_FOUND" as const,
+      listingId: "prop1",
+      ownerId: "owner",
+      entitlementId: "ent-1",
+      scope: "listing_only" as const,
+      accountWideCapBypass: false as const,
+      runtimeMutationEnabled: false as const,
+    }),
+  };
+
+  const res = await postPropertySubmitResponse(
+    makeRequest({ idempotencyKey: "idem-cap-bypass-ready" }),
+    "prop1",
+    deps
+  );
+  assert.equal(res.status, 409);
+  const body = await res.json();
+  assert.equal(body.code, "CANADA_PAYG_CAP_BYPASS_READY_BUT_DISABLED");
+  assert.equal(body.reason, "CANADA_PAYG_CAP_BYPASS_READY");
+  assert.equal(body.listingId, "prop1");
+  assert.equal(body.scope, "listing_only");
+  assert.equal(body.accountWideCapBypass, false);
+  assert.equal(body.consumeEntitlementEnabled, false);
+  assert.equal(consumedAttempted, false);
+  assert.equal(getLastPropertyUpdate(), null);
+});
+
 void test("submit returns payment required when no credits", async () => {
   const listing: ListingRow = {
     id: "prop1",

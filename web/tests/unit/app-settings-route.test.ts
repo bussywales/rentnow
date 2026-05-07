@@ -68,6 +68,14 @@ void test("patchSchema accepts Canada PAYG runtime gate payload", () => {
   assert.equal(parsed.key, "canada_rental_payg_runtime_enabled");
 });
 
+void test("patchSchema accepts Canada PAYG listing unlock gate payload", () => {
+  const parsed = patchSchema.parse({
+    key: "canada_rental_payg_listing_unlock_enabled",
+    value: { enabled: false },
+  });
+  assert.equal(parsed.key, "canada_rental_payg_listing_unlock_enabled");
+});
+
 void test("patchSchema accepts payg amount payload", () => {
   const parsed = patchSchema.parse({
     key: "payg_listing_fee_amount",
