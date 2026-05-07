@@ -215,9 +215,12 @@ void test("Canada runtime gate defaults off in the guarded adapter and keeps che
   assert.equal(decision.entitlementGrantPayloadDefined, true);
   assert.equal(decision.entitlementReadIntegrationAvailable, true);
   assert.equal(decision.listingCapBypassDecisionDefined, true);
+  assert.equal(decision.entitlementConsumeContractDefined, true);
   assert.equal(decision.liveWebhookFulfilmentEnabled, false);
   assert.equal(decision.fulfilmentMutationEnabled, false);
+  assert.equal(decision.entitlementConsumeExecutionEnabled, false);
   assert.equal(decision.entitlementConsumeMutationEnabled, false);
+  assert.equal(decision.listingSubmitAfterConsumeEnabled, false);
   assert.equal(decision.liveCapBypassEnabled, false);
   assert.equal(decision.readiness.reasonCode, "POLICY_STATE_NOT_READY");
   assert.equal(decision.readiness.amountMinor, 400);

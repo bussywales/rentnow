@@ -72,14 +72,15 @@ void test("market pricing control plane seed stays amber and foundation-focused 
   assert.match(item?.delivered.join(" "), /canada_listing_payg_entitlements table/i);
   assert.match(item?.delivered.join(" "), /listing-scoped Canada entitlement read and unlock-decision helper/i);
   assert.match(item?.delivered.join(" "), /gated listing-only Canada cap-bypass decision path/i);
+  assert.match(item?.delivered.join(" "), /disabled listing-only Canada entitlement-consumption contract/i);
   assert.match(item?.delivered.join(" "), /audit history/i);
   assert.match(item?.delivered.join(" "), /legacy settings and code constants/i);
-  assert.match(item?.nextAction ?? "", /gated listing-only Canada cap-bypass decision path/i);
+  assert.match(item?.nextAction ?? "", /disabled Canada entitlement-consumption contract/i);
   assert.match(item?.outstanding.join(" "), /runtime checkout/i);
   assert.match(item?.outstanding.join(" "), /live Stripe session creation remains intentionally disabled/i);
   assert.match(item?.outstanding.join(" "), /Live insert execution for Canada one-off Stripe payments and listing-scoped entitlements/i);
   assert.match(item?.outstanding.join(" "), /Webhook wiring and listing-specific recovery unlock/i);
-  assert.match(item?.outstanding.join(" "), /Actual live unlock execution, entitlement consumption, and listing-specific cap bypass/i);
+  assert.match(item?.outstanding.join(" "), /Actual live entitlement consume execution, live submit unlock, and listing-specific cap bypass/i);
   assert.match(item?.outstanding.join(" "), /Tax, receipt, and compliance posture/i);
   assert.match(item?.outstanding.join(" "), /Canada PAYG remains policy-gated/i);
   assert.match(item?.outstanding.join(" "), /Enterprise remains a planning-only control-plane tier/i);
@@ -101,6 +102,7 @@ void test("market pricing control plane seed stays amber and foundation-focused 
   assert.match(item?.testingGuide.join(" "), /Canada payment persistence tests/i);
   assert.match(item?.testingGuide.join(" "), /Canada entitlement read tests/i);
   assert.match(item?.testingGuide.join(" "), /Canada cap-bypass decision tests/i);
+  assert.match(item?.testingGuide.join(" "), /Canada entitlement-consume contract tests/i);
   assert.match(item?.testingGuide.join(" "), /edit one policy row, one one-off price row, and one entitlement row/i);
   assert.match(item?.testingGuide.join(" "), /legacy checkout and listing-cap enforcement/i);
 });

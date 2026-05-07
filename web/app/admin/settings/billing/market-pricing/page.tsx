@@ -188,6 +188,12 @@ export default async function AdminMarketPricingPage() {
             </dd>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Entitlement consume contract</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.entitlementConsumeContractDefined ? "DEFINED" : "UNDEFINED"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <dt className="text-xs uppercase tracking-wide text-slate-500">Listing unlock gate</dt>
             <dd className="mt-2 text-sm font-semibold text-slate-900">
               {canadaRuntimeDiagnostics.listingUnlockGateEnabled ? "ON" : "OFF"}
@@ -224,9 +230,21 @@ export default async function AdminMarketPricingPage() {
             </dd>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Entitlement consume execution</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.entitlementConsumeExecutionEnabled ? "ENABLED" : "DISABLED"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <dt className="text-xs uppercase tracking-wide text-slate-500">Entitlement consumption</dt>
             <dd className="mt-2 text-sm font-semibold text-slate-900">
               {canadaRuntimeDiagnostics.entitlementConsumeMutationEnabled ? "ENABLED" : "DISABLED"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Listing submit after consume</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.listingSubmitAfterConsumeEnabled ? "ENABLED" : "DISABLED"}
             </dd>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">

@@ -6,6 +6,7 @@ import type { ActiveListingLimitGateResult } from "@/lib/plan-enforcement";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 const CANADA_PAYG_ENTITLEMENT_GRANT_ENABLED = false as const;
+const CANADA_PAYG_ENTITLEMENT_CONSUME_ENABLED = false as const;
 
 export type CanadaListingPaygEntitlementStatus = "granted" | "consumed" | "revoked" | "expired";
 export type CanadaListingPaygEntitlementTier = Extract<MarketPricingControlPlaneTier, "free" | "pro">;
@@ -122,6 +123,44 @@ export type CanadaListingCapBypassDecision = {
   scope: "listing_only";
   accountWideCapBypass: false;
   consumeEntitlementEnabled: false;
+};
+
+export type CanadaListingPaygEntitlementConsumeValidationResult =
+  | {
+      ok: true;
+      warnings: string[];
+    }
+  | {
+      ok: false;
+      reason: CanadaListingPaygUnlockDecisionReasonCode;
+      warnings: string[];
+    };
+
+export type CanadaListingPaygEntitlementConsumePayload = {
+  entitlementId: string;
+  listingId: string;
+  ownerId: string;
+  statusAfter: "consumed";
+  activeAfter: false;
+  consumedAt: string;
+  metadataPatch: Record<string, unknown>;
+  scope: "listing_only";
+  accountWideCapBypass: false;
+};
+
+export type CanadaListingPaygEntitlementConsumeDisabledResult = {
+  entitlementId: string;
+  listingId: string;
+  ownerId: string;
+  statusAfter: "consumed";
+  activeAfter: false;
+  consumedAt: string;
+  scope: "listing_only";
+  accountWideCapBypass: false;
+  mutationEnabled: false;
+  mutated: false;
+  payload: CanadaListingPaygEntitlementConsumePayload;
+  validation: Extract<CanadaListingPaygEntitlementConsumeValidationResult, { ok: true }>;
 };
 
 function normalizeRole(role: string | null | undefined): CanadaListingPaygEntitlementRole | null {
@@ -691,5 +730,101 @@ export function resolveCanadaListingCapBypassDecision(input: {
     scope: "listing_only",
     accountWideCapBypass: false,
     consumeEntitlementEnabled: false,
+  };
+}
+
+export function validateCanadaListingPaygEntitlementConsume(input: {
+  entitlement: CanadaListingPaygEntitlementRow | null;
+  listingId: string;
+  ownerId: string;
+  now?: Date;
+}): CanadaListingPaygEntitlementConsumeValidationResult {
+  const decision = resolveCanadaListingPaygUnlockDecisionFromRow({
+    entitlement: input.entitlement,
+    listingId: input.listingId,
+    ownerId: input.ownerId,
+    now: input.now,
+  });
+
+  if (!decision.wouldUnlock) {
+    return {
+      ok: false,
+      reason: decision.reasonCode,
+      warnings: ["Canada PAYG entitlement consumption remains listing-scoped and disabled in this batch."],
+    };
+  }
+
+  return {
+    ok: true,
+    warnings: [
+      "Canada PAYG entitlement consumption contract is defined, but live consume execution remains disabled in this batch.",
+    ],
+  };
+}
+
+export function buildCanadaListingPaygEntitlementConsumePayload(input: {
+  entitlement: CanadaListingPaygEntitlementRow | null;
+  listingId: string;
+  ownerId: string;
+  consumedAt?: string;
+  now?: Date;
+}): CanadaListingPaygEntitlementConsumePayload {
+  const validation = validateCanadaListingPaygEntitlementConsume(input);
+  if (!validation.ok) {
+    throw new Error(`Invalid Canada PAYG entitlement consume contract: ${validation.reason}`);
+  }
+
+  const entitlement = input.entitlement;
+  if (!entitlement) {
+    throw new Error("Invalid Canada PAYG entitlement consume contract: NO_ACTIVE_ENTITLEMENT");
+  }
+
+  const consumedAt = input.consumedAt ?? new Date().toISOString();
+  return {
+    entitlementId: entitlement.id,
+    listingId: input.listingId,
+    ownerId: input.ownerId,
+    statusAfter: "consumed",
+    activeAfter: false,
+    consumedAt,
+    metadataPatch: {
+      consumed_by_live_runtime: false,
+      consume_scope: "listing_only",
+      consume_target: "listing_submission_unlock",
+    },
+    scope: "listing_only",
+    accountWideCapBypass: false,
+  };
+}
+
+export async function consumeCanadaListingPaygEntitlementDisabled(input: {
+  entitlement: CanadaListingPaygEntitlementRow | null;
+  listingId: string;
+  ownerId: string;
+  consumedAt?: string;
+  now?: Date;
+  client?: SupabaseClient | UntypedAdminClient | null;
+}): Promise<CanadaListingPaygEntitlementConsumeDisabledResult> {
+  const validation = validateCanadaListingPaygEntitlementConsume(input);
+  if (!validation.ok) {
+    throw new Error(`Invalid Canada PAYG entitlement consume contract: ${validation.reason}`);
+  }
+
+  const payload = buildCanadaListingPaygEntitlementConsumePayload(input);
+  void input.client;
+
+  return {
+    entitlementId: payload.entitlementId,
+    listingId: payload.listingId,
+    ownerId: payload.ownerId,
+    statusAfter: payload.statusAfter,
+    activeAfter: payload.activeAfter,
+    consumedAt: payload.consumedAt,
+    scope: payload.scope,
+    accountWideCapBypass: payload.accountWideCapBypass,
+    mutationEnabled: CANADA_PAYG_ENTITLEMENT_CONSUME_ENABLED,
+    mutated: false,
+    payload,
+    validation,
   };
 }
