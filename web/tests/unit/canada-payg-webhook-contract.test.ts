@@ -81,7 +81,8 @@ void test("Canada webhook contract accepts valid future checkout.session.complet
   const typedPaymentContract: CanadaRentalPaygFuturePaymentRecordContract = paymentContract;
   const typedEntitlementContract: CanadaRentalPaygFutureEntitlementGrantContract = entitlementContract;
   assert.equal(typedPaymentContract.table, "listing_payments");
-  assert.equal(typedEntitlementContract.storage, "future_schema_required");
+  assert.equal(typedEntitlementContract.table, "canada_listing_payg_entitlements");
+  assert.equal(typedEntitlementContract.schemaRequired, false);
 
   assert.deepEqual(paymentContract.fields, {
     listingId: "listing-ca-webhook-1",
@@ -105,17 +106,21 @@ void test("Canada webhook contract accepts valid future checkout.session.complet
   assert.deepEqual(entitlementContract.fields, {
     listingId: "listing-ca-webhook-1",
     ownerId: "owner-ca-1",
-    market: "CA",
+    marketCountry: "CA",
     provider: "stripe",
-    currency: "CAD",
-    amountMinor: 400,
+    purpose: "listing_submission",
     role: "landlord",
     tier: "free",
+    amountMinor: 400,
+    currency: "CAD",
+    sourceCheckoutSessionId: "cs_ca_payg_1",
+    sourcePaymentIntentId: null,
+    sourceStripeEventId: "evt_ca_payg_1",
+    idempotencyKey: "canada_payg_entitlement:evt_ca_payg_1",
+    status: "granted",
+    active: true,
     entitlementScope: "listing_scoped_extra_slot",
     unlockTarget: "listing_submission_recovery",
-    sourceCheckoutSessionId: "cs_ca_payg_1",
-    sourceStripeEventId: "evt_ca_payg_1",
-    purpose: "listing_submission",
   });
 
   assert.equal(paymentContract.writeEnabled, false);

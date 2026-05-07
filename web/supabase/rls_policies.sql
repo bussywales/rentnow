@@ -86,6 +86,9 @@ ALTER TABLE public.plan_upgrade_requests FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.listing_transfer_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.listing_transfer_requests FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE public.canada_listing_payg_entitlements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.canada_listing_payg_entitlements FORCE ROW LEVEL SECURITY;
+
 -- Helpers: admin role check
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN
@@ -1851,6 +1854,26 @@ CREATE POLICY "listing transfer requests service write"
 DROP POLICY IF EXISTS "listing transfer requests admin write" ON public.listing_transfer_requests;
 CREATE POLICY "listing transfer requests admin write"
   ON public.listing_transfer_requests
+  FOR ALL
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "canada listing payg entitlements admin select" ON public.canada_listing_payg_entitlements;
+CREATE POLICY "canada listing payg entitlements admin select"
+  ON public.canada_listing_payg_entitlements
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "canada listing payg entitlements service write" ON public.canada_listing_payg_entitlements;
+CREATE POLICY "canada listing payg entitlements service write"
+  ON public.canada_listing_payg_entitlements
+  FOR ALL
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "canada listing payg entitlements admin write" ON public.canada_listing_payg_entitlements;
+CREATE POLICY "canada listing payg entitlements admin write"
+  ON public.canada_listing_payg_entitlements
   FOR ALL
   USING (public.is_admin())
   WITH CHECK (public.is_admin());

@@ -79,8 +79,8 @@ export type CanadaRentalPaygFulfilmentPlan = {
   metadata: ParsedCanadaRentalPaygStripeSuccessMetadata | null;
   listing: CanadaRentalPaygFulfilmentListingContext | null;
   paymentRecordModel: "listing_payments";
-  entitlementModel: "listing_credits";
-  futurePaidSlotModel: "provider-backed one-off payment plus listing-scoped extra-slot entitlement";
+  entitlementModel: "canada_listing_payg_entitlements";
+  futurePaidSlotModel: "provider-backed one-off payment plus persisted listing-scoped extra-slot entitlement";
   actions: CanadaRentalPaygFulfilmentPlannedAction[];
   warnings: string[];
   paymentRecordWriteEnabled: false;
@@ -416,8 +416,8 @@ export function buildCanadaRentalPaygFulfilmentPlan(
     metadata: validation.metadata,
     listing: validation.listing,
     paymentRecordModel: "listing_payments",
-    entitlementModel: "listing_credits",
-    futurePaidSlotModel: "provider-backed one-off payment plus listing-scoped extra-slot entitlement",
+    entitlementModel: "canada_listing_payg_entitlements",
+    futurePaidSlotModel: "provider-backed one-off payment plus persisted listing-scoped extra-slot entitlement",
     actions: [
       {
         key: "verify_metadata",

@@ -61,8 +61,8 @@ export type CanadaRentalPaygFuturePaymentRecordContract = {
 
 export type CanadaRentalPaygFutureEntitlementGrantContract = {
   kind: "canada_listing_scoped_extra_slot_entitlement";
-  storage: "future_schema_required";
-  schemaRequired: true;
+  table: "canada_listing_payg_entitlements";
+  schemaRequired: false;
   grantEnabled: false;
   wouldInsert: true;
   inserted: false;
@@ -70,17 +70,21 @@ export type CanadaRentalPaygFutureEntitlementGrantContract = {
   fields: {
     listingId: string;
     ownerId: string | null;
-    market: "CA";
+    marketCountry: "CA";
     provider: "stripe";
-    currency: "CAD";
+    purpose: "listing_submission";
+    role: Exclude<BillingRole, "tenant"> | null;
+    tier: Exclude<MarketPricingControlPlaneTier, "enterprise" | "starter" | "tenant_pro"> | null;
     amountMinor: number;
-    role: BillingRole | null;
-    tier: Exclude<MarketPricingControlPlaneTier, "enterprise"> | null;
+    currency: "CAD";
+    sourceCheckoutSessionId: string | null;
+    sourcePaymentIntentId: string | null;
+    sourceStripeEventId: string | null;
+    idempotencyKey: string;
+    status: "granted";
+    active: true;
     entitlementScope: "listing_scoped_extra_slot";
     unlockTarget: "listing_submission_recovery";
-    sourceCheckoutSessionId: string | null;
-    sourceStripeEventId: string | null;
-    purpose: "listing_submission";
   };
 };
 
@@ -226,12 +230,16 @@ export function buildCanadaRentalPaygPaymentPersistenceContract(
 
 export function buildCanadaRentalPaygEntitlementGrantContract(
   validation: Extract<CanadaRentalPaygWebhookContractValidationResult, { ok: true }>,
-  input: Pick<CanadaRentalPaygWebhookContractInput, "checkoutSessionId" | "event">
+  input: Pick<CanadaRentalPaygWebhookContractInput, "checkoutSessionId" | "paymentIntentId" | "event">
 ): CanadaRentalPaygFutureEntitlementGrantContract {
+  const checkoutSessionId = input.checkoutSessionId ?? getEventObjectId(input.event);
+  const stripeEventId = input.event.id ?? null;
+  const idempotencyKey = `canada_payg_entitlement:${stripeEventId ?? checkoutSessionId ?? validation.parsedMetadata.listingId}`;
+
   return {
     kind: "canada_listing_scoped_extra_slot_entitlement",
-    storage: "future_schema_required",
-    schemaRequired: true,
+    table: "canada_listing_payg_entitlements",
+    schemaRequired: false,
     grantEnabled: false,
     wouldInsert: true,
     inserted: false,
@@ -239,20 +247,27 @@ export function buildCanadaRentalPaygEntitlementGrantContract(
     fields: {
       listingId: validation.parsedMetadata.listingId,
       ownerId: validation.parsedMetadata.ownerId,
-      market: "CA",
+      marketCountry: "CA",
       provider: "stripe",
-      currency: "CAD",
-      amountMinor: validation.parsedMetadata.amountMinor ?? 0,
-      role: validation.parsedMetadata.role,
+      purpose: "listing_submission",
+      role: validation.parsedMetadata.role === "tenant" ? null : validation.parsedMetadata.role,
       tier:
-        validation.parsedMetadata.tier && validation.parsedMetadata.tier !== "enterprise"
+        validation.parsedMetadata.tier &&
+        validation.parsedMetadata.tier !== "enterprise" &&
+        validation.parsedMetadata.tier !== "starter" &&
+        validation.parsedMetadata.tier !== "tenant_pro"
           ? validation.parsedMetadata.tier
           : null,
+      amountMinor: validation.parsedMetadata.amountMinor ?? 0,
+      currency: "CAD",
+      sourceCheckoutSessionId: checkoutSessionId,
+      sourcePaymentIntentId: input.paymentIntentId ?? null,
+      sourceStripeEventId: stripeEventId,
+      idempotencyKey,
+      status: "granted",
+      active: true,
       entitlementScope: "listing_scoped_extra_slot",
       unlockTarget: "listing_submission_recovery",
-      sourceCheckoutSessionId: input.checkoutSessionId ?? getEventObjectId(input.event),
-      sourceStripeEventId: input.event.id ?? null,
-      purpose: "listing_submission",
     },
   };
 }

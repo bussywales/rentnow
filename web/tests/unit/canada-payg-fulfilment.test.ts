@@ -65,8 +65,11 @@ void test("Canada fulfilment scaffold accepts valid parsed listing_submission me
   const plan = buildCanadaRentalPaygFulfilmentPlan(validation);
   assert.equal(plan.ready, true);
   assert.equal(plan.paymentRecordModel, "listing_payments");
-  assert.equal(plan.entitlementModel, "listing_credits");
-  assert.equal(plan.futurePaidSlotModel, "provider-backed one-off payment plus listing-scoped extra-slot entitlement");
+  assert.equal(plan.entitlementModel, "canada_listing_payg_entitlements");
+  assert.equal(
+    plan.futurePaidSlotModel,
+    "provider-backed one-off payment plus persisted listing-scoped extra-slot entitlement"
+  );
   assert.deepEqual(
     plan.actions.map((action) => action.key),
     [

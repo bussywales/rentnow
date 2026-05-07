@@ -1,0 +1,257 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { BillingRole } from "@/lib/billing/stripe-plans";
+import type { MarketPricingControlPlaneTier } from "@/lib/billing/market-pricing";
+import type { CanadaRentalPaygFutureEntitlementGrantContract } from "@/lib/billing/canada-payg-webhook-contract.server";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
+
+const CANADA_PAYG_ENTITLEMENT_GRANT_ENABLED = false as const;
+
+export type CanadaListingPaygEntitlementStatus = "granted" | "consumed" | "revoked" | "expired";
+export type CanadaListingPaygEntitlementTier = Extract<MarketPricingControlPlaneTier, "free" | "pro">;
+export type CanadaListingPaygEntitlementRole = Extract<BillingRole, "landlord" | "agent">;
+
+export type CanadaListingPaygEntitlementRow = {
+  id: string;
+  listing_id: string;
+  owner_id: string;
+  market_country: "CA";
+  provider: "stripe";
+  purpose: "listing_submission";
+  role: CanadaListingPaygEntitlementRole;
+  tier: CanadaListingPaygEntitlementTier;
+  amount_minor: number;
+  currency: "CAD";
+  stripe_checkout_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+  stripe_event_id: string | null;
+  idempotency_key: string;
+  status: CanadaListingPaygEntitlementStatus;
+  active: boolean;
+  granted_at: string | null;
+  consumed_at: string | null;
+  revoked_at: string | null;
+  expires_at: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CanadaListingPaygEntitlementInsertPayload = Omit<CanadaListingPaygEntitlementRow, "id" | "created_at" | "updated_at">;
+
+export type CanadaListingPaygEntitlementContractValidationResult =
+  | {
+      ok: true;
+      role: CanadaListingPaygEntitlementRole;
+      tier: CanadaListingPaygEntitlementTier;
+      warnings: string[];
+    }
+  | {
+      ok: false;
+      reason:
+        | "WRONG_TABLE"
+        | "SCHEMA_NOT_READY"
+        | "WRONG_MARKET"
+        | "WRONG_PROVIDER"
+        | "WRONG_CURRENCY"
+        | "WRONG_PURPOSE"
+        | "INVALID_ROLE"
+        | "INVALID_TIER"
+        | "INVALID_AMOUNT"
+        | "MISSING_LISTING_ID"
+        | "MISSING_OWNER_ID"
+        | "MISSING_IDEMPOTENCY_KEY";
+      warnings: string[];
+    };
+
+export type CanadaListingPaygEntitlementGrantDisabledResult = {
+  enabled: false;
+  wouldInsert: true;
+  inserted: false;
+  payload: CanadaListingPaygEntitlementInsertPayload;
+  validation: Extract<CanadaListingPaygEntitlementContractValidationResult, { ok: true }>;
+};
+
+function normalizeRole(role: string | null | undefined): CanadaListingPaygEntitlementRole | null {
+  return role === "landlord" || role === "agent" ? role : null;
+}
+
+function normalizeTier(tier: string | null | undefined): CanadaListingPaygEntitlementTier | null {
+  return tier === "free" || tier === "pro" ? tier : null;
+}
+
+function normalizeAmountMinor(amountMinor: number | null | undefined) {
+  if (typeof amountMinor !== "number" || !Number.isFinite(amountMinor)) return null;
+  return Math.trunc(amountMinor);
+}
+
+export function validateCanadaListingPaygEntitlementContract(
+  contract: CanadaRentalPaygFutureEntitlementGrantContract
+): CanadaListingPaygEntitlementContractValidationResult {
+  if (contract.table !== "canada_listing_payg_entitlements") {
+    return { ok: false, reason: "WRONG_TABLE", warnings: ["Entitlement contract must target canada_listing_payg_entitlements."] };
+  }
+
+  if (contract.schemaRequired) {
+    return { ok: false, reason: "SCHEMA_NOT_READY", warnings: ["Entitlement schema must be present before any grant contract can be used."] };
+  }
+
+  if (contract.fields.marketCountry !== "CA") {
+    return { ok: false, reason: "WRONG_MARKET", warnings: ["Canada PAYG entitlement rows are scoped to market CA only."] };
+  }
+
+  if (contract.fields.provider !== "stripe") {
+    return { ok: false, reason: "WRONG_PROVIDER", warnings: ["Canada PAYG entitlement rows are scoped to Stripe only."] };
+  }
+
+  if (contract.fields.currency !== "CAD") {
+    return { ok: false, reason: "WRONG_CURRENCY", warnings: ["Canada PAYG entitlement rows are scoped to CAD only."] };
+  }
+
+  if (contract.fields.purpose !== "listing_submission") {
+    return { ok: false, reason: "WRONG_PURPOSE", warnings: ["Canada PAYG entitlement rows are scoped to listing_submission only."] };
+  }
+
+  if (!contract.fields.listingId) {
+    return { ok: false, reason: "MISSING_LISTING_ID", warnings: ["Listing-scoped Canada PAYG entitlements require listing_id."] };
+  }
+
+  if (!contract.fields.ownerId) {
+    return { ok: false, reason: "MISSING_OWNER_ID", warnings: ["Listing-scoped Canada PAYG entitlements require owner_id."] };
+  }
+
+  if (!contract.fields.idempotencyKey) {
+    return { ok: false, reason: "MISSING_IDEMPOTENCY_KEY", warnings: ["Idempotency is required for Stripe replay safety."] };
+  }
+
+  const role = normalizeRole(contract.fields.role);
+  if (!role) {
+    return { ok: false, reason: "INVALID_ROLE", warnings: ["Canada PAYG entitlement rows support landlord or agent roles only."] };
+  }
+
+  const tier = normalizeTier(contract.fields.tier);
+  if (!tier) {
+    return { ok: false, reason: "INVALID_TIER", warnings: ["Canada PAYG entitlement rows exclude enterprise and unsupported tiers."] };
+  }
+
+  const amountMinor = normalizeAmountMinor(contract.fields.amountMinor);
+  if (amountMinor == null || amountMinor < 0) {
+    return { ok: false, reason: "INVALID_AMOUNT", warnings: ["Canada PAYG entitlement rows require a non-negative amount_minor value."] };
+  }
+
+  return {
+    ok: true,
+    role,
+    tier,
+    warnings: [
+      "Canada listing-scoped entitlement storage exists, but live grant execution remains disabled in this batch.",
+    ],
+  };
+}
+
+export function buildCanadaListingPaygEntitlementInsertPayload(
+  contract: CanadaRentalPaygFutureEntitlementGrantContract,
+  grantedAt = new Date().toISOString()
+): CanadaListingPaygEntitlementInsertPayload {
+  const validation = validateCanadaListingPaygEntitlementContract(contract);
+  if (!validation.ok) {
+    throw new Error(`Invalid Canada PAYG entitlement contract: ${validation.reason}`);
+  }
+
+  return {
+    listing_id: contract.fields.listingId,
+    owner_id: contract.fields.ownerId!,
+    market_country: "CA",
+    provider: "stripe",
+    purpose: "listing_submission",
+    role: validation.role,
+    tier: validation.tier,
+    amount_minor: Math.max(0, Math.trunc(contract.fields.amountMinor)),
+    currency: "CAD",
+    stripe_checkout_session_id: contract.fields.sourceCheckoutSessionId,
+    stripe_payment_intent_id: contract.fields.sourcePaymentIntentId,
+    stripe_event_id: contract.fields.sourceStripeEventId,
+    idempotency_key: contract.fields.idempotencyKey,
+    status: "granted",
+    active: true,
+    granted_at: grantedAt,
+    consumed_at: null,
+    revoked_at: null,
+    expires_at: null,
+    metadata: {
+      entitlement_scope: contract.fields.entitlementScope,
+      unlock_target: contract.fields.unlockTarget,
+      source: contract.source,
+      inserted_by_live_runtime: false,
+    },
+  };
+}
+
+export async function grantCanadaListingPaygEntitlementDisabled(input: {
+  contract: CanadaRentalPaygFutureEntitlementGrantContract;
+  client?: SupabaseClient | UntypedAdminClient | null;
+  grantedAt?: string;
+}): Promise<CanadaListingPaygEntitlementGrantDisabledResult> {
+  const validation = validateCanadaListingPaygEntitlementContract(input.contract);
+  if (!validation.ok) {
+    throw new Error(`Invalid Canada PAYG entitlement contract: ${validation.reason}`);
+  }
+
+  const payload = buildCanadaListingPaygEntitlementInsertPayload(input.contract, input.grantedAt);
+  void input.client;
+
+  return {
+    enabled: CANADA_PAYG_ENTITLEMENT_GRANT_ENABLED,
+    wouldInsert: true,
+    inserted: false,
+    payload,
+    validation,
+  };
+}
+
+function rowHasValidActivePaidExtraSlot(row: CanadaListingPaygEntitlementRow, now = new Date()) {
+  if (!row.active || row.status !== "granted") return false;
+  if (row.revoked_at || row.consumed_at) return false;
+  if (row.expires_at) {
+    const expiresAt = Date.parse(row.expires_at);
+    if (Number.isFinite(expiresAt) && expiresAt <= now.getTime()) return false;
+  }
+  return true;
+}
+
+export async function findActiveCanadaListingPaygEntitlement(input: {
+  client: SupabaseClient | UntypedAdminClient;
+  listingId: string;
+  ownerId?: string | null;
+  now?: Date;
+}): Promise<CanadaListingPaygEntitlementRow | null> {
+  const query = (input.client as UntypedAdminClient)
+    .from("canada_listing_payg_entitlements")
+    .select(
+      "id,listing_id,owner_id,market_country,provider,purpose,role,tier,amount_minor,currency,stripe_checkout_session_id,stripe_payment_intent_id,stripe_event_id,idempotency_key,status,active,granted_at,consumed_at,revoked_at,expires_at,metadata,created_at,updated_at"
+    )
+    .eq("listing_id", input.listingId)
+    .eq("market_country", "CA")
+    .eq("provider", "stripe")
+    .eq("purpose", "listing_submission")
+    .eq("status", "granted")
+    .eq("active", true);
+
+  const scopedQuery = input.ownerId ? query.eq("owner_id", input.ownerId) : query;
+  const { data } = await scopedQuery.order("created_at", { ascending: false });
+  const rows = ((data ?? []) as CanadaListingPaygEntitlementRow[]).slice(0, 5);
+  const now = input.now ?? new Date();
+  return rows.find((row) => rowHasValidActivePaidExtraSlot(row, now)) ?? null;
+}
+
+export async function listingHasActiveCanadaPaygExtraSlot(input: {
+  client: SupabaseClient | UntypedAdminClient;
+  listingId: string;
+  ownerId?: string | null;
+  now?: Date;
+}) {
+  const row = await findActiveCanadaListingPaygEntitlement(input);
+  return {
+    hasActiveEntitlement: !!row,
+    entitlement: row,
+  };
+}
