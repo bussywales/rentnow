@@ -41,6 +41,7 @@ import AdminSettingsExploreV2CtaCopy from "@/components/admin/AdminSettingsExplo
 import { normalizeExploreV2CtaCopyVariant } from "@/lib/explore/explore-presentation";
 import AdminSettingsImageOptimizationMode from "@/components/admin/AdminSettingsImageOptimizationMode";
 import { normalizeImageOptimizationMode } from "@/lib/media/image-optimization-mode";
+import AdminSettingsCanadaPaygGates from "@/components/admin/AdminSettingsCanadaPaygGates";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +83,13 @@ export default async function AdminSettingsPage() {
       APP_SETTING_KEYS.defaultMarketCurrency,
       APP_SETTING_KEYS.marketAutoDetectEnabled,
       APP_SETTING_KEYS.marketSelectorEnabled,
+      APP_SETTING_KEYS.canadaRentalPaygRuntimeEnabled,
+      APP_SETTING_KEYS.canadaRentalPaygCheckoutSessionCreationEnabled,
+      APP_SETTING_KEYS.canadaRentalPaygWebhookFulfilmentEnabled,
+      APP_SETTING_KEYS.canadaRentalPaygPaymentPersistenceEnabled,
+      APP_SETTING_KEYS.canadaRentalPaygEntitlementGrantEnabled,
+      APP_SETTING_KEYS.canadaRentalPaygListingUnlockEnabled,
+      APP_SETTING_KEYS.canadaRentalPaygEntitlementConsumeEnabled,
       APP_SETTING_KEYS.brandSocialInstagramUrl,
       APP_SETTING_KEYS.brandSocialYoutubeUrl,
       APP_SETTING_KEYS.brandSocialTiktokUrl,
@@ -258,6 +266,25 @@ export default async function AdminSettingsPage() {
     facebookUrl: parseAppSettingString(brandSocialFacebookRow?.value, ""),
     whatsappLink: parseAppSettingString(brandSocialWhatsappRow?.value, ""),
   };
+
+  const canadaPaygGateKeys = [
+    APP_SETTING_KEYS.canadaRentalPaygRuntimeEnabled,
+    APP_SETTING_KEYS.canadaRentalPaygCheckoutSessionCreationEnabled,
+    APP_SETTING_KEYS.canadaRentalPaygWebhookFulfilmentEnabled,
+    APP_SETTING_KEYS.canadaRentalPaygPaymentPersistenceEnabled,
+    APP_SETTING_KEYS.canadaRentalPaygEntitlementGrantEnabled,
+    APP_SETTING_KEYS.canadaRentalPaygListingUnlockEnabled,
+    APP_SETTING_KEYS.canadaRentalPaygEntitlementConsumeEnabled,
+  ] as const;
+
+  const canadaPaygGateSettings = canadaPaygGateKeys.map((key) => {
+    const row = data?.find((item) => item.key === key);
+    return {
+      key,
+      enabled: parseAppSettingBool(row?.value, false),
+      updatedAt: row?.updated_at ?? null,
+    };
+  });
   const demoVisibilityPolicyRow = data?.find(
     (item) => item.key === APP_SETTING_KEYS.demoListingsVisibilityPolicy
   );
@@ -472,6 +499,23 @@ export default async function AdminSettingsPage() {
           }}
         />
       ),
+    },
+    {
+      id: "canada-payg-test-mode-gates",
+      title: "Canada PAYG test-mode gates",
+      description:
+        "Operator-only gate controls for guarded Canada Stripe test-mode validation. Submit unlock stays disabled.",
+      keywords: [
+        "canada",
+        "payg",
+        "stripe",
+        "test-mode",
+        "runtime",
+        "webhook",
+        "entitlement",
+        "unlock",
+      ],
+      content: <AdminSettingsCanadaPaygGates settings={canadaPaygGateSettings} />,
     },
     {
       id: "featured-thresholds",

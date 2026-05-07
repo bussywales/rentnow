@@ -105,6 +105,13 @@ void test("patchSchema accepts Canada PAYG mutation gate payloads", () => {
     }).key,
     "canada_rental_payg_entitlement_grant_enabled"
   );
+  assert.equal(
+    patchSchema.parse({
+      key: "canada_rental_payg_entitlement_consume_enabled",
+      value: { enabled: false },
+    }).key,
+    "canada_rental_payg_entitlement_consume_enabled"
+  );
 });
 
 void test("patchSchema accepts payg amount payload", () => {

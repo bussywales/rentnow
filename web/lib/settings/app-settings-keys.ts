@@ -72,6 +72,8 @@ export const APP_SETTING_KEYS = {
     "canada_rental_payg_payment_persistence_enabled",
   canadaRentalPaygEntitlementGrantEnabled:
     "canada_rental_payg_entitlement_grant_enabled",
+  canadaRentalPaygEntitlementConsumeEnabled:
+    "canada_rental_payg_entitlement_consume_enabled",
   brandSocialInstagramUrl: "brand_social_instagram_url",
   brandSocialYoutubeUrl: "brand_social_youtube_url",
   brandSocialTiktokUrl: "brand_social_tiktok_url",

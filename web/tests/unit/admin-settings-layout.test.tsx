@@ -51,6 +51,7 @@ void test("admin settings page defines the expected section groups", () => {
   assert.match(source, /id: "feature-toggles"/);
   assert.match(source, /id: "market-defaults"/);
   assert.match(source, /id: "brand-socials"/);
+  assert.match(source, /id: "canada-payg-test-mode-gates"/);
   assert.match(source, /id: "featured-thresholds"/);
   assert.match(source, /id: "listing-expiry"/);
   assert.match(source, /id: "payg-fees"/);
