@@ -57,6 +57,8 @@ function buildDeps(options: {
   loadCanadaDecision?: BillingCheckoutRouteDeps["loadCanadaRentalPaygRuntimeDecision"];
   prepareCanadaRentalPaygStripeCheckout?: BillingCheckoutRouteDeps["prepareCanadaRentalPaygStripeCheckout"];
   createCanadaRentalPaygStripeSessionDisabled?: BillingCheckoutRouteDeps["createCanadaRentalPaygStripeSessionDisabled"];
+  createCanadaRentalPaygStripeSession?: BillingCheckoutRouteDeps["createCanadaRentalPaygStripeSession"];
+  getCanadaRentalPaygCheckoutSessionCreationEnabled?: BillingCheckoutRouteDeps["getCanadaRentalPaygCheckoutSessionCreationEnabled"];
   fetchImplementation?: BillingCheckoutRouteDeps["fetchImplementation"];
 }) {
   const { client, getInsertedPayment } = buildAdminClient(options.listing);
@@ -110,6 +112,22 @@ function buildDeps(options: {
       paygAmount: 1500,
       currency: "NGN",
     }),
+    getStripeConfigForMode: () => ({
+      mode: "test",
+      secretKey: "sk_test_stripe",
+      webhookSecret: "whsec_test_stripe",
+    }),
+    getStripeClient: () =>
+      ({
+        checkout: {
+          sessions: {
+            create: async () => ({
+              id: "cs_live_ca_1",
+              url: "https://checkout.stripe.example/session/cs_live_ca_1",
+            }),
+          },
+        },
+      }) as never,
     getSiteUrl: async () => "https://example.com",
     logFailure: () => undefined,
     logPropertyEvent: async () => ({ ok: true, data: {} }),
@@ -118,12 +136,37 @@ function buildDeps(options: {
       options.loadCanadaDecision ??
       (async () => ({
         gateEnabled: false,
+        listingUnlockGateEnabled: false,
+        checkoutSessionCreationGateEnabled: false,
+        webhookFulfilmentGateEnabled: false,
+        paymentPersistenceGateEnabled: false,
+        entitlementGrantGateEnabled: false,
         marketCountry: "CA",
         runtimeSource: "legacy",
         resolverAvailable: true,
         stripePrepLayerAvailable: true,
+        stripeSessionRequestDefined: true,
+        webhookContractDefined: true,
+        paymentPersistenceContractDefined: true,
+        entitlementGrantContractDefined: true,
+        paymentPersistencePayloadDefined: true,
+        entitlementGrantPayloadDefined: true,
+        entitlementReadIntegrationAvailable: true,
+        listingCapBypassDecisionDefined: true,
+        entitlementConsumeContractDefined: true,
+        fulfilmentPlanDefined: true,
         checkoutEnabled: false,
         checkoutCreationEnabled: false,
+        paymentRecoveryScaffolded: true,
+        liveWebhookFulfilmentEnabled: false,
+        fulfilmentExecutionEnabled: false,
+        fulfilmentMutationEnabled: false,
+        entitlementConsumeExecutionEnabled: false,
+        entitlementConsumeMutationEnabled: false,
+        listingSubmitAfterConsumeEnabled: false,
+        listingUnlockEnabled: false,
+        liveCapBypassEnabled: false,
+        paymentRecordWriteEnabled: false,
         readiness: {
           status: "blocked",
           eligible: true,
@@ -150,6 +193,8 @@ function buildDeps(options: {
         },
         nextActivationPrerequisites: [],
       })),
+    getCanadaRentalPaygCheckoutSessionCreationEnabled:
+      options.getCanadaRentalPaygCheckoutSessionCreationEnabled ?? (async () => false),
     prepareCanadaRentalPaygStripeCheckout:
       options.prepareCanadaRentalPaygStripeCheckout ??
       ((input) =>
@@ -215,6 +260,32 @@ function buildDeps(options: {
           checkoutCreationEnabled: false,
           stripeSessionCreationAttempted: false,
         }) satisfies CanadaRentalPaygStripeSessionBuildResult),
+    createCanadaRentalPaygStripeSession:
+      options.createCanadaRentalPaygStripeSession ??
+      (async (input) =>
+        ({
+          ready: true,
+          blockedReason: null,
+          request: {
+            mode: "payment",
+            line_items: input.prepared.lineItems,
+            success_url: input.prepared.successUrl,
+            cancel_url: input.prepared.cancelUrl,
+            metadata: input.prepared.metadata,
+            payment_intent_data: {
+              metadata: input.prepared.metadata,
+            },
+            customer_email: "owner@example.com",
+            idempotencyKey: input.prepared.idempotencyKey,
+          },
+          idempotencyKey: input.prepared.idempotencyKey,
+          checkoutCreationEnabled: true,
+          stripeSessionCreationAttempted: true,
+          sessionId: "cs_live_ca_1",
+          sessionUrl: "https://checkout.stripe.example/session/cs_live_ca_1",
+        }) satisfies Awaited<
+          ReturnType<NonNullable<BillingCheckoutRouteDeps["createCanadaRentalPaygStripeSession"]>>
+        >),
     fetchImplementation,
   };
 
@@ -263,12 +334,37 @@ void test("Canada checkout returns not-ready when the gate is on but readiness i
     },
     loadCanadaDecision: async () => ({
       gateEnabled: true,
+      listingUnlockGateEnabled: false,
+      checkoutSessionCreationGateEnabled: false,
+      webhookFulfilmentGateEnabled: false,
+      paymentPersistenceGateEnabled: false,
+      entitlementGrantGateEnabled: false,
       marketCountry: "CA",
       runtimeSource: "legacy",
       resolverAvailable: true,
       stripePrepLayerAvailable: true,
+      stripeSessionRequestDefined: true,
+      webhookContractDefined: true,
+      paymentPersistenceContractDefined: true,
+      entitlementGrantContractDefined: true,
+      paymentPersistencePayloadDefined: true,
+      entitlementGrantPayloadDefined: true,
+      entitlementReadIntegrationAvailable: true,
+      listingCapBypassDecisionDefined: true,
+      entitlementConsumeContractDefined: true,
+      fulfilmentPlanDefined: true,
       checkoutEnabled: false,
       checkoutCreationEnabled: false,
+      paymentRecoveryScaffolded: true,
+      liveWebhookFulfilmentEnabled: false,
+      fulfilmentExecutionEnabled: false,
+      fulfilmentMutationEnabled: false,
+      entitlementConsumeExecutionEnabled: false,
+      entitlementConsumeMutationEnabled: false,
+      listingSubmitAfterConsumeEnabled: false,
+      listingUnlockEnabled: false,
+      liveCapBypassEnabled: false,
+      paymentRecordWriteEnabled: false,
       readiness: {
         status: "blocked",
         eligible: true,
@@ -324,12 +420,37 @@ void test("Canada checkout returns disabled Stripe session diagnostics when gate
     },
     loadCanadaDecision: async () => ({
       gateEnabled: true,
+      listingUnlockGateEnabled: false,
+      checkoutSessionCreationGateEnabled: false,
+      webhookFulfilmentGateEnabled: false,
+      paymentPersistenceGateEnabled: false,
+      entitlementGrantGateEnabled: false,
       marketCountry: "CA",
       runtimeSource: "legacy",
       resolverAvailable: true,
       stripePrepLayerAvailable: true,
+      stripeSessionRequestDefined: true,
+      webhookContractDefined: true,
+      paymentPersistenceContractDefined: true,
+      entitlementGrantContractDefined: true,
+      paymentPersistencePayloadDefined: true,
+      entitlementGrantPayloadDefined: true,
+      entitlementReadIntegrationAvailable: true,
+      listingCapBypassDecisionDefined: true,
+      entitlementConsumeContractDefined: true,
+      fulfilmentPlanDefined: true,
       checkoutEnabled: false,
       checkoutCreationEnabled: false,
+      paymentRecoveryScaffolded: true,
+      liveWebhookFulfilmentEnabled: false,
+      fulfilmentExecutionEnabled: false,
+      fulfilmentMutationEnabled: false,
+      entitlementConsumeExecutionEnabled: false,
+      entitlementConsumeMutationEnabled: false,
+      listingSubmitAfterConsumeEnabled: false,
+      listingUnlockEnabled: false,
+      liveCapBypassEnabled: false,
+      paymentRecordWriteEnabled: false,
       readiness: {
         status: "ready",
         eligible: true,
@@ -393,6 +514,96 @@ void test("Canada checkout returns disabled Stripe session diagnostics when gate
   assert.equal(body.stripeSession.idempotencyKeyPresent, true);
   assert.equal(body.stripeSession.checkoutCreationEnabled, false);
   assert.equal(body.stripeSession.stripeSessionCreationAttempted, false);
+  assert.equal(getFetchCalls(), 0);
+  assert.equal(getInsertedPayment(), null);
+});
+
+void test("Canada checkout creates a Stripe checkout session when the runtime and session gates are on and readiness passes", async () => {
+  const { deps, getInsertedPayment, getFetchCalls } = buildDeps({
+    listing: {
+      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      owner_id: "owner-1",
+      status: "draft",
+      country_code: "CA",
+      listing_intent: "rent",
+      rental_type: "long_term",
+    },
+    getCanadaRentalPaygCheckoutSessionCreationEnabled: async () => true,
+    loadCanadaDecision: async () => ({
+      gateEnabled: true,
+      listingUnlockGateEnabled: false,
+      checkoutSessionCreationGateEnabled: true,
+      webhookFulfilmentGateEnabled: false,
+      paymentPersistenceGateEnabled: false,
+      entitlementGrantGateEnabled: false,
+      marketCountry: "CA",
+      runtimeSource: "legacy",
+      resolverAvailable: true,
+      stripePrepLayerAvailable: true,
+      stripeSessionRequestDefined: true,
+      webhookContractDefined: true,
+      paymentPersistenceContractDefined: true,
+      entitlementGrantContractDefined: true,
+      paymentPersistencePayloadDefined: true,
+      entitlementGrantPayloadDefined: true,
+      entitlementReadIntegrationAvailable: true,
+      listingCapBypassDecisionDefined: true,
+      entitlementConsumeContractDefined: true,
+      fulfilmentPlanDefined: true,
+      checkoutEnabled: false,
+      checkoutCreationEnabled: true,
+      paymentRecoveryScaffolded: true,
+      liveWebhookFulfilmentEnabled: false,
+      fulfilmentExecutionEnabled: false,
+      fulfilmentMutationEnabled: false,
+      entitlementConsumeExecutionEnabled: false,
+      entitlementConsumeMutationEnabled: false,
+      listingSubmitAfterConsumeEnabled: false,
+      listingUnlockEnabled: false,
+      liveCapBypassEnabled: false,
+      paymentRecordWriteEnabled: false,
+      readiness: {
+        status: "ready",
+        eligible: true,
+        reasonCode: "READY_FOR_RUNTIME_INTEGRATION",
+        blockers: [],
+        marketCountry: "CA",
+        role: "landlord",
+        tier: "free",
+        normalizedIntent: "rent",
+        isShortlet: false,
+        policyState: "live",
+        activeListingCount: 3,
+        includedActiveListingLimit: 3,
+        overIncludedCap: true,
+        policyRow: null,
+        entitlementRow: null,
+        priceRow: null,
+        amountMinor: 400,
+        currency: "CAD",
+        provider: "stripe",
+        runtimeActivationAllowed: true,
+        checkoutEnabled: false,
+        warnings: [],
+      },
+      nextActivationPrerequisites: [],
+    }),
+  });
+
+  const response = await postBillingCheckoutResponse(
+    makeRequest({ listingId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", purpose: "listing_submission" }),
+    deps
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.ok, true);
+  assert.equal(body.provider, "stripe");
+  assert.equal(body.currency, "CAD");
+  assert.equal(body.amountMinor, 400);
+  assert.equal(body.mode, "payment");
+  assert.equal(body.checkoutUrl, "https://checkout.stripe.example/session/cs_live_ca_1");
+  assert.equal(body.sessionId, "cs_live_ca_1");
   assert.equal(getFetchCalls(), 0);
   assert.equal(getInsertedPayment(), null);
 });

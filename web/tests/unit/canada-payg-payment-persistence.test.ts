@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import type Stripe from "stripe";
 import {
   buildCanadaListingPaymentInsertPayload,
+  persistCanadaListingPayment,
   persistCanadaListingPaymentDisabled,
   validateCanadaListingPaymentPersistenceContract,
 } from "@/lib/billing/canada-payg-payment-persistence.server";
@@ -161,4 +162,110 @@ void test("Canada payment persistence helper preserves idempotency and falls bac
   assert.equal(contract.fields.idempotencyKey, "canada_payg_payment:cs_ca_payment_1");
   assert.equal(payload.idempotency_key, "canada_payg_payment:cs_ca_payment_1");
   assert.equal(payload.provider_ref, "cs_ca_payment_1");
+});
+
+void test("Canada payment persistence helper inserts when execution is enabled", async () => {
+  const contract = buildPaymentContract();
+  const inserts: Record<string, unknown>[] = [];
+  const client = {
+    from(table: string) {
+      if (table !== "listing_payments") throw new Error(`unexpected table ${table}`);
+      return {
+        select() {
+          return {
+            eq() {
+              return {
+                eq() {
+                  return {
+                    maybeSingle: async () => ({ data: null, error: null }),
+                  };
+                },
+                maybeSingle: async () => ({ data: null, error: null }),
+              };
+            },
+          };
+        },
+        insert: async (payload: Record<string, unknown>) => {
+          inserts.push(payload);
+          return { error: null };
+        },
+      };
+    },
+  } as never;
+
+  const result = await persistCanadaListingPayment({
+    contract,
+    client,
+    enabled: true,
+    paidAt: "2026-05-07T12:00:00.000Z",
+  });
+
+  assert.equal(result.enabled, true);
+  assert.equal(result.inserted, true);
+  assert.equal(result.duplicate, false);
+  assert.equal(inserts.length, 1);
+  assert.equal(inserts[0]?.provider_ref, "pi_ca_payment_1");
+});
+
+void test("Canada payment persistence helper treats duplicate insert races as a no-op", async () => {
+  const contract = buildPaymentContract();
+  let selects = 0;
+  const client = {
+    from(table: string) {
+      if (table !== "listing_payments") throw new Error(`unexpected table ${table}`);
+      return {
+        select() {
+          return {
+            eq() {
+              selects += 1;
+              return {
+                eq() {
+                  return {
+                    maybeSingle: async () =>
+                      selects < 3
+                        ? { data: null, error: null }
+                        : {
+                            data: {
+                              id: "payment-1",
+                              idempotency_key: "canada_payg_payment:cs_ca_payment_1",
+                              provider: "stripe",
+                              provider_ref: "pi_ca_payment_1",
+                            },
+                            error: null,
+                          },
+                  };
+                },
+                maybeSingle: async () =>
+                  selects < 3
+                    ? { data: null, error: null }
+                    : {
+                        data: {
+                          id: "payment-1",
+                          idempotency_key: "canada_payg_payment:cs_ca_payment_1",
+                          provider: "stripe",
+                          provider_ref: "pi_ca_payment_1",
+                        },
+                        error: null,
+                      },
+              };
+            },
+          };
+        },
+        insert: async () => ({
+          error: { code: "23505", message: "duplicate key value violates unique constraint" },
+        }),
+      };
+    },
+  } as never;
+
+  const result = await persistCanadaListingPayment({
+    contract,
+    client,
+    enabled: true,
+    paidAt: "2026-05-07T12:00:00.000Z",
+  });
+
+  assert.equal(result.enabled, true);
+  assert.equal(result.inserted, false);
+  assert.equal(result.duplicate, true);
 });

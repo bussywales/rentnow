@@ -2,12 +2,18 @@ import type { BillingRole } from "@/lib/billing/stripe-plans";
 import type { MarketPricingControlPlaneTier } from "@/lib/billing/market-pricing";
 import {
   buildCanadaListingPaymentInsertPayload,
+  persistCanadaListingPayment,
+  type CanadaListingPaymentPersistenceResult,
   type CanadaListingPaymentInsertPayload,
 } from "@/lib/billing/canada-payg-payment-persistence.server";
 import {
   buildCanadaListingPaygEntitlementInsertPayload,
+  grantCanadaListingPaygEntitlement,
+  type CanadaListingPaygEntitlementGrantResult,
   type CanadaListingPaygEntitlementInsertPayload,
 } from "@/lib/billing/canada-payg-entitlements.server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import type {
   CanadaRentalPaygFutureEntitlementGrantContract,
   CanadaRentalPaygFuturePaymentRecordContract,
@@ -116,6 +122,23 @@ export type CanadaRentalPaygFulfilmentPayloadsDisabledResult = CanadaRentalPaygF
   wouldGrantEntitlement: true;
   paymentInsertPayload: CanadaListingPaymentInsertPayload;
   entitlementInsertPayload: CanadaListingPaygEntitlementInsertPayload;
+};
+
+export type CanadaRentalPaygFulfilmentPayloadsExecutionResult = {
+  enabled: boolean;
+  wouldMutate: true;
+  mutated: boolean;
+  paymentRecordCreated: boolean;
+  entitlementGranted: boolean;
+  listingUnlocked: false;
+  listingStatusChanged: false;
+  plan: CanadaRentalPaygFulfilmentPlan;
+  wouldCreatePayment: true;
+  wouldGrantEntitlement: true;
+  paymentInsertPayload: CanadaListingPaymentInsertPayload;
+  entitlementInsertPayload: CanadaListingPaygEntitlementInsertPayload;
+  paymentPersistence: CanadaListingPaymentPersistenceResult;
+  entitlementGrant: CanadaListingPaygEntitlementGrantResult;
 };
 
 function normalizeUpper(value: string | null | undefined) {
@@ -510,5 +533,47 @@ export function executeCanadaRentalPaygFulfilmentPayloadsDisabled(input: {
     wouldGrantEntitlement: true,
     paymentInsertPayload: buildCanadaListingPaymentInsertPayload(input.paymentContract, input.paidAt),
     entitlementInsertPayload: buildCanadaListingPaygEntitlementInsertPayload(input.entitlementContract, input.grantedAt),
+  };
+}
+
+export async function executeCanadaRentalPaygFulfilmentPayloads(input: {
+  plan: CanadaRentalPaygFulfilmentPlan;
+  paymentContract: CanadaRentalPaygFuturePaymentRecordContract;
+  entitlementContract: CanadaRentalPaygFutureEntitlementGrantContract;
+  client: SupabaseClient | UntypedAdminClient;
+  paymentPersistenceEnabled: boolean;
+  entitlementGrantEnabled: boolean;
+  paidAt?: string;
+  grantedAt?: string;
+}): Promise<CanadaRentalPaygFulfilmentPayloadsExecutionResult> {
+  const disabledPayloads = executeCanadaRentalPaygFulfilmentPayloadsDisabled(input);
+  const paymentPersistence = await persistCanadaListingPayment({
+    contract: input.paymentContract,
+    client: input.client,
+    enabled: input.paymentPersistenceEnabled,
+    paidAt: input.paidAt,
+  });
+  const entitlementGrant = await grantCanadaListingPaygEntitlement({
+    contract: input.entitlementContract,
+    client: input.client,
+    enabled: input.entitlementGrantEnabled,
+    grantedAt: input.grantedAt,
+  });
+
+  return {
+    enabled: input.paymentPersistenceEnabled && input.entitlementGrantEnabled,
+    wouldMutate: true,
+    mutated: paymentPersistence.inserted || entitlementGrant.inserted,
+    paymentRecordCreated: paymentPersistence.inserted,
+    entitlementGranted: entitlementGrant.inserted,
+    listingUnlocked: false,
+    listingStatusChanged: false,
+    plan: input.plan,
+    wouldCreatePayment: true,
+    wouldGrantEntitlement: true,
+    paymentInsertPayload: disabledPayloads.paymentInsertPayload,
+    entitlementInsertPayload: disabledPayloads.entitlementInsertPayload,
+    paymentPersistence,
+    entitlementGrant,
   };
 }

@@ -134,6 +134,12 @@ export default async function AdminMarketPricingPage() {
             </dd>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Checkout session creation gate</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.checkoutSessionCreationGateEnabled ? "ON" : "OFF"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <dt className="text-xs uppercase tracking-wide text-slate-500">Stripe session request</dt>
             <dd className="mt-2 text-sm font-semibold text-slate-900">
               {canadaRuntimeDiagnostics.stripeSessionRequestDefined ? "DEFINED" : "UNDEFINED"}
@@ -206,6 +212,12 @@ export default async function AdminMarketPricingPage() {
             </dd>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Webhook fulfilment gate</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.webhookFulfilmentGateEnabled ? "ON" : "OFF"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <dt className="text-xs uppercase tracking-wide text-slate-500">Canada fulfilment plan</dt>
             <dd className="mt-2 text-sm font-semibold text-slate-900">
               {canadaRuntimeDiagnostics.fulfilmentPlanDefined ? "DEFINED" : "UNDEFINED"}
@@ -230,15 +242,33 @@ export default async function AdminMarketPricingPage() {
             </dd>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Submit unlock still disabled</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.listingUnlockEnabled ? "NO" : "YES"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <dt className="text-xs uppercase tracking-wide text-slate-500">Entitlement consume execution</dt>
             <dd className="mt-2 text-sm font-semibold text-slate-900">
               {canadaRuntimeDiagnostics.entitlementConsumeExecutionEnabled ? "ENABLED" : "DISABLED"}
             </dd>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Payment persistence gate</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.paymentPersistenceGateEnabled ? "ON" : "OFF"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <dt className="text-xs uppercase tracking-wide text-slate-500">Entitlement consumption</dt>
             <dd className="mt-2 text-sm font-semibold text-slate-900">
               {canadaRuntimeDiagnostics.entitlementConsumeMutationEnabled ? "ENABLED" : "DISABLED"}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <dt className="text-xs uppercase tracking-wide text-slate-500">Entitlement grant gate</dt>
+            <dd className="mt-2 text-sm font-semibold text-slate-900">
+              {canadaRuntimeDiagnostics.entitlementGrantGateEnabled ? "ON" : "OFF"}
             </dd>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">

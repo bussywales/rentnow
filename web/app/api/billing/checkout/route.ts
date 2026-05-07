@@ -9,9 +9,16 @@ import { getProviderModes } from "@/lib/billing/provider-settings";
 import { getPaystackConfig } from "@/lib/billing/paystack";
 import { getPaygConfig } from "@/lib/billing/payg";
 import { getFeaturedConfig } from "@/lib/billing/featured";
-import { loadCanadaRentalPaygRuntimeDecision } from "@/lib/billing/canada-payg-runtime.server";
+import {
+  getCanadaRentalPaygCheckoutSessionCreationEnabled,
+  loadCanadaRentalPaygRuntimeDecision,
+} from "@/lib/billing/canada-payg-runtime.server";
 import { prepareCanadaRentalPaygStripeCheckout } from "@/lib/billing/canada-payg-stripe-prep.server";
-import { createCanadaRentalPaygStripeSessionDisabled } from "@/lib/billing/canada-payg-stripe-session.server";
+import {
+  createCanadaRentalPaygStripeSession,
+  createCanadaRentalPaygStripeSessionDisabled,
+} from "@/lib/billing/canada-payg-stripe-session.server";
+import { getStripeClient, getStripeConfigForMode } from "@/lib/billing/stripe";
 import { getSiteUrl } from "@/lib/env";
 import { logFailure } from "@/lib/observability";
 import { logPropertyEvent, resolveEventSessionKey } from "@/lib/analytics/property-events.server";
@@ -51,13 +58,17 @@ export type BillingCheckoutRouteDeps = {
   getPaystackConfig: typeof getPaystackConfig;
   getPaygConfig: typeof getPaygConfig;
   getFeaturedConfig: typeof getFeaturedConfig;
+  getStripeConfigForMode: typeof getStripeConfigForMode;
+  getStripeClient: typeof getStripeClient;
   getSiteUrl: typeof getSiteUrl;
   logFailure: typeof logFailure;
   logPropertyEvent: typeof logPropertyEvent;
   resolveEventSessionKey: typeof resolveEventSessionKey;
   loadCanadaRentalPaygRuntimeDecision: typeof loadCanadaRentalPaygRuntimeDecision;
+  getCanadaRentalPaygCheckoutSessionCreationEnabled: typeof getCanadaRentalPaygCheckoutSessionCreationEnabled;
   prepareCanadaRentalPaygStripeCheckout: typeof prepareCanadaRentalPaygStripeCheckout;
   createCanadaRentalPaygStripeSessionDisabled: typeof createCanadaRentalPaygStripeSessionDisabled;
+  createCanadaRentalPaygStripeSession: typeof createCanadaRentalPaygStripeSession;
   fetchImplementation: typeof fetch;
 };
 
@@ -74,13 +85,17 @@ const defaultDeps: BillingCheckoutRouteDeps = {
   getPaystackConfig,
   getPaygConfig,
   getFeaturedConfig,
+  getStripeConfigForMode,
+  getStripeClient,
   getSiteUrl,
   logFailure,
   logPropertyEvent,
   resolveEventSessionKey,
   loadCanadaRentalPaygRuntimeDecision,
+  getCanadaRentalPaygCheckoutSessionCreationEnabled,
   prepareCanadaRentalPaygStripeCheckout,
   createCanadaRentalPaygStripeSessionDisabled,
+  createCanadaRentalPaygStripeSession,
   fetchImplementation: fetch,
 };
 
@@ -224,6 +239,75 @@ export async function postBillingCheckoutResponse(
       prepared: stripePrep,
       customerEmail: auth.user.email ?? null,
     });
+
+    const checkoutSessionCreationGateEnabled =
+      await deps.getCanadaRentalPaygCheckoutSessionCreationEnabled(adminClient);
+
+    if (checkoutSessionCreationGateEnabled) {
+      if (
+        !stripePrep.ready ||
+        stripePrep.amountMinor === null ||
+        stripePrep.currency !== "CAD" ||
+        stripePrep.provider !== "stripe" ||
+        stripePrep.mode !== "payment"
+      ) {
+        return NextResponse.json(
+          {
+            error: "Canada rental PAYG Stripe checkout payload is incomplete.",
+            code: "CANADA_PAYG_STRIPE_PREP_INCOMPLETE",
+          },
+          { status: 500 }
+        );
+      }
+
+      const { stripeMode } = await deps.getProviderModes();
+      const stripeConfig = deps.getStripeConfigForMode(stripeMode, "billing");
+      if (!stripeConfig.secretKey) {
+        return NextResponse.json(
+          {
+            error: "Canada rental PAYG Stripe checkout is not configured.",
+            code: "CANADA_PAYG_STRIPE_NOT_CONFIGURED",
+          },
+          { status: 503 }
+        );
+      }
+
+      const stripe = deps.getStripeClient(stripeConfig.secretKey);
+      const liveStripeSession = await deps.createCanadaRentalPaygStripeSession({
+        prepared: stripePrep,
+        customerEmail: auth.user.email ?? null,
+        stripe,
+      });
+
+      if (
+        !liveStripeSession.ready ||
+        !("sessionUrl" in liveStripeSession) ||
+        !liveStripeSession.sessionUrl
+      ) {
+        return NextResponse.json(
+          {
+            error: "Canada rental PAYG Stripe checkout did not return a checkout URL.",
+            code: "CANADA_PAYG_STRIPE_CHECKOUT_URL_MISSING",
+          },
+          { status: 502 }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          ok: true,
+          provider: "stripe",
+          currency: stripePrep.currency,
+          amount: stripePrep.amountMinor / 100,
+          amountMinor: stripePrep.amountMinor,
+          mode: stripePrep.mode,
+          checkoutUrl: liveStripeSession.sessionUrl,
+          sessionId: liveStripeSession.sessionId,
+          idempotencyKey: liveStripeSession.idempotencyKey,
+        },
+        { status: 200 }
+      );
+    }
 
     return NextResponse.json(
       {

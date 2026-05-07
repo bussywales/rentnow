@@ -44,6 +44,7 @@ export type CanadaListingPaymentPersistenceDisabledResult = {
   enabled: false;
   wouldInsert: true;
   inserted: false;
+  duplicate: false;
   payload: CanadaListingPaymentInsertPayload;
   validation: Extract<CanadaListingPaymentPersistenceValidationResult, { ok: true }>;
   stripeReferences: {
@@ -52,6 +53,30 @@ export type CanadaListingPaymentPersistenceDisabledResult = {
     stripeEventId: string | null;
     canonicalProviderRef: string;
   };
+};
+
+export type CanadaListingPaymentPersistenceResult =
+  | CanadaListingPaymentPersistenceDisabledResult
+  | {
+      enabled: true;
+      wouldInsert: true;
+      inserted: boolean;
+      duplicate: boolean;
+      payload: CanadaListingPaymentInsertPayload;
+      validation: Extract<CanadaListingPaymentPersistenceValidationResult, { ok: true }>;
+      stripeReferences: {
+        checkoutSessionId: string | null;
+        paymentIntentId: string | null;
+        stripeEventId: string | null;
+        canonicalProviderRef: string;
+      };
+    };
+
+type CanadaListingPaymentLookupRow = {
+  id?: string | null;
+  idempotency_key?: string | null;
+  provider?: string | null;
+  provider_ref?: string | null;
 };
 
 function normalizeAmountMinor(amountMinor: number | null | undefined) {
@@ -66,6 +91,31 @@ function resolveCanonicalProviderRef(contract: CanadaRentalPaygFuturePaymentReco
     contract.fields.stripeEventId ??
     null
   );
+}
+
+async function findExistingCanadaListingPayment(input: {
+  client: SupabaseClient | UntypedAdminClient;
+  payload: CanadaListingPaymentInsertPayload;
+}) {
+  const client = input.client as UntypedAdminClient;
+  const byIdempotency = await client
+    .from<CanadaListingPaymentLookupRow>("listing_payments")
+    .select("id,idempotency_key,provider,provider_ref")
+    .eq("idempotency_key", input.payload.idempotency_key)
+    .maybeSingle();
+
+  if (byIdempotency.data) {
+    return byIdempotency.data;
+  }
+
+  const byProviderRef = await client
+    .from<CanadaListingPaymentLookupRow>("listing_payments")
+    .select("id,idempotency_key,provider,provider_ref")
+    .eq("provider", input.payload.provider)
+    .eq("provider_ref", input.payload.provider_ref)
+    .maybeSingle();
+
+  return byProviderRef.data ?? null;
 }
 
 export function validateCanadaListingPaymentPersistenceContract(
@@ -181,6 +231,7 @@ export async function persistCanadaListingPaymentDisabled(input: {
     enabled: CANADA_PAYG_PAYMENT_PERSISTENCE_ENABLED,
     wouldInsert: true,
     inserted: false,
+    duplicate: false,
     payload,
     validation,
     stripeReferences: {
@@ -189,5 +240,84 @@ export async function persistCanadaListingPaymentDisabled(input: {
       stripeEventId: input.contract.fields.stripeEventId,
       canonicalProviderRef: payload.provider_ref,
     },
+  };
+}
+
+export async function persistCanadaListingPayment(input: {
+  contract: CanadaRentalPaygFuturePaymentRecordContract;
+  client: SupabaseClient | UntypedAdminClient;
+  enabled: boolean;
+  paidAt?: string;
+}): Promise<CanadaListingPaymentPersistenceResult> {
+  const validation = validateCanadaListingPaymentPersistenceContract(input.contract);
+  if (!validation.ok) {
+    throw new Error(`Invalid Canada PAYG payment persistence contract: ${validation.reason}`);
+  }
+
+  if (!input.enabled) {
+    return persistCanadaListingPaymentDisabled(input);
+  }
+
+  const payload = buildCanadaListingPaymentInsertPayload(input.contract, input.paidAt);
+  const stripeReferences = {
+    checkoutSessionId: input.contract.fields.checkoutSessionId,
+    paymentIntentId: input.contract.fields.paymentIntentId,
+    stripeEventId: input.contract.fields.stripeEventId,
+    canonicalProviderRef: payload.provider_ref,
+  };
+
+  const existingBeforeInsert = await findExistingCanadaListingPayment({
+    client: input.client,
+    payload,
+  });
+  if (existingBeforeInsert) {
+    return {
+      enabled: true,
+      wouldInsert: true,
+      inserted: false,
+      duplicate: true,
+      payload,
+      validation,
+      stripeReferences,
+    };
+  }
+
+  const adminDb = input.client as unknown as {
+    from: (table: string) => {
+      insert: (values: Record<string, unknown>) => Promise<{ error: { code?: string; message?: string } | null }>;
+    };
+  };
+
+  const { error } = await adminDb.from("listing_payments").insert(payload);
+  if (error) {
+    if (error.code === "23505") {
+      const existingAfterInsert = await findExistingCanadaListingPayment({
+        client: input.client,
+        payload,
+      });
+      if (existingAfterInsert) {
+        return {
+          enabled: true,
+          wouldInsert: true,
+          inserted: false,
+          duplicate: true,
+          payload,
+          validation,
+          stripeReferences,
+        };
+      }
+    }
+
+    throw new Error(error.message || "Canada PAYG payment persistence failed");
+  }
+
+  return {
+    enabled: true,
+    wouldInsert: true,
+    inserted: true,
+    duplicate: false,
+    payload,
+    validation,
+    stripeReferences,
   };
 }

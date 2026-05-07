@@ -5,6 +5,7 @@ import {
   buildCanadaListingPaygEntitlementInsertPayload,
   consumeCanadaListingPaygEntitlementDisabled,
   findActiveCanadaListingPaygEntitlement,
+  grantCanadaListingPaygEntitlement,
   grantCanadaListingPaygEntitlementDisabled,
   listingHasActiveCanadaPaygExtraSlot,
   resolveCanadaListingCapBypassDecision,
@@ -130,6 +131,116 @@ void test("Canada entitlement helper builds a disabled insert payload from a val
   assert.equal(disabled.wouldInsert, true);
   assert.equal(disabled.inserted, false);
   assert.equal(disabled.payload.idempotency_key, "canada_payg_entitlement:evt_ca_entitlement_1");
+});
+
+void test("Canada entitlement helper inserts when execution is enabled", async () => {
+  const contract = buildGrantContract();
+  const inserts: Record<string, unknown>[] = [];
+  const client = {
+    from(table: string) {
+      if (table !== "canada_listing_payg_entitlements") {
+        throw new Error(`unexpected table ${table}`);
+      }
+      const chain = {
+        eq() {
+          return chain;
+        },
+        maybeSingle: async () => ({ data: null, error: null }),
+        order: async () => ({ data: [], error: null }),
+      };
+      return {
+        select() {
+          return chain;
+        },
+        insert: async (payload: Record<string, unknown>) => {
+          inserts.push(payload);
+          return { error: null };
+        },
+      };
+    },
+  } as never;
+
+  const result = await grantCanadaListingPaygEntitlement({
+    contract,
+    client,
+    enabled: true,
+    grantedAt: "2026-05-07T11:00:00.000Z",
+  });
+
+  assert.equal(result.enabled, true);
+  assert.equal(result.inserted, true);
+  assert.equal(result.duplicate, false);
+  assert.equal(inserts.length, 1);
+  assert.equal(inserts[0]?.status, "granted");
+});
+
+void test("Canada entitlement helper treats duplicate insert races as a no-op", async () => {
+  const contract = buildGrantContract();
+  let queryCount = 0;
+  const existingRow = {
+    id: "ent-duplicate-1",
+    listing_id: "listing-ca-entitlement-1",
+    owner_id: "owner-ca-1",
+    market_country: "CA",
+    provider: "stripe",
+    purpose: "listing_submission",
+    role: "landlord",
+    tier: "free",
+    amount_minor: 400,
+    currency: "CAD",
+    stripe_checkout_session_id: "cs_ca_entitlement_1",
+    stripe_payment_intent_id: "pi_ca_entitlement_1",
+    stripe_event_id: "evt_ca_entitlement_1",
+    idempotency_key: "canada_payg_entitlement:evt_ca_entitlement_1",
+    status: "granted",
+    active: true,
+    granted_at: "2026-05-07T11:00:00.000Z",
+    consumed_at: null,
+    revoked_at: null,
+    expires_at: null,
+    metadata: {},
+    created_at: "2026-05-07T11:00:00.000Z",
+    updated_at: "2026-05-07T11:00:00.000Z",
+  };
+
+  const client = {
+    from(table: string) {
+      if (table !== "canada_listing_payg_entitlements") {
+        throw new Error(`unexpected table ${table}`);
+      }
+      const chain = {
+        eq() {
+          queryCount += 1;
+          return chain;
+        },
+        maybeSingle: async () =>
+          queryCount >= 8 ? { data: existingRow, error: null } : { data: null, error: null },
+        order: async () => ({
+          data: queryCount >= 8 ? [existingRow] : [],
+          error: null,
+        }),
+      };
+      return {
+        select() {
+          return chain;
+        },
+        insert: async () => ({
+          error: { code: "23505", message: "duplicate key value violates unique constraint" },
+        }),
+      };
+    },
+  } as never;
+
+  const result = await grantCanadaListingPaygEntitlement({
+    contract,
+    client,
+    enabled: true,
+    grantedAt: "2026-05-07T11:00:00.000Z",
+  });
+
+  assert.equal(result.enabled, true);
+  assert.equal(result.inserted, false);
+  assert.equal(result.duplicate, true);
 });
 
 void test("Canada entitlement helper rejects wrong market/provider/currency/purpose", () => {

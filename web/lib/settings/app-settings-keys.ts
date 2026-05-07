@@ -64,6 +64,14 @@ export const APP_SETTING_KEYS = {
   marketSelectorEnabled: "market_selector_enabled",
   canadaRentalPaygRuntimeEnabled: "canada_rental_payg_runtime_enabled",
   canadaRentalPaygListingUnlockEnabled: "canada_rental_payg_listing_unlock_enabled",
+  canadaRentalPaygCheckoutSessionCreationEnabled:
+    "canada_rental_payg_checkout_session_creation_enabled",
+  canadaRentalPaygWebhookFulfilmentEnabled:
+    "canada_rental_payg_webhook_fulfilment_enabled",
+  canadaRentalPaygPaymentPersistenceEnabled:
+    "canada_rental_payg_payment_persistence_enabled",
+  canadaRentalPaygEntitlementGrantEnabled:
+    "canada_rental_payg_entitlement_grant_enabled",
   brandSocialInstagramUrl: "brand_social_instagram_url",
   brandSocialYoutubeUrl: "brand_social_youtube_url",
   brandSocialTiktokUrl: "brand_social_tiktok_url",

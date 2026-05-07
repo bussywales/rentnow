@@ -36,6 +36,19 @@ export type CanadaRentalPaygStripeSessionBuildResult = {
   idempotencyKey: string | null;
 };
 
+export type CanadaRentalPaygStripeSessionCreateResult =
+  | CanadaRentalPaygStripeSessionBuildResult
+  | {
+      ready: true;
+      blockedReason: null;
+      request: CanadaRentalPaygStripeSessionRequest;
+      checkoutCreationEnabled: true;
+      stripeSessionCreationAttempted: true;
+      idempotencyKey: string;
+      sessionId: string;
+      sessionUrl: string | null;
+    };
+
 export type CanadaRentalPaygRecoveryParseError =
   | "MISSING_METADATA"
   | "WRONG_MARKET"
@@ -154,6 +167,43 @@ export function createCanadaRentalPaygStripeSessionDisabled(
     blockedReason: "CHECKOUT_CREATION_DISABLED",
     checkoutCreationEnabled: CANADA_RENTAL_PAYG_STRIPE_SESSION_CREATION_ENABLED,
     stripeSessionCreationAttempted: false,
+  };
+}
+
+export async function createCanadaRentalPaygStripeSession(
+  input: CanadaRentalPaygStripeSessionInput & {
+    stripe: Pick<Stripe, "checkout">;
+  }
+): Promise<CanadaRentalPaygStripeSessionCreateResult> {
+  const built = buildCanadaRentalPaygStripeSessionRequest(input);
+  if (!built.ready || !built.request || !built.idempotencyKey) {
+    return built;
+  }
+
+  const session = await input.stripe.checkout.sessions.create(
+    {
+      mode: built.request.mode,
+      line_items: built.request.line_items,
+      success_url: built.request.success_url,
+      cancel_url: built.request.cancel_url,
+      metadata: built.request.metadata,
+      payment_intent_data: built.request.payment_intent_data,
+      customer_email: built.request.customer_email,
+    },
+    {
+      idempotencyKey: built.idempotencyKey,
+    }
+  );
+
+  return {
+    ready: true,
+    blockedReason: null,
+    request: built.request,
+    checkoutCreationEnabled: true,
+    stripeSessionCreationAttempted: true,
+    idempotencyKey: built.idempotencyKey,
+    sessionId: session.id,
+    sessionUrl: session.url ?? null,
   };
 }
 

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   CANADA_RENTAL_PAYG_RUNTIME_PREREQUISITES,
+  getCanadaRentalPaygRuntimeDiagnostics,
   getCanadaRentalPaygListingUnlockEnabled,
   loadCanadaRentalPaygRuntimeDecision,
 } from "@/lib/billing/canada-payg-runtime.server";
@@ -196,6 +197,10 @@ void test("Canada runtime gate defaults off in the guarded adapter and keeps che
     {
       getGateEnabled: async () => false,
       getListingUnlockGateEnabled: async () => false,
+      getCheckoutSessionCreationGateEnabled: async () => false,
+      getWebhookFulfilmentGateEnabled: async () => false,
+      getPaymentPersistenceGateEnabled: async () => false,
+      getEntitlementGrantGateEnabled: async () => false,
       loadPricingRows: async () => pricingRows,
       loadRoleContext: async () => ({ role: "landlord", tier: "free", activeListingCount: 3 }),
       resolveReadiness: resolveCanadaRentalPaygReadiness,
@@ -242,6 +247,10 @@ void test("Canada runtime adapter passes normalized listing, role, tier, and pri
     {
       getGateEnabled: async () => false,
       getListingUnlockGateEnabled: async () => false,
+      getCheckoutSessionCreationGateEnabled: async () => false,
+      getWebhookFulfilmentGateEnabled: async () => false,
+      getPaymentPersistenceGateEnabled: async () => false,
+      getEntitlementGrantGateEnabled: async () => false,
       loadPricingRows: async () => pricingRows,
       loadRoleContext: async () => ({ role: "agent", tier: "pro", activeListingCount: 10 }),
       resolveReadiness: (input) => {
@@ -267,6 +276,10 @@ void test("Canada runtime adapter keeps wrong market, shortlet, tenant, and ente
   const baseDeps = {
     getGateEnabled: async () => true,
     getListingUnlockGateEnabled: async () => false,
+    getCheckoutSessionCreationGateEnabled: async () => false,
+    getWebhookFulfilmentGateEnabled: async () => false,
+    getPaymentPersistenceGateEnabled: async () => false,
+    getEntitlementGrantGateEnabled: async () => false,
     loadPricingRows: async () => pricingRows,
     resolveReadiness: resolveCanadaRentalPaygReadiness,
   };
@@ -359,6 +372,10 @@ void test("Canada runtime adapter can report runtime activation allowed while ch
     {
       getGateEnabled: async () => true,
       getListingUnlockGateEnabled: async () => false,
+      getCheckoutSessionCreationGateEnabled: async () => false,
+      getWebhookFulfilmentGateEnabled: async () => false,
+      getPaymentPersistenceGateEnabled: async () => false,
+      getEntitlementGrantGateEnabled: async () => false,
       loadPricingRows: async () => ({
         policies: [canadaPolicyLive],
         entitlements: canadaEntitlements,
@@ -387,4 +404,30 @@ void test("Canada listing unlock gate defaults off in runtime diagnostics helper
   } as never);
 
   assert.equal(enabled, false);
+});
+
+void test("Canada runtime diagnostics keep the new mutation gates off by default", async () => {
+  const client = {
+    from(table: string) {
+      if (table !== "app_settings") throw new Error(`unexpected table ${table}`);
+      return {
+        select() {
+          return {
+            in: async () => ({ data: [], error: null }),
+          };
+        },
+      };
+    },
+  } as never;
+
+  const diagnostics = await getCanadaRentalPaygRuntimeDiagnostics(client);
+  assert.equal(diagnostics.gateEnabled, false);
+  assert.equal(diagnostics.listingUnlockGateEnabled, false);
+  assert.equal(diagnostics.checkoutSessionCreationGateEnabled, false);
+  assert.equal(diagnostics.webhookFulfilmentGateEnabled, false);
+  assert.equal(diagnostics.paymentPersistenceGateEnabled, false);
+  assert.equal(diagnostics.entitlementGrantGateEnabled, false);
+  assert.equal(diagnostics.checkoutCreationEnabled, false);
+  assert.equal(diagnostics.liveWebhookFulfilmentEnabled, false);
+  assert.equal(diagnostics.paymentRecordWriteEnabled, false);
 });

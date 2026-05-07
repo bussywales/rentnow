@@ -27,6 +27,7 @@ void test("admin market pricing page stays admin-only and renders the seeded con
   assert.match(pageSource, /Checkout enabled/);
   assert.match(pageSource, /Stripe prep layer/);
   assert.match(pageSource, /Checkout creation/);
+  assert.match(pageSource, /Checkout session creation gate/);
   assert.match(pageSource, /Stripe session request/);
   assert.match(pageSource, /Canada payment recovery/);
   assert.match(pageSource, /Canada webhook contract/);
@@ -39,12 +40,16 @@ void test("admin market pricing page stays admin-only and renders the seeded con
   assert.match(pageSource, /Entitlement consume contract/);
   assert.match(pageSource, /Listing unlock gate/);
   assert.match(pageSource, /Live webhook fulfilment/);
+  assert.match(pageSource, /Webhook fulfilment gate/);
   assert.match(pageSource, /Canada fulfilment plan/);
   assert.match(pageSource, /Fulfilment execution/);
   assert.match(pageSource, /Fulfilment mutation/);
   assert.match(pageSource, /Entitlement consume execution/);
+  assert.match(pageSource, /Payment persistence gate/);
   assert.match(pageSource, /Listing unlock execution/);
+  assert.match(pageSource, /Submit unlock still disabled/);
   assert.match(pageSource, /Entitlement consumption/);
+  assert.match(pageSource, /Entitlement grant gate/);
   assert.match(pageSource, /Listing submit after consume/);
   assert.match(pageSource, /Live cap bypass/);
   assert.match(pageSource, /Payment record write/);
@@ -56,6 +61,7 @@ void test("admin market pricing page stays admin-only and renders the seeded con
   assert.match(pageSource, /stripePrepLayerAvailable \? "AVAILABLE" : "UNAVAILABLE"/);
   assert.match(pageSource, /stripeSessionRequestDefined \? "DEFINED" : "UNDEFINED"/);
   assert.match(pageSource, /checkoutCreationEnabled \? "ENABLED" : "DISABLED"/);
+  assert.match(pageSource, /checkoutSessionCreationGateEnabled \? "ON" : "OFF"/);
   assert.match(pageSource, /paymentRecoveryScaffolded \? "SCAFFOLDED \/ NOT LIVE" : "UNAVAILABLE"/);
   assert.match(pageSource, /webhookContractDefined \? "DEFINED" : "UNDEFINED"/);
   assert.match(pageSource, /paymentPersistenceContractDefined \? "DEFINED" : "UNDEFINED"/);
@@ -67,11 +73,15 @@ void test("admin market pricing page stays admin-only and renders the seeded con
   assert.match(pageSource, /entitlementConsumeContractDefined \? "DEFINED" : "UNDEFINED"/);
   assert.match(pageSource, /listingUnlockGateEnabled \? "ON" : "OFF"/);
   assert.match(pageSource, /liveWebhookFulfilmentEnabled \? "ENABLED" : "DISABLED"/);
+  assert.match(pageSource, /webhookFulfilmentGateEnabled \? "ON" : "OFF"/);
   assert.match(pageSource, /fulfilmentPlanDefined \? "DEFINED" : "UNDEFINED"/);
   assert.match(pageSource, /fulfilmentExecutionEnabled \? "ENABLED" : "DISABLED"/);
   assert.match(pageSource, /fulfilmentMutationEnabled \? "ENABLED" : "DISABLED"/);
   assert.match(pageSource, /entitlementConsumeExecutionEnabled \? "ENABLED" : "DISABLED"/);
+  assert.match(pageSource, /paymentPersistenceGateEnabled \? "ON" : "OFF"/);
   assert.match(pageSource, /entitlementConsumeMutationEnabled \? "ENABLED" : "DISABLED"/);
+  assert.match(pageSource, /listingUnlockEnabled \? "NO" : "YES"/);
+  assert.match(pageSource, /entitlementGrantGateEnabled \? "ON" : "OFF"/);
   assert.match(pageSource, /listingSubmitAfterConsumeEnabled \? "ENABLED" : "DISABLED"/);
   assert.match(pageSource, /listingUnlockEnabled \? "ENABLED" : "DISABLED"/);
   assert.match(pageSource, /liveCapBypassEnabled \? "ENABLED" : "DISABLED"/);

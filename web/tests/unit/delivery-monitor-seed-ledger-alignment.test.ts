@@ -75,11 +75,12 @@ void test("market pricing control plane seed stays amber and foundation-focused 
   assert.match(item?.delivered.join(" "), /disabled listing-only Canada entitlement-consumption contract/i);
   assert.match(item?.delivered.join(" "), /audit history/i);
   assert.match(item?.delivered.join(" "), /legacy settings and code constants/i);
-  assert.match(item?.nextAction ?? "", /disabled Canada entitlement-consumption contract/i);
+  assert.match(item?.nextAction ?? "", /gated Canada Stripe test-mode mutation path/i);
   assert.match(item?.outstanding.join(" "), /runtime checkout/i);
-  assert.match(item?.outstanding.join(" "), /live Stripe session creation remains intentionally disabled/i);
-  assert.match(item?.outstanding.join(" "), /Live insert execution for Canada one-off Stripe payments and listing-scoped entitlements/i);
-  assert.match(item?.outstanding.join(" "), /Webhook wiring and listing-specific recovery unlock/i);
+  assert.match(item?.delivered.join(" "), /real Stripe test-mode Checkout Session/i);
+  assert.match(item?.delivered.join(" "), /persist listing_payments rows and grant canada_listing_payg_entitlements rows/i);
+  assert.match(item?.outstanding.join(" "), /Submit unlock, live listing-specific cap bypass, and entitlement consumption/i);
+  assert.match(item?.outstanding.join(" "), /production-go-live gate review/i);
   assert.match(item?.outstanding.join(" "), /Actual live entitlement consume execution, live submit unlock, and listing-specific cap bypass/i);
   assert.match(item?.outstanding.join(" "), /Tax, receipt, and compliance posture/i);
   assert.match(item?.outstanding.join(" "), /Canada PAYG remains policy-gated/i);

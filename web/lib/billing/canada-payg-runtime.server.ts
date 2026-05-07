@@ -31,6 +31,10 @@ export const CANADA_RENTAL_PAYG_RUNTIME_PREREQUISITES = [
 export type CanadaRentalPaygRuntimeDecision = {
   gateEnabled: boolean;
   listingUnlockGateEnabled: boolean;
+  checkoutSessionCreationGateEnabled: boolean;
+  webhookFulfilmentGateEnabled: boolean;
+  paymentPersistenceGateEnabled: boolean;
+  entitlementGrantGateEnabled: boolean;
   marketCountry: string | null;
   runtimeSource: "legacy";
   resolverAvailable: true;
@@ -46,17 +50,17 @@ export type CanadaRentalPaygRuntimeDecision = {
   entitlementConsumeContractDefined: true;
   fulfilmentPlanDefined: true;
   checkoutEnabled: false;
-  checkoutCreationEnabled: false;
+  checkoutCreationEnabled: boolean;
   paymentRecoveryScaffolded: true;
-  liveWebhookFulfilmentEnabled: false;
-  fulfilmentExecutionEnabled: false;
-  fulfilmentMutationEnabled: false;
+  liveWebhookFulfilmentEnabled: boolean;
+  fulfilmentExecutionEnabled: boolean;
+  fulfilmentMutationEnabled: boolean;
   entitlementConsumeExecutionEnabled: false;
   entitlementConsumeMutationEnabled: false;
   listingSubmitAfterConsumeEnabled: false;
   listingUnlockEnabled: false;
   liveCapBypassEnabled: false;
-  paymentRecordWriteEnabled: false;
+  paymentRecordWriteEnabled: boolean;
   readiness: CanadaRentalPaygReadinessResult;
   nextActivationPrerequisites: string[];
 };
@@ -76,6 +80,10 @@ export type CanadaRentalPaygRuntimeInput = {
 export type CanadaRentalPaygRuntimeDiagnostics = {
   gateEnabled: boolean;
   listingUnlockGateEnabled: boolean;
+  checkoutSessionCreationGateEnabled: boolean;
+  webhookFulfilmentGateEnabled: boolean;
+  paymentPersistenceGateEnabled: boolean;
+  entitlementGrantGateEnabled: boolean;
   resolverAvailable: true;
   stripePrepLayerAvailable: true;
   stripeSessionRequestDefined: true;
@@ -89,17 +97,17 @@ export type CanadaRentalPaygRuntimeDiagnostics = {
   entitlementConsumeContractDefined: true;
   fulfilmentPlanDefined: true;
   checkoutEnabled: false;
-  checkoutCreationEnabled: false;
+  checkoutCreationEnabled: boolean;
   paymentRecoveryScaffolded: true;
-  liveWebhookFulfilmentEnabled: false;
-  fulfilmentExecutionEnabled: false;
-  fulfilmentMutationEnabled: false;
+  liveWebhookFulfilmentEnabled: boolean;
+  fulfilmentExecutionEnabled: boolean;
+  fulfilmentMutationEnabled: boolean;
   entitlementConsumeExecutionEnabled: false;
   entitlementConsumeMutationEnabled: false;
   listingSubmitAfterConsumeEnabled: false;
   listingUnlockEnabled: false;
   liveCapBypassEnabled: false;
-  paymentRecordWriteEnabled: false;
+  paymentRecordWriteEnabled: boolean;
   runtimeSource: "legacy";
   nextActivationPrerequisites: string[];
 };
@@ -121,6 +129,10 @@ type CanadaRuntimeClient = SupabaseClient | UntypedAdminClient;
 type CanadaRentalPaygRuntimeDeps = {
   getGateEnabled: typeof getCanadaRentalPaygRuntimeEnabled;
   getListingUnlockGateEnabled: typeof getCanadaRentalPaygListingUnlockEnabled;
+  getCheckoutSessionCreationGateEnabled: typeof getCanadaRentalPaygCheckoutSessionCreationEnabled;
+  getWebhookFulfilmentGateEnabled: typeof getCanadaRentalPaygWebhookFulfilmentEnabled;
+  getPaymentPersistenceGateEnabled: typeof getCanadaRentalPaygPaymentPersistenceEnabled;
+  getEntitlementGrantGateEnabled: typeof getCanadaRentalPaygEntitlementGrantEnabled;
   loadPricingRows: (client: CanadaRuntimeClient) => Promise<CanadaPricingRows>;
   loadRoleContext: (input: {
     serviceClient: CanadaRuntimeClient;
@@ -190,6 +202,10 @@ async function loadCanadaRuntimeRoleContext(input: {
 const defaultDeps: CanadaRentalPaygRuntimeDeps = {
   getGateEnabled: getCanadaRentalPaygRuntimeEnabled,
   getListingUnlockGateEnabled: getCanadaRentalPaygListingUnlockEnabled,
+  getCheckoutSessionCreationGateEnabled: getCanadaRentalPaygCheckoutSessionCreationEnabled,
+  getWebhookFulfilmentGateEnabled: getCanadaRentalPaygWebhookFulfilmentEnabled,
+  getPaymentPersistenceGateEnabled: getCanadaRentalPaygPaymentPersistenceEnabled,
+  getEntitlementGrantGateEnabled: getCanadaRentalPaygEntitlementGrantEnabled,
   loadPricingRows: loadCanadaPricingRows,
   loadRoleContext: loadCanadaRuntimeRoleContext,
   resolveReadiness: resolveCanadaRentalPaygReadiness,
@@ -211,12 +227,96 @@ export async function getCanadaRentalPaygListingUnlockEnabled(client?: CanadaRun
   return parseAppSettingBool(settings.get(APP_SETTING_KEYS.canadaRentalPaygListingUnlockEnabled), false);
 }
 
+export async function getCanadaRentalPaygCheckoutSessionCreationEnabled(client?: CanadaRuntimeClient) {
+  const settings = await getAppSettingsMap(
+    [APP_SETTING_KEYS.canadaRentalPaygCheckoutSessionCreationEnabled],
+    client as SupabaseClient | undefined
+  );
+  return parseAppSettingBool(
+    settings.get(APP_SETTING_KEYS.canadaRentalPaygCheckoutSessionCreationEnabled),
+    false
+  );
+}
+
+export async function getCanadaRentalPaygWebhookFulfilmentEnabled(client?: CanadaRuntimeClient) {
+  const settings = await getAppSettingsMap(
+    [APP_SETTING_KEYS.canadaRentalPaygWebhookFulfilmentEnabled],
+    client as SupabaseClient | undefined
+  );
+  return parseAppSettingBool(
+    settings.get(APP_SETTING_KEYS.canadaRentalPaygWebhookFulfilmentEnabled),
+    false
+  );
+}
+
+export async function getCanadaRentalPaygPaymentPersistenceEnabled(client?: CanadaRuntimeClient) {
+  const settings = await getAppSettingsMap(
+    [APP_SETTING_KEYS.canadaRentalPaygPaymentPersistenceEnabled],
+    client as SupabaseClient | undefined
+  );
+  return parseAppSettingBool(
+    settings.get(APP_SETTING_KEYS.canadaRentalPaygPaymentPersistenceEnabled),
+    false
+  );
+}
+
+export async function getCanadaRentalPaygEntitlementGrantEnabled(client?: CanadaRuntimeClient) {
+  const settings = await getAppSettingsMap(
+    [APP_SETTING_KEYS.canadaRentalPaygEntitlementGrantEnabled],
+    client as SupabaseClient | undefined
+  );
+  return parseAppSettingBool(
+    settings.get(APP_SETTING_KEYS.canadaRentalPaygEntitlementGrantEnabled),
+    false
+  );
+}
+
 export async function getCanadaRentalPaygRuntimeDiagnostics(
   client?: CanadaRuntimeClient
 ): Promise<CanadaRentalPaygRuntimeDiagnostics> {
+  const settings = await getAppSettingsMap(
+    [
+      APP_SETTING_KEYS.canadaRentalPaygRuntimeEnabled,
+      APP_SETTING_KEYS.canadaRentalPaygListingUnlockEnabled,
+      APP_SETTING_KEYS.canadaRentalPaygCheckoutSessionCreationEnabled,
+      APP_SETTING_KEYS.canadaRentalPaygWebhookFulfilmentEnabled,
+      APP_SETTING_KEYS.canadaRentalPaygPaymentPersistenceEnabled,
+      APP_SETTING_KEYS.canadaRentalPaygEntitlementGrantEnabled,
+    ],
+    client as SupabaseClient | undefined
+  );
+  const gateEnabled = parseAppSettingBool(
+    settings.get(APP_SETTING_KEYS.canadaRentalPaygRuntimeEnabled),
+    false
+  );
+  const listingUnlockGateEnabled = parseAppSettingBool(
+    settings.get(APP_SETTING_KEYS.canadaRentalPaygListingUnlockEnabled),
+    false
+  );
+  const checkoutSessionCreationGateEnabled = parseAppSettingBool(
+    settings.get(APP_SETTING_KEYS.canadaRentalPaygCheckoutSessionCreationEnabled),
+    false
+  );
+  const webhookFulfilmentGateEnabled = parseAppSettingBool(
+    settings.get(APP_SETTING_KEYS.canadaRentalPaygWebhookFulfilmentEnabled),
+    false
+  );
+  const paymentPersistenceGateEnabled = parseAppSettingBool(
+    settings.get(APP_SETTING_KEYS.canadaRentalPaygPaymentPersistenceEnabled),
+    false
+  );
+  const entitlementGrantGateEnabled = parseAppSettingBool(
+    settings.get(APP_SETTING_KEYS.canadaRentalPaygEntitlementGrantEnabled),
+    false
+  );
+
   return {
-    gateEnabled: await getCanadaRentalPaygRuntimeEnabled(client),
-    listingUnlockGateEnabled: await getCanadaRentalPaygListingUnlockEnabled(client),
+    gateEnabled,
+    listingUnlockGateEnabled,
+    checkoutSessionCreationGateEnabled,
+    webhookFulfilmentGateEnabled,
+    paymentPersistenceGateEnabled,
+    entitlementGrantGateEnabled,
     resolverAvailable: true,
     stripePrepLayerAvailable: true,
     stripeSessionRequestDefined: true,
@@ -230,17 +330,23 @@ export async function getCanadaRentalPaygRuntimeDiagnostics(
     entitlementConsumeContractDefined: true,
     fulfilmentPlanDefined: true,
     checkoutEnabled: false,
-    checkoutCreationEnabled: false,
+    checkoutCreationEnabled: checkoutSessionCreationGateEnabled,
     paymentRecoveryScaffolded: true,
-    liveWebhookFulfilmentEnabled: false,
-    fulfilmentExecutionEnabled: false,
-    fulfilmentMutationEnabled: false,
+    liveWebhookFulfilmentEnabled: webhookFulfilmentGateEnabled,
+    fulfilmentExecutionEnabled:
+      webhookFulfilmentGateEnabled &&
+      paymentPersistenceGateEnabled &&
+      entitlementGrantGateEnabled,
+    fulfilmentMutationEnabled:
+      webhookFulfilmentGateEnabled &&
+      paymentPersistenceGateEnabled &&
+      entitlementGrantGateEnabled,
     entitlementConsumeExecutionEnabled: false,
     entitlementConsumeMutationEnabled: false,
     listingSubmitAfterConsumeEnabled: false,
     listingUnlockEnabled: false,
     liveCapBypassEnabled: false,
-    paymentRecordWriteEnabled: false,
+    paymentRecordWriteEnabled: paymentPersistenceGateEnabled,
     runtimeSource: "legacy",
     nextActivationPrerequisites: [...CANADA_RENTAL_PAYG_RUNTIME_PREREQUISITES],
   };
@@ -252,6 +358,18 @@ export async function loadCanadaRentalPaygRuntimeDecision(
 ): Promise<CanadaRentalPaygRuntimeDecision> {
   const gateEnabled = await deps.getGateEnabled(input.serviceClient);
   const listingUnlockGateEnabled = await deps.getListingUnlockGateEnabled(input.serviceClient);
+  const checkoutSessionCreationGateEnabled = await deps.getCheckoutSessionCreationGateEnabled(
+    input.serviceClient
+  );
+  const webhookFulfilmentGateEnabled = await deps.getWebhookFulfilmentGateEnabled(
+    input.serviceClient
+  );
+  const paymentPersistenceGateEnabled = await deps.getPaymentPersistenceGateEnabled(
+    input.serviceClient
+  );
+  const entitlementGrantGateEnabled = await deps.getEntitlementGrantGateEnabled(
+    input.serviceClient
+  );
   const pricingRows = await deps.loadPricingRows(input.serviceClient);
 
   const needsRoleContext =
@@ -279,6 +397,10 @@ export async function loadCanadaRentalPaygRuntimeDecision(
   return {
     gateEnabled,
     listingUnlockGateEnabled,
+    checkoutSessionCreationGateEnabled,
+    webhookFulfilmentGateEnabled,
+    paymentPersistenceGateEnabled,
+    entitlementGrantGateEnabled,
     marketCountry: readiness.marketCountry,
     runtimeSource: "legacy",
     resolverAvailable: true,
@@ -294,17 +416,23 @@ export async function loadCanadaRentalPaygRuntimeDecision(
     entitlementConsumeContractDefined: true,
     fulfilmentPlanDefined: true,
     checkoutEnabled: false,
-    checkoutCreationEnabled: false,
+    checkoutCreationEnabled: checkoutSessionCreationGateEnabled,
     paymentRecoveryScaffolded: true,
-    liveWebhookFulfilmentEnabled: false,
-    fulfilmentExecutionEnabled: false,
-    fulfilmentMutationEnabled: false,
+    liveWebhookFulfilmentEnabled: webhookFulfilmentGateEnabled,
+    fulfilmentExecutionEnabled:
+      webhookFulfilmentGateEnabled &&
+      paymentPersistenceGateEnabled &&
+      entitlementGrantGateEnabled,
+    fulfilmentMutationEnabled:
+      webhookFulfilmentGateEnabled &&
+      paymentPersistenceGateEnabled &&
+      entitlementGrantGateEnabled,
     entitlementConsumeExecutionEnabled: false,
     entitlementConsumeMutationEnabled: false,
     listingSubmitAfterConsumeEnabled: false,
     listingUnlockEnabled: false,
     liveCapBypassEnabled: false,
-    paymentRecordWriteEnabled: false,
+    paymentRecordWriteEnabled: paymentPersistenceGateEnabled,
     readiness,
     nextActivationPrerequisites: [...CANADA_RENTAL_PAYG_RUNTIME_PREREQUISITES],
   };

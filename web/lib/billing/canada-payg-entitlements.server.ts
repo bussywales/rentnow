@@ -69,9 +69,21 @@ export type CanadaListingPaygEntitlementGrantDisabledResult = {
   enabled: false;
   wouldInsert: true;
   inserted: false;
+  duplicate: false;
   payload: CanadaListingPaygEntitlementInsertPayload;
   validation: Extract<CanadaListingPaygEntitlementContractValidationResult, { ok: true }>;
 };
+
+export type CanadaListingPaygEntitlementGrantResult =
+  | CanadaListingPaygEntitlementGrantDisabledResult
+  | {
+      enabled: true;
+      wouldInsert: true;
+      inserted: boolean;
+      duplicate: boolean;
+      payload: CanadaListingPaygEntitlementInsertPayload;
+      validation: Extract<CanadaListingPaygEntitlementContractValidationResult, { ok: true }>;
+    };
 
 export type CanadaListingPaygUnlockDecisionReasonCode =
   | "ACTIVE_ENTITLEMENT_FOUND"
@@ -295,6 +307,133 @@ export async function grantCanadaListingPaygEntitlementDisabled(input: {
     enabled: CANADA_PAYG_ENTITLEMENT_GRANT_ENABLED,
     wouldInsert: true,
     inserted: false,
+    duplicate: false,
+    payload,
+    validation,
+  };
+}
+
+async function findExistingCanadaListingPaygEntitlement(input: {
+  client: SupabaseClient | UntypedAdminClient;
+  payload: CanadaListingPaygEntitlementInsertPayload;
+}) {
+  const client = input.client as UntypedAdminClient;
+  const byIdempotency = await client
+    .from<CanadaListingPaygEntitlementRow>("canada_listing_payg_entitlements")
+    .select(
+      "id,listing_id,owner_id,market_country,provider,purpose,role,tier,amount_minor,currency,stripe_checkout_session_id,stripe_payment_intent_id,stripe_event_id,idempotency_key,status,active,granted_at,consumed_at,revoked_at,expires_at,metadata,created_at,updated_at"
+    )
+    .eq("idempotency_key", input.payload.idempotency_key)
+    .maybeSingle();
+
+  if (byIdempotency.data) {
+    return byIdempotency.data;
+  }
+
+  if (input.payload.stripe_event_id) {
+    const byEventId = await client
+      .from<CanadaListingPaygEntitlementRow>("canada_listing_payg_entitlements")
+      .select(
+        "id,listing_id,owner_id,market_country,provider,purpose,role,tier,amount_minor,currency,stripe_checkout_session_id,stripe_payment_intent_id,stripe_event_id,idempotency_key,status,active,granted_at,consumed_at,revoked_at,expires_at,metadata,created_at,updated_at"
+      )
+      .eq("stripe_event_id", input.payload.stripe_event_id)
+      .maybeSingle();
+    if (byEventId.data) return byEventId.data;
+  }
+
+  if (input.payload.stripe_payment_intent_id) {
+    const byPaymentIntentId = await client
+      .from<CanadaListingPaygEntitlementRow>("canada_listing_payg_entitlements")
+      .select(
+        "id,listing_id,owner_id,market_country,provider,purpose,role,tier,amount_minor,currency,stripe_checkout_session_id,stripe_payment_intent_id,stripe_event_id,idempotency_key,status,active,granted_at,consumed_at,revoked_at,expires_at,metadata,created_at,updated_at"
+      )
+      .eq("stripe_payment_intent_id", input.payload.stripe_payment_intent_id)
+      .maybeSingle();
+    if (byPaymentIntentId.data) return byPaymentIntentId.data;
+  }
+
+  if (input.payload.stripe_checkout_session_id) {
+    const byCheckoutSessionId = await client
+      .from<CanadaListingPaygEntitlementRow>("canada_listing_payg_entitlements")
+      .select(
+        "id,listing_id,owner_id,market_country,provider,purpose,role,tier,amount_minor,currency,stripe_checkout_session_id,stripe_payment_intent_id,stripe_event_id,idempotency_key,status,active,granted_at,consumed_at,revoked_at,expires_at,metadata,created_at,updated_at"
+      )
+      .eq("stripe_checkout_session_id", input.payload.stripe_checkout_session_id)
+      .maybeSingle();
+    if (byCheckoutSessionId.data) return byCheckoutSessionId.data;
+  }
+
+  return findActiveCanadaListingPaygEntitlement({
+    client,
+    listingId: input.payload.listing_id,
+    ownerId: input.payload.owner_id,
+  });
+}
+
+export async function grantCanadaListingPaygEntitlement(input: {
+  contract: CanadaRentalPaygFutureEntitlementGrantContract;
+  client: SupabaseClient | UntypedAdminClient;
+  enabled: boolean;
+  grantedAt?: string;
+}): Promise<CanadaListingPaygEntitlementGrantResult> {
+  const validation = validateCanadaListingPaygEntitlementContract(input.contract);
+  if (!validation.ok) {
+    throw new Error(`Invalid Canada PAYG entitlement contract: ${validation.reason}`);
+  }
+
+  if (!input.enabled) {
+    return grantCanadaListingPaygEntitlementDisabled(input);
+  }
+
+  const payload = buildCanadaListingPaygEntitlementInsertPayload(input.contract, input.grantedAt);
+  const existingBeforeInsert = await findExistingCanadaListingPaygEntitlement({
+    client: input.client,
+    payload,
+  });
+  if (existingBeforeInsert) {
+    return {
+      enabled: true,
+      wouldInsert: true,
+      inserted: false,
+      duplicate: true,
+      payload,
+      validation,
+    };
+  }
+
+  const adminDb = input.client as unknown as {
+    from: (table: string) => {
+      insert: (values: Record<string, unknown>) => Promise<{ error: { code?: string; message?: string } | null }>;
+    };
+  };
+
+  const { error } = await adminDb.from("canada_listing_payg_entitlements").insert(payload);
+  if (error) {
+    if (error.code === "23505") {
+      const existingAfterInsert = await findExistingCanadaListingPaygEntitlement({
+        client: input.client,
+        payload,
+      });
+      if (existingAfterInsert) {
+        return {
+          enabled: true,
+          wouldInsert: true,
+          inserted: false,
+          duplicate: true,
+          payload,
+          validation,
+        };
+      }
+    }
+
+    throw new Error(error.message || "Canada PAYG entitlement grant failed");
+  }
+
+  return {
+    enabled: true,
+    wouldInsert: true,
+    inserted: true,
+    duplicate: false,
     payload,
     validation,
   };
